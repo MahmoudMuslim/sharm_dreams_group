@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-29 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "salary_slip",
+  "column_break_payroll",
+  "employee",
+  "charged_company",
+  "employing_company",
+  "section_amount",
+  "gross_amount",
+  "income_tax",
+  "martyrs_fund",
+  "net_amount",
+  "section_note",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "salary_slip",
+   "fieldtype": "Link",
+   "label": "Salary Slip",
+   "options": "Salary Slip",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_payroll",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The employee the cost is charged for",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "description": "The group company being charged for the work. Not the employee's employer.",
+   "fieldname": "charged_company",
+   "fieldtype": "Link",
+   "label": "Charged Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "description": "The company that employs the employee and pays the slip",
+   "fieldname": "employing_company",
+   "fieldtype": "Link",
+   "label": "Employing Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_amount",
+   "fieldtype": "Section Break",
+   "label": "Amount"
+  },
+  {
+   "description": "The slice of the employee's monthly pay charged to the company",
+   "fieldname": "gross_amount",
+   "fieldtype": "Currency",
+   "label": "Gross Amount",
+   "reqd": 1
+  },
+  {
+   "description": "Flat group withholding on the cost share, 10% of the annualised share",
+   "fieldname": "income_tax",
+   "fieldtype": "Currency",
+   "label": "Income Tax"
+  },
+  {
+   "fieldname": "martyrs_fund",
+   "fieldtype": "Currency",
+   "label": "Martyrs Fund"
+  },
+  {
+   "fieldname": "net_amount",
+   "fieldtype": "Currency",
+   "label": "Net Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_note",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Group Allocation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "naming_rule": "Expression",
+ "autoname": "{salary_slip} - {charged_company}",
+ "description": "One line of a cross-company recharge: this employee's cost is charged to `charged_company` while `employing_company` is the employer on the slip. Named from the slip and the company being charged, so a row in a list is identifiable - the default Random rule produced names like `20q5bvkv4h`, which say nothing about what the row is."
+}

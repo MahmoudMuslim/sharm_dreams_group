@@ -1,0 +1,2215 @@
+/* Sharm Dreams Group employee self-service
+ * Ported from the Odoo kiosk (static/src/kiosk/style/hr_kiosk.css), so the
+ * design tokens below are deliberately identical to Odoo's: the blue
+ * var(--k-brand) -> var(--k-brand-deep) brand, the light blue-grey radial page background, the
+ * blurred white header, and the soft blue card shadows. Odoo's bootstrap
+ * utility classes are replaced with the semantic classes used here.
+ *
+ * Loaded only by www/self-services-employees.html, never as an app-wide
+ * stylesheet: it positions a fixed full-viewport root element, which would sit
+ * on top of the desk.
+ *
+ * Every colour below comes from the token block. That is what makes the dark
+ * theme possible: a colour literal written outside the tokens would keep its
+ * light value on a dark surface, and it is invisible in review - so
+ * `TestWiring` fails the build on one.
+ */
+
+html,
+body {
+	height: 100%;
+}
+
+:root {
+	color-scheme: light;
+
+	/* --- surfaces ------------------------------------------------------- */
+	--k-bg: radial-gradient(1200px 600px at 20% -10%, #eef4ff 0%, #f5f7fb 40%, #e6ecf5 100%);
+	--k-surface: #fff;
+	--k-surface-2: #f8fafc;
+	--k-surface-3: #eef2f8;
+	--k-surface-4: #f1f5f9;
+	--k-surface-brand: #f5f8ff;
+	--k-surface-brand-2: #e0eaff;
+	--k-surface-purple: #faf7ff;
+	--k-surface-danger: #fef2f2;
+	--k-surface-danger-2: #fee2e2;
+	--k-surface-danger-3: #fecaca;
+	--k-surface-ok: #d1fae5;
+	--k-surface-info: #eff6ff;
+
+	/* --- borders -------------------------------------------------------- */
+	--k-border: #e2e8f0;
+	--k-border-2: #dbe3ef;
+	--k-border-soft: rgba(226, 232, 240, 0.85);
+	--k-border-muted: rgba(226, 232, 240, 0.6);
+	--k-border-strong: #cbd5e1;
+	--k-border-brand: #dbe7ff;
+	--k-border-info: #bfdbfe;
+	--k-border-focus: #86b7fe;
+	--k-border-warn: #fde68a;
+	--k-thick-bar: #b6c2d4;
+
+	/* --- text ----------------------------------------------------------- */
+	--k-text: #334155;
+	--k-text-2: #475569;
+	/* Both steps were too light to read on `--k-surface-3`, which is the
+	 * recessed surface the counts, the language codes and the placeholders
+	 * all sit on: 4.24:1 and 2.28:1. `--k-text-4` is held to 3:1 rather than
+	 * 4.5:1 on purpose - it paints placeholders and empty-state glyphs, which
+	 * repeat what the label beside them already says, and there is no way to
+	 * keep four distinguishable steps of grey on a near-white surface if all
+	 * four have to clear 4.5. It is the quietest thing on screen by design,
+	 * and 3:1 keeps it legible while it is.
+	 *
+	 * `--k-text-3` also has to clear 4.5:1 on the *page backdrop*, not only on
+	 * a card: "Back to Dashboard" and the screen's subtitle sit straight on
+	 * `.k-root`, whose gradient ends at #e6ecf5 - darker than `--k-surface` is.
+	 * At #5f6e84 it was 4.37:1 there and 4.62:1 on the card, which is how a
+	 * token passes every surface the stylesheet names and still fails on the
+	 * page. */
+	--k-text-3: #5b697e;
+	--k-text-4: #7487a3;
+	--k-text-inverse: #fff;
+	--k-text-inverse-2: rgba(255, 255, 255, 0.75);
+	--k-ok-ink: #065f46;
+	--k-info: #1d4ed8;
+
+	/* --- brand ---------------------------------------------------------- */
+	/* A brand colour has to read on the brand's own tinted chip, and on
+	 * `--k-surface-brand-2` #2563eb was 4.28:1. Darkening it to clear every
+	 * surface it paints text on - the white card, the recessed surface, both
+	 * brand tints, the info tint - takes one small step and leaves the hue
+	 * alone. The dark palette's brand already clears all of them, because its
+	 * tinted chip is a *darker* surface rather than a lighter one. */
+	--k-brand: #1c5cea;
+	--k-brand-deep: #1e40af;
+	--k-brand-soft: #1d6aff;
+	--k-brand-400: #086ff0;
+	--k-brand-500: #3b82f6;
+
+	/* --- semantic ------------------------------------------------------- */
+	/* Darker than it was. `--k-ok` is both the "in" figure on a white card
+	 * and the near stop of the success button's gradient, and white text sits
+	 * on top of the far one; at #059669 the label came out at 3.77:1. */
+	/* These five are the far stop of a gradient that carries `--k-text-inverse`,
+	 * which is white in this palette. Each was chosen to read as a *highlight* -
+	 * a tint - and then used as a label's background, which is a different
+	 * question: at #34d399 the time-off tile's white label came out at 1.92:1,
+	 * and at #fb923c the payslip tile's at 2.26:1. Lightness moved, hue and
+	 * saturation untouched. The gradients are flatter for it, which is the
+	 * trade: a tile nobody can read is not a highlight. */
+	--k-ok: #04855d;
+	--k-ok-deep: #047857;
+	--k-ok-mid: #10b981;
+	--k-ok-bright: #22c55e;
+
+	--k-bad: #dc2626;
+	--k-bad-deep: #b91c1c;
+	--k-bad-soft: #ea0c0c;
+	--k-bad-mid: #ef4444;
+
+	/* The payslip tile's gradient starts here and carries a white label, so the
+	 * base has to read under white too - at #ea580c it came out at 3.56:1. The
+	 * `--warn-soft` far stop below has the same requirement for the same
+	 * reason. */
+	--k-warn: #ca4c0a;
+
+	--k-amber: #f59e0b;
+
+	--k-violet: #7c3aed;
+
+	--k-pink: #db2777;
+	--k-pink-soft: #e0117e;
+
+
+	/* --- shadows and glows: colours, never whole box-shadows -------------
+	   See the note above the block. Each rule keeps its own geometry. */
+	--k-shadow: rgba(30, 60, 120, 0.3);
+	--k-shadow-lg: rgba(30, 60, 120, 0.25);
+	--k-shadow-float: rgba(30, 60, 120, 0.32);
+	--k-shadow-soft: rgba(30, 60, 120, 0.18);
+	--k-shadow-hover: rgba(30, 60, 120, 0.2);
+	--k-shadow-pill: rgba(30, 60, 120, 0.28);
+	--k-shadow-avatar: rgba(30, 60, 120, 0.35);
+	--k-shadow-dot: rgba(0, 0, 0, 0.18);
+
+	--k-glow-brand: rgba(37, 99, 235, 0.55);
+	--k-glow-brand-2: rgba(37, 99, 235, 0.6);
+	--k-glow-brand-3: rgba(37, 99, 235, 0.35);
+	--k-glow-brand-4: rgba(37, 99, 235, 0.18);
+	--k-glow-brand-5: rgba(37, 99, 235, 0.65);
+	--k-glow-brand-6: rgba(37, 99, 235, 0.75);
+	--k-brand-wash: rgba(37, 99, 235, 0.12);
+	--k-focus-wash: rgba(13, 110, 253, 0.1);
+
+	--k-glow-ok: rgba(5, 150, 105, 0.55);
+	--k-glow-ok-2: rgba(5, 150, 105, 0.6);
+	--k-glow-bad: rgba(220, 38, 38, 0.55);
+	--k-glow-bad-2: rgba(220, 38, 38, 0.6);
+	--k-glow-pink: rgba(219, 39, 119, 0.6);
+	--k-glow-violet: rgba(124, 58, 237, 0.55);
+	--k-glow-violet-2: rgba(124, 58, 237, 0.6);
+	--k-glow-warn: rgba(234, 88, 12, 0.6);
+
+	/* --- translucent white: headers, footers, sheens -------------------- */
+	--k-glass: rgba(255, 255, 255, 0.92);
+	--k-glass-2: rgba(255, 255, 255, 0.68);
+	--k-footer-bg: rgba(255, 255, 255, 0.6);
+	--k-scrim: rgba(255, 255, 255, 0.94);
+	--k-scrim-soft: rgba(255, 255, 255, 0.85);
+	--k-scrim-28: rgba(255, 255, 255, 0.28);
+	--k-inset-hi: rgba(255, 255, 255, 0.18);
+	--k-inset-hi-2: rgba(255, 255, 255, 0.24);
+	--k-sheen: rgba(255, 255, 255, 0.22);
+	--k-punch-glow: rgba(255, 255, 255, 0.25);
+
+	/* --- confetti: decoration, identical in both themes ------------------ */
+	--k-confetti-1: #34d399;
+	--k-confetti-2: #a78bfa;
+	--k-confetti-3: #fb923c;
+	--k-confetti-4: #f43f5e;
+	--k-confetti-5: #fbbf24;
+	--k-confetti-6: #38bdf8;
+	--k-confetti-7: #fb7185;
+
+	--k-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+	/* Restored: these are the semantic stops the five gradients and
+	 * the status pills read, and they were removed as unreferenced
+	 * before the confetti correction above. Each has a dark value.
+	 *
+	 * `--k-violet-soft` is darker than the #a78bfa it replaced: it is the far
+	 * stop of the selected group's gradient, and white label text sits on it.
+	 * At #a78bfa that pairing was 2.72:1. */
+	--k-ok-soft: #1d845f;
+	--k-violet-soft: #7e55f8;
+	--k-warn-soft: #bd5704;
+}
+
+/* ==========================================================================
+   Theme tokens
+   ==========================================================================
+
+   Two palettes and nothing else. This one is light; `:root[data-k-theme="dark"]`
+   below is dark. There is deliberately no `prefers-color-scheme` block: "System"
+   is resolved to a concrete light or dark by the inline script in the page's
+   `<head>` before first paint, so the dark palette is written exactly once. A
+   second copy of it behind a media query is precisely the thing that drifts.
+
+   Every token is a colour or a gradient, never a whole `box-shadow`. The
+   literals these replaced sit *inside* box-shadow shorthands in the rules that
+   use them, so a shorthand token would give `0 4px 14px -8px var(--k-shadow)`,
+   which the browser drops, and the rule would lose its shadow silently. The
+   geometry stays with the rule that wants it.
+
+   The attribute lives on <html>, not on `.k-root`, so the head script can set it
+   before the body exists.
+*/
+
+:root[data-k-theme="dark"] {
+	color-scheme: dark;
+
+	/* --- surfaces: a four-step ramp, darkest furthest back ---------------- */
+	--k-bg: radial-gradient(1200px 600px at 20% -10%, #16233c 0%, #0e1728 40%, #080e1a 100%);
+	--k-surface: #131c2e;
+	--k-surface-2: #182338;
+	--k-surface-3: #1e2a42;
+	--k-surface-4: #22304b;
+	--k-surface-brand: #16233c;
+	--k-surface-brand-2: #1b2b4a;
+	--k-surface-purple: #1e1a3a;
+	--k-surface-danger: #35191c;
+	--k-surface-danger-2: #40201f;
+	--k-surface-danger-3: #4a2622;
+	--k-surface-ok: #10331f;
+	--k-surface-info: #14284a;
+
+	/* --- borders: lighter than in light mode, or they vanish ------------ */
+	--k-border: #2b3a55;
+	--k-border-2: #33425f;
+	--k-border-soft: rgba(148, 163, 184, 0.24);
+	--k-border-muted: rgba(148, 163, 184, 0.16);
+	--k-border-strong: #3d4d6b;
+	--k-border-brand: #2c4570;
+	--k-border-info: #1e3a63;
+	--k-border-focus: #60a5fa;
+	--k-border-warn: #6b5320;
+	--k-thick-bar: #46587a;
+
+	/* --- text: the light palette's greys, used the other way round ------- */
+	--k-text: #e6ecf5;
+	--k-text-2: #cbd5e1;
+	--k-text-3: #94a3b8;
+	--k-text-4: #7d8ea6;
+	--k-text-inverse: #0b1220;
+	--k-text-inverse-2: rgba(0, 0, 0, 0.5);
+	--k-ok-ink: #a7f3d0;
+	--k-info: #93c5fd;
+
+	/* --- brand: lightened, so a tile still reads as blue ----------------- */
+	--k-brand: #60a5fa;
+	/* "deep" has to mean lighter here, not darker. It carries two jobs: the
+	 * far stop of the primary button's gradient, and the language menu's hover
+	 * text on `--k-surface-brand`. It was #2563eb - the *light* palette's base,
+	 * one step darker than the dark palette's own base - so it failed both:
+	 * near-black label text on it was 3.62:1, and the hover text was 3.03:1. */
+	--k-brand-deep: #5888f0;
+	--k-brand-soft: #93c5fd;
+	--k-brand-400: #93c5fd;
+	--k-brand-500: #3b82f6;
+
+	/* --- semantic: the "soft" member of each ramp becomes the base ------- */
+	--k-ok: #34d399;
+	/* Same inversion as `--k-brand-deep`: the far stop of the success
+	 * button's gradient, under near-black label text. #059669 was the light
+	 * palette's base and put that label at 3.68:1. */
+	--k-ok-deep: #06aa77;
+	--k-ok-mid: #10b981;
+	--k-ok-bright: #4ade80;
+
+	--k-bad: #f87171;
+	/* The worst of the three. It is the alert's text colour on
+	 * `--k-surface-danger` *and* the danger button's far gradient stop, and as
+	 * #dc2626 - once again the light palette's base - it managed 3.33:1 for
+	 * the alert text and 3.88:1 under the button's label. */
+	--k-bad-deep: #e76a6a;
+	--k-bad-soft: #fca5a5;
+	--k-bad-mid: #ef4444;
+
+	--k-warn: #fb923c;
+
+	--k-amber: #fbbf24;
+
+	--k-violet: #a78bfa;
+
+	--k-pink: #f472b6;
+	--k-pink-soft: #f9a8d4;
+
+
+	/* --- shadows: deeper and blacker. A blue-black shadow on a near-black
+	   surface is invisible, which costs the card separation the light theme
+	   gets for free from its border. The ambient inset highlight becomes a dark
+	   line instead of a light one - the only way to keep the top edge of a
+	   gradient tile visible on dark. */
+	--k-shadow: rgba(0, 0, 0, 0.55);
+	--k-shadow-lg: rgba(0, 0, 0, 0.6);
+	--k-shadow-float: rgba(0, 0, 0, 0.65);
+	--k-shadow-soft: rgba(0, 0, 0, 0.4);
+	--k-shadow-hover: rgba(0, 0, 0, 0.45);
+	--k-shadow-pill: rgba(0, 0, 0, 0.5);
+	--k-shadow-avatar: rgba(0, 0, 0, 0.6);
+	--k-shadow-dot: rgba(0, 0, 0, 0.5);
+
+	--k-glow-brand: rgba(37, 99, 235, 0.45);
+	--k-glow-brand-2: rgba(37, 99, 235, 0.5);
+	--k-glow-brand-3: rgba(96, 165, 250, 0.3);
+	--k-glow-brand-4: rgba(96, 165, 250, 0.22);
+	--k-glow-brand-5: rgba(96, 165, 250, 0.35);
+	--k-glow-brand-6: rgba(96, 165, 250, 0.45);
+	--k-brand-wash: rgba(96, 165, 250, 0.16);
+	--k-focus-wash: rgba(96, 165, 250, 0.2);
+
+	--k-glow-ok: rgba(5, 150, 105, 0.5);
+	--k-glow-ok-2: rgba(5, 150, 105, 0.55);
+	--k-glow-bad: rgba(220, 38, 38, 0.5);
+	--k-glow-bad-2: rgba(220, 38, 38, 0.55);
+	--k-glow-pink: rgba(219, 39, 119, 0.5);
+	--k-glow-violet: rgba(124, 58, 237, 0.5);
+	--k-glow-violet-2: rgba(124, 58, 237, 0.55);
+	--k-glow-warn: rgba(234, 88, 12, 0.5);
+
+	/* --- translucent white becomes translucent black --------------------- */
+	--k-glass: rgba(13, 19, 32, 0.92);
+	--k-glass-2: rgba(13, 19, 32, 0.7);
+	--k-footer-bg: rgba(13, 19, 32, 0.6);
+	/* --- translucent white becomes translucent black ---------------------
+	 *
+	 * These are colours, and only colours. The light palette held to that; the
+	 * dark one did not, and both values below were whole `inset ...` shadows
+	 * where the call site already supplies the `inset 0 1px 0` part. Spliced,
+	 * `--k-inset-hi` produced `inset 0 1px 0 inset 0 -1px 0 rgba(0,0,0,.3)` -
+	 * `inset` may appear only once at the head of a shadow - which is invalid at
+	 * computed-value time, so the *entire* box-shadow was dropped and every dark
+	 * button lost its glow along with its highlight. `--k-inset-hi-2` was spliced
+	 * into `background`, where a shadow is meaningless, so it computed to
+	 * transparent. Neither raised an error. Both are colours now. */
+	--k-scrim: rgba(8, 14, 26, 0.94);
+	--k-scrim-soft: rgba(8, 14, 26, 0.85);
+	--k-scrim-28: rgba(8, 14, 26, 0.4);
+	--k-inset-hi: rgba(0, 0, 0, 0.3);
+	--k-inset-hi-2: rgba(0, 0, 0, 0.4);
+	--k-sheen: rgba(255, 255, 255, 0.06);
+	--k-punch-glow: rgba(255, 255, 255, 0.05);
+
+	/* Restored: these are the semantic stops the five gradients and
+	 * the status pills read, and they were removed as unreferenced
+	 * before the confetti correction above. Each has a dark value. */
+	--k-ok-soft: #6ee7b7;
+	--k-violet-soft: #c4b5fd;
+	--k-warn-soft: #fdba74;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+/* ==========================================================================
+   Bootstrap bridge
+
+   The page inherits Frappe's website bundle, and that bundle carries one
+   palette - Bootstrap's light one. Two of its rules reach past this
+   stylesheet and set colours the tokens never get to choose:
+
+       h1, h2, h3, h4, h5, h6, .h1 ... .h6 { color: #171717 }
+       .text-muted                       { color: #7c7c7c !important }
+
+   The client renders `h2.fw-bold` for "Employee Sign In" and
+   `p.text-muted` for the line under it, so on the dark card the heading came
+   out #171717 on #131c2e - 1.05:1, which is to say invisible - and the subtitle
+   sat at 4.08:1. Neither value is in this file, which is why a check that only
+   reads this file reported every colour in the page as tokenised, and was wrong.
+
+   So every colour-carrying Bootstrap utility the client actually uses is
+   remapped to a token here. `.text-muted` needs `!important` because the rule
+   it is fighting uses it; nothing else does, and reaching for it where it is
+   not needed would make the next override impossible to write.
+   ========================================================================== */
+
+.k-root :is(h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6) {
+	color: var(--k-text);
+}
+
+.k-root .lead,
+.k-root .text-body {
+	color: var(--k-text-2);
+}
+
+.k-root .text-dark {
+	color: var(--k-text);
+}
+
+.k-root .text-primary {
+	color: var(--k-brand);
+}
+
+.k-root .text-muted {
+	color: var(--k-text-3) !important;
+}
+
+/* `.small` is a size and not a colour, so it keeps Bootstrap's - but the muted
+ * siblings around it are carrying meaning, and those are remapped above. */
+.k-root small:not(.text-muted) {
+	color: var(--k-text-3);
+}
+
+/* The self-service page is a full-viewport column. Frappe's base template owns <body>, so
+ * the gradient and the height live on this root element. */
+.k-root {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: flex;
+	flex-direction: column;
+	color: var(--k-text);
+	font-family: var(--k-font);
+	background: var(--k-bg);
+}
+
+
+/* ------------------------------------------------- appearance picker */
+/* Icon-only, unlike the language menu next to it: the theme is a setting, not
+   something an employee reads, and a label would crowd a header that already
+   carries the company name, the language and the clock. The dropdown carries the
+   labels. Sized off the language button so the two read as one control group. */
+.k-theme-btn {
+	padding-left: 0.85rem;
+	padding-right: 0.85rem;
+}
+
+.k-theme-btn .fa {
+	font-size: 1.05rem;
+	line-height: 1;
+}
+
+/* In RTL the picker sits to the left of the language menu and its dropdown has to
+   open leftwards, or it runs off the edge of the tablet. */
+[dir="rtl"] .k-theme-btn + .k-lang-dd {
+	right: auto;
+	left: 0;
+}
+
+@media print {
+	.k-theme-btn {
+		display: none;
+	}
+}
+
+/* ---------------------------------------------------------------- header */
+
+.k-header {
+	position: relative;
+	z-index: 30;
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.85rem 1.25rem;
+	background: linear-gradient(180deg, var(--k-glass), var(--k-glass-2));
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--k-border);
+}
+
+.k-brand {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.k-brand-logo {
+	width: 44px;
+	height: 44px;
+	flex: 0 0 44px;
+	color: var(--k-text-inverse);
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-deep));
+	box-shadow: 0 2px 8px -2px var(--k-shadow);
+}
+
+.k-brand-name {
+	font-size: 1.15rem;
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.k-brand-sub {
+	font-size: 0.78rem;
+	font-style: italic;
+	color: var(--k-text-3);
+}
+
+/* header clock */
+.k-clock {
+	font-weight: 700;
+	font-size: 1.25rem;
+	letter-spacing: 0.04em;
+}
+
+.k-clock-dot {
+	font-size: 0.55rem;
+	vertical-align: 0.35rem;
+	margin-left: 0.4rem;
+	color: var(--k-brand);
+	animation: k-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes k-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+.k-header-date {
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+}
+
+.k-tabular {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Odoo's o_hr_kiosk_tracking: wide-tracked small caps section labels */
+.k-tracking {
+	letter-spacing: 0.12em;
+}
+
+
+.k-hidden-sm {
+	display: block;
+}
+
+.k-hidden-md {
+	display: block;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.k-main {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	/* `safe center`, not `center`: the dashboard is taller than a short laptop
+	   viewport, and plain `center` overflows *both* ends, putting the top of the
+	   screen (and its controls) permanently out of reach. Odoo used `safe`. */
+	justify-content: safe center;
+	padding: 1rem 0.75rem;
+}
+
+.k-screen-center {
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: safe center;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.k-stack {
+	width: 100%;
+	max-width: 600px;
+}
+
+
+/* full-height column screen (the list panels) */
+.k-screen {
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	max-width: 860px;
+	display: flex;
+	flex-direction: column;
+}
+
+.k-screen-head {
+	flex: 0 0 auto;
+	padding-bottom: 0.75rem;
+	margin-bottom: 1rem;
+	border-bottom: 1px solid var(--k-border-soft);
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.k-screen-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.k-screen-icon {
+	flex: 0 0 auto;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	color: var(--k-text-inverse);
+	/* The client appends a variant class - `k-tile-icon--payslip` and friends -
+	 * and those rules are what is *meant* to paint this. But `LIST_VIEWS`
+	 * falls back to `{ icon: "fa-folder-open" }` with no variant for an action it
+	 * does not know, and this element paints its glyph in inverse text. With no
+	 * variant there was no background at all, so the glyph was white on a white
+	 * card in light and near-black on a near-black card in dark: invisible in
+	 * both. The default is the same fill the row icons use, and a variant
+	 * still overrides it. */
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1rem;
+}
+
+.k-screen-title {
+	font-size: 1.15rem;
+	font-weight: 700;
+	line-height: 1.2;
+	margin: 0;
+}
+
+
+/* slim scrollbars, themed */
+.k-screen-body,
+.k-screen-center {
+	scrollbar-width: thin;
+	scrollbar-color: var(--k-thick-bar) var(--k-surface-3);
+}
+
+.k-screen-body::-webkit-scrollbar,
+.k-screen-center::-webkit-scrollbar {
+	width: 10px;
+}
+
+.k-screen-body::-webkit-scrollbar-track,
+.k-screen-center::-webkit-scrollbar-track {
+	background: var(--k-surface-3);
+	border-radius: 999px;
+}
+
+.k-screen-body::-webkit-scrollbar-thumb,
+.k-screen-center::-webkit-scrollbar-thumb {
+	background: var(--k-thick-bar);
+	border-radius: 999px;
+	border: 2px solid var(--k-surface-3);
+}
+
+.k-screen-body::-webkit-scrollbar-thumb:hover,
+.k-screen-center::-webkit-scrollbar-thumb:hover {
+	background: var(--k-text-4);
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.k-footer {
+	flex: 0 0 auto;
+	padding: 0.5rem 1rem;
+	text-align: center;
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+	background: var(--k-footer-bg);
+	border-top: 1px solid var(--k-border-muted);
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.k-card {
+	background: var(--k-surface);
+	border-radius: 16px;
+	box-shadow: 0 20px 45px -12px var(--k-shadow-lg);
+	overflow: hidden;
+}
+
+.k-card-accent {
+	display: block;
+	height: 5px;
+	background: linear-gradient(90deg, var(--k-brand), var(--k-brand-soft), var(--k-brand-deep));
+}
+
+.k-card-body {
+	padding: 1.5rem;
+}
+
+/* ---------------------------------------------------------------- login */
+
+.k-hero-ring {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	background: var(--k-surface);
+	box-shadow: 0 18px 40px -12px var(--k-shadow);
+}
+
+.k-brand-mark {
+	width: 64px;
+	height: 64px;
+	color: var(--k-text-inverse);
+	border-radius: 100%;
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-deep));
+	box-shadow: 0 8px 18px -6px var(--k-glow-brand);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	font-size: 1.6rem;
+	animation: k-brand-glow 2.6s ease-in-out infinite;
+}
+
+@keyframes k-brand-glow {
+	0%,
+	100% {
+		box-shadow: 0 8px 18px -6px var(--k-glow-brand);
+	}
+	50% {
+		box-shadow: 0 8px 26px -4px var(--k-glow-brand-6);
+	}
+}
+
+.k-pulse {
+	position: absolute;
+	inset: 0;
+	border-radius: 50%;
+	border: 2px solid var(--k-glow-brand-3);
+	animation: k-pulse 2s ease-out infinite;
+}
+
+@keyframes k-pulse {
+	0% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(1.35);
+		opacity: 0;
+	}
+}
+
+.k-fade {
+	animation: k-fade-in 0.35s ease both;
+}
+
+@keyframes k-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.k-label {
+	display: block;
+	font-weight: 600;
+	font-size: 0.9rem;
+	margin-bottom: 0.35rem;
+}
+
+.k-input {
+	display: flex;
+	align-items: stretch;
+	width: 100%;
+	border: 1px solid var(--k-border-2);
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--k-surface);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.k-input:focus-within {
+	border-color: var(--k-border-focus);
+	box-shadow: 0 0 0 0.25rem var(--k-focus-wash);
+}
+
+.k-input-icon {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 46px;
+	background: var(--k-surface-2);
+	color: var(--k-text-3);
+	border-right: 0;
+}
+
+.k-input input {
+	flex: 1 1 auto;
+	min-width: 0;
+	border: 0;
+	outline: none;
+	padding: 0.8rem 0.9rem;
+	font-size: 1rem;
+	color: var(--k-text);
+	background: transparent;
+}
+
+.k-input input::placeholder {
+	color: var(--k-text-4);
+}
+
+/* remembered identities */
+.k-recent {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	width: 100%;
+	margin-bottom: 0.25rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--k-surface);
+	border: 1px solid var(--k-border);
+	border-radius: 12px;
+	color: var(--k-text);
+	cursor: pointer;
+	transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.k-recent:hover {
+	background: var(--k-surface-2);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px -4px var(--k-shadow-hover);
+}
+
+.k-recent-icon {
+	width: 30px;
+	height: 30px;
+	flex: 0 0 30px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	color: var(--k-text-2);
+	background: var(--k-surface-3);
+}
+
+.k-recent-x {
+	flex: 0 0 auto;
+	width: 30px;
+	height: 30px;
+	border: 1px solid var(--k-border);
+	border-radius: 8px;
+	background: var(--k-surface-2);
+	color: var(--k-text-3);
+	cursor: pointer;
+}
+
+.k-recent-x:hover {
+	background: var(--k-surface-danger-2);
+	color: var(--k-bad-deep);
+	border-color: var(--k-surface-danger-3);
+}
+
+/* protection badges */
+.k-protect {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	margin-top: 0.9rem;
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+}
+
+.k-soft-badge {
+	background: var(--k-surface-3);
+	color: var(--k-text-2);
+	border: 1px solid var(--k-border);
+	border-radius: 999px;
+	padding: 0.18rem 0.6rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.k-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: 0;
+	border-radius: 12px;
+	padding: 0.8rem 1.25rem;
+	font-size: 1rem;
+	font-weight: 600;
+	font-family: inherit;
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease,
+		background 0.2s ease;
+}
+
+.k-btn:disabled {
+	opacity: 0.7;
+	cursor: progress;
+}
+
+.k-btn-primary {
+	position: relative;
+	overflow: hidden;
+	color: var(--k-text-inverse);
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-deep));
+	box-shadow: 0 10px 22px -10px var(--k-glow-brand),
+		inset 0 1px 0 var(--k-inset-hi);
+}
+
+.k-btn-primary::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(320px 90px at 88% -25%, var(--k-sheen), transparent 60%);
+	pointer-events: none;
+}
+
+.k-btn-primary:not(:disabled):hover {
+	transform: translateY(-2px);
+	filter: brightness(1.06);
+	box-shadow: 0 14px 28px -12px var(--k-glow-brand-5),
+		inset 0 1px 0 var(--k-inset-hi);
+}
+
+.k-btn-primary:not(:disabled):active {
+	transform: scale(0.98);
+	filter: brightness(0.97);
+}
+
+.k-btn-success {
+	color: var(--k-text-inverse);
+	background: linear-gradient(135deg, var(--k-ok), var(--k-ok-deep));
+	box-shadow: 0 10px 22px -10px var(--k-glow-ok),
+		inset 0 1px 0 var(--k-inset-hi);
+}
+
+.k-btn-danger {
+	color: var(--k-text-inverse);
+	background: linear-gradient(135deg, var(--k-bad), var(--k-bad-deep));
+	box-shadow: 0 10px 22px -10px var(--k-glow-bad),
+		inset 0 1px 0 var(--k-inset-hi);
+}
+
+.k-btn-lg {
+	padding: 0.95rem 1.25rem;
+	font-size: 1.05rem;
+}
+
+.k-btn-block {
+	width: 100%;
+}
+
+.k-btn-pill {
+	border-radius: 999px;
+	padding: 0.7rem 2rem;
+}
+
+.k-btn-ghost {
+	background: transparent;
+	color: var(--k-text-3);
+}
+
+.k-btn-ghost:hover {
+	color: var(--k-bad);
+}
+
+
+.k-pill-btn:hover {
+	border-color: var(--k-brand);
+	color: var(--k-brand);
+	background: var(--k-surface-brand);
+	transform: translateY(-1px);
+	box-shadow: 0 6px 14px -6px var(--k-shadow-pill);
+}
+
+.k-pill-btn:active {
+	transform: scale(0.97);
+}
+
+.k-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	border: 0;
+	background: transparent;
+	padding: 0.35rem 0.5rem;
+	border-radius: 8px;
+	color: var(--k-text-3);
+	font-weight: 600;
+	font-size: 0.88rem;
+	font-family: inherit;
+	cursor: pointer;
+	transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.k-back:hover {
+	color: var(--k-brand);
+	transform: translateX(-2px);
+}
+
+/* ---------------------------------------------------------------- alerts */
+
+.k-alert {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.6rem 0.85rem;
+	border-radius: 12px;
+	font-size: 0.88rem;
+	margin-bottom: 0.9rem;
+	text-align: start;
+}
+
+.k-alert-danger {
+	background: var(--k-surface-danger);
+	color: var(--k-bad-deep);
+	border: 1px solid var(--k-surface-danger-3);
+}
+
+.k-alert-info {
+	background: var(--k-surface-info);
+	color: var(--k-info);
+	border: 1px solid var(--k-border-info);
+}
+
+
+/* ---------------------------------------------------------------- dashboard */
+
+.k-avatar-wrap {
+	position: relative;
+	display: inline-block;
+	margin-bottom: 0.9rem;
+}
+
+.k-avatar {
+	width: 112px;
+	height: 112px;
+	border-radius: 50%;
+	border: 4px solid var(--k-surface);
+	object-fit: cover;
+	box-shadow: 0 18px 40px -16px var(--k-shadow-avatar);
+}
+
+.k-avatar-ph {
+	width: 112px;
+	height: 112px;
+	border-radius: 50%;
+	color: var(--k-text-4);
+	background: var(--k-surface-3);
+	border: 4px solid var(--k-surface);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 2.6rem;
+	box-shadow: 0 18px 40px -16px var(--k-shadow-avatar);
+}
+
+.k-status-dot {
+	position: absolute;
+	right: 8px;
+	bottom: 6px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--k-ok-bright);
+	border: 3px solid var(--k-surface);
+	box-shadow: 0 2px 6px var(--k-shadow-dot);
+}
+
+.k-status-dot--out {
+	background: var(--k-text-4);
+}
+
+.k-greeting {
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--k-text-3);
+	margin-bottom: 0.25rem;
+}
+
+.k-emp-name {
+	font-size: 1.75rem;
+	font-weight: 700;
+	line-height: 1.2;
+	margin: 0 0 0.4rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.k-code-chip {
+	display: inline-block;
+	padding: 0.15rem 0.55rem;
+	border-radius: 999px;
+	background: var(--k-surface-3);
+	color: var(--k-text-2);
+	font-size: 0.7rem;
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: 0.05em;
+}
+
+
+.k-badge-state {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.95rem;
+	font-weight: 600;
+	border-radius: 999px;
+	padding: 0.35rem 0.95rem;
+}
+
+.k-badge-state--in {
+	background: var(--k-surface-ok);
+	color: var(--k-ok-ink);
+}
+
+.k-badge-state--out {
+	background: var(--k-surface-3);
+	color: var(--k-text-2);
+}
+
+/* stat cards */
+.k-stats {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.k-stat {
+	position: relative;
+	overflow: hidden;
+	background: var(--k-surface);
+	border-radius: 16px;
+	padding: 0.85rem 0.5rem;
+	text-align: center;
+	box-shadow: 0 4px 14px -8px var(--k-shadow-lg);
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.k-stat:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 20px -8px var(--k-shadow-lg);
+}
+
+.k-stat-accent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	background: linear-gradient(90deg, var(--k-brand), var(--k-brand-soft));
+}
+
+.k-stat-accent--success {
+	background: linear-gradient(90deg, var(--k-ok), var(--k-ok-soft));
+}
+
+.k-stat-accent--purple {
+	background: linear-gradient(90deg, var(--k-violet), var(--k-violet-soft));
+}
+
+.k-stat-label {
+	font-size: 0.68rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--k-text-3);
+}
+
+.k-stat-value {
+	font-size: 1.35rem;
+	font-weight: 700;
+	color: var(--k-brand);
+}
+
+.k-stat-value--sm {
+	font-size: 1.15rem;
+	color: var(--k-text);
+}
+
+/* punch card */
+.k-punch-card {
+	background: var(--k-surface);
+	border-radius: 16px;
+	overflow: hidden;
+	box-shadow: 0 20px 45px -12px var(--k-shadow-lg);
+}
+
+.k-punch-head {
+	position: relative;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 2rem;
+	padding: 2rem 1.25rem;
+	color: var(--k-text-inverse);
+	background: linear-gradient(120deg, var(--k-brand-deep), var(--k-brand) 50%, var(--k-brand-soft));
+}
+
+.k-punch-head::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(600px 120px at 80% -20%, var(--k-punch-glow), transparent 60%);
+	pointer-events: none;
+}
+
+.k-punch-head-date {
+	font-size: 0.78rem;
+	color: var(--k-text-inverse-2);
+	white-space: nowrap;
+}
+
+.k-mini-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.5rem;
+	margin-bottom: 0.9rem;
+}
+
+.k-mini {
+	background: var(--k-surface-2);
+	border: 1px solid var(--k-surface-3);
+	border-radius: 12px;
+	padding: 0.7rem;
+	text-align: center;
+	transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.k-mini:hover {
+	background: var(--k-surface-4);
+	box-shadow: inset 0 0 0 1px var(--k-brand-wash);
+}
+
+.k-mini-label {
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+	margin-bottom: 0.15rem;
+}
+
+.k-mini-value {
+	font-size: 1.2rem;
+	font-weight: 700;
+}
+
+.k-mini-value--in {
+	color: var(--k-ok);
+}
+
+.k-mini-value--out {
+	color: var(--k-bad);
+}
+
+.k-loc-note {
+	margin-top: 0.9rem;
+	text-align: center;
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+}
+
+/* menu tiles */
+.k-tiles {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 0.75rem;
+	margin-top: 1rem;
+}
+
+.k-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	padding: 0.9rem 0.5rem;
+	background: var(--k-surface);
+	color: var(--k-text);
+	border: 0;
+	border-radius: 16px;
+	font-family: inherit;
+	cursor: pointer;
+	box-shadow: 0 4px 14px -8px var(--k-shadow);
+	transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.k-tile:hover {
+	transform: translateY(-4px) scale(1.02);
+	box-shadow: 0 14px 28px -10px var(--k-shadow);
+}
+
+.k-tile:hover .k-tile-icon {
+	transform: scale(1.08);
+}
+
+.k-tile:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.k-tile-icon {
+	width: 46px;
+	height: 46px;
+	flex: 0 0 46px;
+	border-radius: 50%;
+	color: var(--k-text-inverse);
+	font-size: 1.15rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	box-shadow: 0 6px 14px -6px var(--k-glow-brand-2);
+	transition: transform 0.18s ease;
+}
+
+.k-tile-icon--request {
+	background: linear-gradient(135deg, var(--k-pink), var(--k-pink-soft));
+	box-shadow: 0 6px 14px -6px var(--k-glow-pink);
+}
+
+.k-tile-icon--list {
+	background: linear-gradient(135deg, var(--k-violet), var(--k-violet-soft));
+	box-shadow: 0 6px 14px -6px var(--k-glow-violet-2);
+}
+
+.k-tile-icon--payslip {
+	background: linear-gradient(135deg, var(--k-warn), var(--k-warn-soft));
+	box-shadow: 0 6px 14px -6px var(--k-glow-warn);
+}
+
+.k-tile-icon--timeoff {
+	background: linear-gradient(135deg, var(--k-ok), var(--k-ok-soft));
+	box-shadow: 0 6px 14px -6px var(--k-glow-ok-2);
+}
+
+.k-tile-label {
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+
+/* ---------------------------------------------------------------- greet */
+
+.k-greet-ring {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 116px;
+	height: 116px;
+	border-radius: 50%;
+	background: var(--k-surface);
+	box-shadow: 0 18px 40px -12px var(--k-shadow);
+}
+
+.k-greet-icon {
+	font-size: 3rem;
+	position: relative;
+	z-index: 1;
+}
+
+.k-greet-title {
+	font-size: 2.25rem;
+	font-weight: 700;
+	text-shadow: 0 2px 12px var(--k-glow-brand-4);
+}
+
+.k-time-card {
+	display: inline-block;
+	background: var(--k-surface);
+	border-radius: 16px;
+	padding: 0.75rem 2.5rem;
+	box-shadow: 0 20px 45px -12px var(--k-shadow-lg);
+}
+
+.k-time-card-label {
+	font-size: 0.7rem;
+	color: var(--k-text-3);
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.k-time-card-value {
+	font-size: 3rem;
+	font-weight: 700;
+	line-height: 1.1;
+}
+
+/* confetti burst on check-in */
+.k-confetti {
+	position: absolute;
+	top: 22%;
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	pointer-events: none;
+	opacity: 0;
+	animation: k-confetti-fly 1.6s ease-out forwards;
+}
+
+.k-confetti-0 {
+	left: 12%;
+	--confetti-x: -70px;
+	background: var(--k-brand);
+	animation-delay: 0s;
+}
+.k-confetti-1 {
+	left: 22%;
+	--confetti-x: -40px;
+	background: var(--k-pink-soft);
+	animation-delay: 0.08s;
+}
+.k-confetti-2 {
+	left: 34%;
+	--confetti-x: -15px;
+	background: var(--k-confetti-1);
+	animation-delay: 0.16s;
+}
+.k-confetti-3 {
+	left: 44%;
+	--confetti-x: 10px;
+	background: var(--k-confetti-3);
+	animation-delay: 0.05s;
+}
+.k-confetti-4 {
+	left: 56%;
+	--confetti-x: 35px;
+	background: var(--k-confetti-2);
+	animation-delay: 0.2s;
+}
+.k-confetti-5 {
+	left: 66%;
+	--confetti-x: 50px;
+	background: var(--k-confetti-4);
+	animation-delay: 0.12s;
+}
+.k-confetti-6 {
+	left: 78%;
+	--confetti-x: -55px;
+	background: var(--k-confetti-5);
+	animation-delay: 0.03s;
+}
+.k-confetti-7 {
+	left: 88%;
+	--confetti-x: 60px;
+	background: var(--k-confetti-6);
+	animation-delay: 0.1s;
+}
+.k-confetti-8 {
+	left: 30%;
+	--confetti-x: 25px;
+	background: var(--k-ok-bright);
+	animation-delay: 0.24s;
+}
+.k-confetti-9 {
+	left: 62%;
+	--confetti-x: -25px;
+	background: var(--k-confetti-7);
+	animation-delay: 0.18s;
+}
+
+@keyframes k-confetti-fly {
+	0% {
+		transform: translate(0, 0) rotate(0deg) scale(0.6);
+		opacity: 1;
+	}
+	100% {
+		transform: translate(var(--confetti-x), 260px) rotate(720deg) scale(1);
+		opacity: 0;
+	}
+}
+
+/* ---------------------------------------------------------------- lists */
+
+.k-row {
+	background: var(--k-surface);
+	border: 1px solid var(--k-border);
+	border-left-width: 5px;
+	border-radius: 12px;
+	padding: 0.85rem 1rem;
+	margin-bottom: 0.5rem;
+	transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.k-row:hover {
+	background: var(--k-surface-2);
+}
+
+.k-row-head {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+}
+
+.k-row-icon {
+	flex: 0 0 auto;
+	width: 38px;
+	height: 38px;
+	border-radius: 10px;
+	color: var(--k-text-inverse);
+	font-size: 1rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	box-shadow: 0 4px 10px -5px var(--k-glow-brand-2);
+}
+
+.k-row--success .k-row-icon {
+	background: linear-gradient(135deg, var(--k-ok), var(--k-ok-soft));
+	box-shadow: 0 4px 10px -5px var(--k-glow-ok-2);
+}
+
+.k-row--danger .k-row-icon {
+	background: linear-gradient(135deg, var(--k-bad), var(--k-bad-soft));
+	box-shadow: 0 4px 10px -5px var(--k-glow-bad-2);
+}
+
+.k-row--info .k-row-icon {
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-400));
+}
+
+.k-row-action {
+	flex: 0 0 auto;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.95rem;
+}
+
+.k-row-title {
+	font-weight: 600;
+	font-size: 0.98rem;
+}
+
+.k-chip-count {
+	display: inline-block;
+	min-width: 1.15rem;
+	margin-inline-start: 0.35rem;
+	padding: 0 0.3rem;
+	border-radius: 999px;
+	background: var(--k-surface-3);
+	color: var(--k-text-3);
+	font-size: 0.68rem;
+	font-weight: 700;
+	text-align: center;
+}
+
+/* Solid, not a translucent wash. This badge sits on the active chip's own brand
+ * gradient, and a 28%-white scrim *lightens* the chip underneath it - which is
+ * the wrong direction for white text. It put the count at 2.95:1 in light. The
+ * same applies to the language flag and tag below: `--k-scrim-28` and
+ * `--k-inset-hi-2` are washes meant for a scrim, not fills for a badge on a
+ * coloured surface. */
+.k-chip.active .k-chip-count {
+	background: var(--k-brand-deep);
+	color: var(--k-text-inverse);
+}
+
+/* Odoo's o_hr_kiosk_group_toggle: purple, fa-bars <-> fa-layer-group */
+.k-group-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	border: 1px solid var(--k-border-2);
+	background: var(--k-surface);
+	color: var(--k-text-2);
+	border-radius: 999px;
+	padding: 0.32rem 0.75rem;
+	font-size: 0.8rem;
+	font-weight: 600;
+	font-family: inherit;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.k-group-toggle:hover {
+	border-color: var(--k-violet);
+	color: var(--k-violet);
+	background: var(--k-surface-purple);
+}
+
+.k-group-toggle.active {
+	background: linear-gradient(135deg, var(--k-violet), var(--k-violet-soft));
+	border-color: transparent;
+	color: var(--k-text-inverse);
+	box-shadow: 0 4px 10px -4px var(--k-glow-violet);
+}
+
+/* Group headings, as Odoo's o_hr_kiosk_group_head */
+.k-group-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.6rem;
+	margin: 0.9rem 0 0.4rem;
+	color: var(--k-text);
+}
+
+.k-group-icon {
+	flex: 0 0 auto;
+	width: 30px;
+	height: 30px;
+	border-radius: 8px;
+	color: var(--k-text-inverse);
+	/* Same reason as `.k-screen-icon`: the fill is meant to arrive with the
+	 * variant class, so an unvaried group heading had an invisible glyph. */
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	font-size: 0.8rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-inline-end: 0.5rem;
+}
+
+.k-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Offline banner, pinned like the fatal-error banner */
+.k-offline {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 200;
+	padding: 0.6rem 0.75rem;
+}
+
+.k-offline .k-alert {
+	margin: 0;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.k-screen-sub {
+	font-size: 0.78rem;
+	color: var(--k-text-3);
+}
+
+.k-row--success {
+	border-left-color: var(--k-ok-mid);
+}
+.k-row--danger {
+	border-left-color: var(--k-bad-mid);
+}
+.k-row--info {
+	border-left-color: var(--k-brand-500);
+}
+.k-row--light {
+	border-left-color: var(--k-border-strong);
+}
+
+.k-row-title {
+	font-weight: 600;
+	font-size: 0.98rem;
+}
+
+.k-row-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem 0.9rem;
+	font-size: 0.82rem;
+	color: var(--k-text-3);
+}
+
+.k-empty {
+	text-align: center;
+	padding: 2rem 1rem;
+	color: var(--k-text-3);
+}
+
+.k-empty-icon {
+	width: 72px;
+	height: 72px;
+	margin: 0 auto 0.75rem;
+	border-radius: 50%;
+	background: var(--k-surface-3);
+	color: var(--k-text-4);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.6rem;
+}
+
+.k-empty-title {
+	font-weight: 600;
+	color: var(--k-text);
+	margin-bottom: 0.2rem;
+}
+
+/* leave type cards (Odoo's o_hr_kiosk_cat_card) */
+.k-cats {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+	gap: 0.75rem;
+}
+
+.k-cat {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	padding: 0.9rem;
+	background: var(--k-surface);
+	color: var(--k-text);
+	border: 0;
+	border-radius: 16px;
+	text-align: start;
+	font-family: inherit;
+	cursor: pointer;
+	box-shadow: 0 4px 14px -8px var(--k-shadow);
+	transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.k-cat:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 16px 32px -12px var(--k-shadow);
+}
+
+.k-cat .flex-grow-1 {
+	min-width: 0;
+	overflow: hidden;
+	padding-right: 0.25rem;
+}
+
+.k-card-accent-sm {
+	display: block;
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 4px;
+	background: linear-gradient(90deg, var(--k-brand), var(--k-brand-soft));
+}
+
+.k-cat-arrow {
+	position: absolute;
+	right: 14px;
+	bottom: 12px;
+	color: var(--k-brand);
+	opacity: 0;
+	transform: translateX(-4px);
+	transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.k-cat:hover .k-cat-arrow {
+	opacity: 1;
+	transform: none;
+}
+
+/* leave summary recap (Odoo's o_hr_kiosk_recap_card) */
+.k-recap {
+	background: var(--k-surface-2);
+	border: 1px solid var(--k-surface-3);
+	border-inline-start: 3px solid var(--k-brand);
+	border-radius: 12px;
+	padding: 0.85rem;
+}
+
+.k-recap--warn {
+	background: var(--k-surface)beb;
+	border-color: var(--k-border-warn);
+	border-inline-start-color: var(--k-amber);
+}
+
+.k-days-badge {
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	color: var(--k-text-inverse);
+	font-weight: 700;
+	border-radius: 999px;
+	padding: 0.15rem 0.6rem;
+}
+
+.k-text-primary {
+	color: var(--k-brand);
+}
+
+/* Balance progress bars */
+.k-progress {
+	height: 8px;
+	border-radius: 999px;
+	background: var(--k-surface-3);
+	overflow: hidden;
+	margin-top: 0.3rem;
+}
+
+.k-progress-bar {
+	height: 100%;
+	border-radius: 999px;
+	min-width: 8px;
+	background: linear-gradient(90deg, var(--k-brand), var(--k-brand-soft));
+	transition: width 0.4s ease;
+}
+
+.k-progress-bar--low {
+	background: linear-gradient(90deg, var(--k-warn), var(--k-warn-soft));
+}
+
+.k-progress-bar--empty {
+	background: linear-gradient(90deg, var(--k-text-4), var(--k-border-strong));
+}
+
+/* filter bar */
+.k-filter-bar {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	margin-bottom: 0.9rem;
+	padding: 0.6rem 0.7rem;
+	background: var(--k-scrim);
+	backdrop-filter: blur(6px);
+	border: 1px solid var(--k-surface-3);
+	border-radius: 14px;
+	box-shadow: 0 4px 14px -8px var(--k-shadow-soft);
+}
+
+
+.k-chip:hover {
+	border-color: var(--k-brand);
+	color: var(--k-brand);
+	background: var(--k-surface-brand);
+}
+
+.k-chip.active {
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	border-color: transparent;
+	color: var(--k-text-inverse);
+	box-shadow: 0 4px 10px -4px var(--k-glow-brand);
+}
+
+.k-search {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	flex: 1 1 200px;
+	max-width: 260px;
+	border: 1px solid var(--k-border-2);
+	border-radius: 999px;
+	padding: 0.3rem 0.7rem;
+	background: var(--k-surface);
+	color: var(--k-text-3);
+}
+
+.k-search input {
+	flex: 1 1 auto;
+	min-width: 0;
+	border: 0;
+	outline: none;
+	background: transparent;
+	font-size: 0.85rem;
+	color: var(--k-text);
+	font-family: inherit;
+}
+
+/* ---------------------------------------------------------------- lang menu */
+
+.k-lang {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.k-lang-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	border: 1px solid var(--k-border-2);
+	background: var(--k-scrim-soft);
+	color: var(--k-text-2);
+	border-radius: 999px;
+	padding: 0.4rem 0.9rem;
+	font-size: 0.85rem;
+	font-weight: 600;
+	font-family: inherit;
+	cursor: pointer;
+	box-shadow: 0 2px 8px -4px var(--k-shadow-soft);
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease,
+		transform 0.15s ease;
+}
+
+.k-lang-btn:hover,
+.k-lang-btn.active {
+	border-color: var(--k-brand);
+	color: var(--k-brand);
+	background: var(--k-surface-brand);
+	transform: translateY(-1px);
+}
+
+.k-lang-code {
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	padding: 0.12rem 0.45rem;
+	border-radius: 999px;
+	background: var(--k-surface-3);
+	color: var(--k-text-3);
+}
+
+.k-lang-btn:hover .k-lang-code,
+.k-lang-btn.active .k-lang-code {
+	background: var(--k-surface-brand-2);
+	color: var(--k-brand);
+}
+
+.k-lang-caret {
+	font-size: 0.65rem;
+	transition: transform 0.2s ease;
+}
+
+.k-lang-caret.open {
+	transform: rotate(180deg);
+}
+
+.k-lang-dd {
+	position: absolute;
+	top: calc(100% + 8px);
+	inset-inline-end: 0;
+	min-width: 210px;
+	background: var(--k-scrim);
+	border: 1px solid var(--k-surface-3);
+	border-radius: 14px;
+	box-shadow: 0 18px 40px -14px var(--k-shadow-float);
+	padding: 0.4rem;
+	z-index: 20;
+	overflow: hidden;
+	animation: k-lang-dd-in 0.18s ease both;
+}
+
+.k-lang-dd::before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--k-brand), var(--k-brand-soft));
+	opacity: 0.85;
+}
+
+@keyframes k-lang-dd-in {
+	from {
+		opacity: 0;
+		transform: translateY(-6px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.k-lang-dd-head {
+	display: flex;
+	align-items: center;
+	padding: 0.45rem 0.6rem 0.4rem;
+	margin-bottom: 0.2rem;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--k-text-4);
+	border-bottom: 1px solid var(--k-surface-3);
+}
+
+.k-lang-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	padding: 0.45rem 0.6rem;
+	background: transparent;
+	font-size: 0.86rem;
+	color: var(--k-text);
+	font-family: inherit;
+	text-align: start;
+	cursor: pointer;
+	transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.k-lang-item:hover {
+	background: var(--k-surface-brand);
+	border-color: var(--k-border-brand);
+	color: var(--k-brand-deep);
+}
+
+.k-lang-item.active {
+	background: linear-gradient(135deg, var(--k-brand), var(--k-brand-soft));
+	border-color: transparent;
+	color: var(--k-text-inverse);
+	box-shadow: 0 6px 14px -8px var(--k-glow-brand-2);
+}
+
+.k-lang-flag {
+	flex: 0 0 auto;
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+	font-size: 0.68rem;
+	background: var(--k-surface-3);
+	color: var(--k-text-3);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.k-lang-item.active .k-lang-flag {
+	background: var(--k-brand-deep);
+	color: var(--k-text-inverse);
+}
+
+.k-lang-tag {
+	margin-inline-start: auto;
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	padding: 0.1rem 0.4rem;
+	border-radius: 999px;
+	background: var(--k-surface-3);
+	color: var(--k-text-3);
+}
+
+.k-lang-item.active .k-lang-tag {
+	background: var(--k-brand-deep);
+	color: var(--k-text-inverse);
+}
+
+/* ---------------------------------------------------------------- spinner */
+
+.k-spin {
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: k-spin 0.7s linear infinite;
+	vertical-align: -0.125em;
+}
+
+/* Fatal-error banner, injected by the client's global error handler. */
+.k-fatal {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 200;
+	padding: 0.6rem 0.75rem;
+}
+
+.k-fatal .k-alert {
+	margin: 0;
+	align-items: flex-start;
+}
+
+.k-fatal-x {
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-size: 1rem;
+	cursor: pointer;
+	opacity: 0.7;
+}
+
+.k-fatal-x:hover {
+	opacity: 1;
+}
+
+/* ---------------------------------------------------------------- FA4 shims
+ * Odoo's kiosk was written against Font Awesome 5; this bench only ships
+ * FA 4.7. Two of Odoo's names have no FA4 glyph, so the markup keeps Odoo's
+ * names and these rules swap in the closest FA4 icon. Checked against the
+ * shipped font-awesome.min.css -- these were the only two of the 46 in use.
+ */
+.fa-circle-check:before {
+	content: "\f058"; /* fa-check-circle */
+}
+
+.fa-fingerprint:before {
+	content: "\f29a"; /* fa-universal-access: FA4's stand-in for touch ID */
+}
+
+@keyframes k-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+
+/* ---------------------------------------------------------------- responsive */
+
+@media (max-width: 900px) {
+	.k-hidden-md {
+		display: none;
+	}
+}
+
+@media (max-width: 640px) {
+	.k-header {
+		padding: 0.65rem 0.85rem;
+		gap: 0.5rem;
+	}
+
+	.k-brand-sub {
+		display: none;
+	}
+
+	.k-brand-name {
+		font-size: 0.95rem;
+	}
+
+	.k-hidden-sm {
+		display: none;
+	}
+
+	.k-clock {
+		font-size: 1.05rem;
+	}
+
+	.k-emp-name {
+		font-size: 1.4rem;
+	}
+
+	.k-greet-title {
+		font-size: 1.75rem;
+	}
+
+	.k-time-card-value {
+		font-size: 2.25rem;
+	}
+
+	.k-card-body {
+		padding: 1.15rem;
+	}
+
+	.k-stat-value {
+		font-size: 1.1rem;
+	}
+
+	.k-stat-value--sm {
+		font-size: 0.95rem;
+	}
+
+	.k-mini-value {
+		font-size: 1rem;
+	}
+
+	.k-screen-icon {
+		width: 32px;
+		height: 32px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+	}
+}
+
+@media print {
+	.k-header,
+	.k-footer,
+	.k-tiles,
+	.k-btn,
+	.k-back {
+		display: none !important;
+	}
+
+	.k-root {
+		position: static;
+		background: var(--k-surface);
+	}
+}

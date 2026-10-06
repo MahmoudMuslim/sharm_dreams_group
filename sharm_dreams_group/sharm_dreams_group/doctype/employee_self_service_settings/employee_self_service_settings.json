@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "creation": "2026-10-04 00:00:00.000000",
+ "description": "Site-wide self-service settings. Single DocType, so every field is read with `frappe.db.get_single_value` rather than loaded.",
+ "doctype": "DocType",
+ "document_type": "System",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "geo_punch_enforce",
+  "webauthn_rp_id",
+  "default_leave_approver"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "description": "When enabled, an employee may only punch in or out from within the configured radius of their company's Employee Self Service Location. When disabled, coordinates are still recorded on the checkin but not validated.",
+   "fieldname": "geo_punch_enforce",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enforce Punch Location",
+   "reqd": 0
+  },
+  {
+   "description": "Override the WebAuthn relying-party ID (bare hostname, no port). Needed when the self-service page URL does not match the real hostname, e.g. behind a reverse proxy or on a LAN IP. Leave blank to use the current hostname.",
+   "fieldname": "webauthn_rp_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "WebAuthn Relying Party ID",
+   "reqd": 0
+  },
+  {
+   "description": "Fallback approver for self-service time-off requests. HRMS makes the Leave Approver mandatory, so this user receives requests from employees who have no approver of their own (no Employee Leave Approver, no reporting manager and no department approver). Leave blank to make those employees fail instead.",
+   "fieldname": "default_leave_approver",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Leave Approver",
+   "options": "User",
+   "reqd": 0
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

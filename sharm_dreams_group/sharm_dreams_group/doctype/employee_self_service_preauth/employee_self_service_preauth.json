@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "creation": "2026-10-04 00:00:00.000000",
+ "description": "The five minutes between a self-service page asking for a biometric challenge and the tablet answering it. Consumed on use, so a challenge can never be replayed, and cleared when a new attempt starts. System Manager only: a live row here is a sign-in in progress, and answering its challenge enrols a device for that employee.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "mode",
+  "column_break",
+  "token",
+  "challenge",
+  "allowed_credential_ids",
+  "expiry"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "description": "`assert` when the employee has a device to sign in with, `register` when this is their first time enrolling one.",
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Mode",
+   "options": "assert\nregister",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Token",
+   "reqd": 1
+  },
+  {
+   "fieldname": "challenge",
+   "fieldtype": "Data",
+   "label": "Challenge",
+   "reqd": 1
+  },
+  {
+   "description": "JSON list of credential ids the employee may assert with; a registration leaves it empty.",
+   "fieldname": "allowed_credential_ids",
+   "fieldtype": "Small Text",
+   "label": "Allowed Credential IDs"
+  },
+  {
+   "fieldname": "expiry",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Expiry",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Preauth",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

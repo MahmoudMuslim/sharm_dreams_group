@@ -1,0 +1,102 @@
+{
+ "actions": [],
+ "creation": "2026-09-30 00:00:00.000000",
+ "description": "One child of an employee. Mirrors `hr.employment.children` in the Odoo module this was ported from.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "child_name",
+  "age",
+  "column_break_school_fee",
+  "eligible_for_school_fee",
+  "school_fee"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "child_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Child Name",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Kept as an entered number rather than a date of birth, to match the system this was ported from. It goes stale every year, so it has to be re-checked - a date of birth would not.",
+   "fieldname": "age",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Age",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_school_fee",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "description": "Whether the company pays a school fee for this child. Unchecked children are kept on the record but are not costed.",
+   "fieldname": "eligible_for_school_fee",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Eligible for School Fee",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Which company fee applies. Blank is allowed for a child who is not eligible yet or is covered another way.",
+   "fieldname": "school_fee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "School Fee",
+   "options": "SDG School Fee"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Children",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "SDG Payroll User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

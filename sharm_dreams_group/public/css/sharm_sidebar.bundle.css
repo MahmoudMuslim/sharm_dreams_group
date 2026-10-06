@@ -1,0 +1,399 @@
+/* Copyright (c) 2026, Sharm Dreams Group and contributors
+For license information, see license.txt
+ */
+
+/* The side panel.
+
+Shipped as its own `.bundle.css` rather than folded into the dashboard's, because
+it is a different surface with a different blast radius: the dashboard styles are
+scoped to `.dashboard-page` and stay there, while everything below targets the
+framing shell the desk draws around every page. `.bundle` for the same reason as
+the JS bundle - nginx caches `/assets/` for a year, so only a hashed URL is ever
+refetched, and a plain `sidebar.css` would be a file no browser asks for again.
+
+Nothing here changes what the panel *does*. Nesting, the icons on section
+headers, the collapsed-section policy and the internal-URL behaviour all live in
+`sidebar_sections.js` and are unchanged. This is only how the result looks, and
+every rule below is scoped under `.body-sidebar-container` so it cannot follow the
+user onto a List or a Form.
+
+The panel width is set from a budget rather than from taste. With the icon gone
+from nested rows and the indent down to 10px, a row two levels deep spends about
+62px on chrome - indent, chevron, gap, padding - before the text starts. The
+longest *link* anywhere on this panel is "Employee Performance Feedback" at 191px,
+which sets the floor: 191 + 62 + 16 of panel padding = 269px. It is 272px. That
+first pass put it at 264px and came up 4px short, which is why the figure is now
+the measured one rather than the estimated one.
+
+A link label is bounded - it is a DocType name, and the longest one on this panel
+is the one above - so a fixed width that fits the longest is enough. A sub-section
+*heading* is not bounded in the same way and is not treated that way: headings
+wrap instead (see the sub-section block below), so no width can run out on one.
+
+A link that still overflowed would show its full label on hover: `sidebar_item.html`
+puts `title="{{ item.label }}"` and `data-toggle="tooltip"` on the row container,
+so truncation on a link is never the only way to read it.
+
+It is set on `.body-sidebar-container` rather than `:root` because
+`list_sidebar.scss` also reads `--sidebar-width` (`max-width`), and a wider desk
+panel should not widen the List's filter sidebar as a side effect.
+ */
+
+.body-sidebar-container {
+	--sidebar-width: 272px;
+}
+
+/* --- section headings -----------------------------------------------------
+A collapsible section is not another link.  Stock draws its label in the same
+weight and size as the links beneath it and puts the chevron at the far end of the
+row, so a heading and its own contents look like siblings and the eye has to read
+every row to find where one group ends.  Uppercase, small and letterspaced is what
+makes a group read as a group; the chevron keeps its place but loses its competing
+weight.
+ */
+.body-sidebar .sidebar-item-container.section-item > .standard-sidebar-item {
+	margin-top: 14px;
+  margin-left: -6.5px;
+}
+
+.body-sidebar .sidebar-item-container.section-item:first-child > .standard-sidebar-item {
+	margin-top: 6px;
+}
+
+.body-sidebar .item-anchor.section-break {
+	height: 24px;
+	gap: 6px;
+}
+
+.body-sidebar .item-anchor.section-break .sidebar-item-label {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-gray-5);
+}
+
+.body-sidebar .item-anchor.section-break:hover .sidebar-item-label {
+	color: var(--ink-gray-7);
+}
+
+/* The chevron is a `<button class="btn-reset drop-icon">` that the desk appends
+   to `.sidebar-item-control` and points at `#icon-chevron-right` /
+   `#icon-chevron-down`.  Stock leaves it the same weight as the row's own
+   affordances, which on a heading is noise; this drops it back so the label
+   carries the group.
+ */
+.body-sidebar .item-anchor.section-break .sidebar-item-control {
+	margin-left: auto;
+}
+
+.body-sidebar .item-anchor.section-break .drop-icon {
+	opacity: 0.55;
+	transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.body-sidebar .item-anchor.section-break:hover .drop-icon {
+	opacity: 1;
+}
+
+/* A heading is not a link, so it must not offer a pointer - and stock's hover
+   rule keys off `a:not(.section-break)`, which already excludes it.  Stated here
+   because the distinction is the whole reason this block exists.
+ */
+.body-sidebar .item-anchor.section-break {
+	cursor: default;
+}
+
+/* --- sub-section headings -------------------------------------------------
+A section nested one level down is *not* marked like one. `sidebar_item.html`
+branches on `item.indent != 1`:
+
+    {% if (item.type == "Section Break" && item.indent != 1) { %}
+        <div class="item-anchor section-break"> ... </div>
+    {% } else { %}
+        <a class="item-anchor"> ... </a>
+
+So a sub-section takes the link branch and comes out as a plain anchor with no
+`.section-break` class, which left "Payroll Settings" drawn as an ordinary link
+sitting directly under the "PAYROLL" heading that owns it - a heading and its own
+contents styled as siblings, which is the exact reading problem the block above
+exists to remove.
+
+What it does still carry is the collapsible chevron: a
+`button.btn-reset.drop-icon` that only `enable_collapsible()` appends, and only
+for an item with `collapsible` set.  That is the distinguisher, and it is a real
+one rather than a guess at markup - `:has()` is already used by stock
+`sidebar.scss` for the same kind of question.
+
+Sentence case here, not uppercase, and allowed to wrap.  Both for the same
+reason - this is where the width runs out.
+
+The top-level headings can afford uppercase: they are short and there is a full
+185px to spend.  These sit one indent in and carry the long labels.
+"How People Are Categorised" is 26 characters; uppercase at 12px it needs 181px,
+sentence case at 12px about 167px, and a row two levels deep has under 160px
+whatever the panel is set to.  Widening the panel until it fits is a fix that
+regresses the moment a longer label is added, and this particular label cannot
+simply be shortened either - the sub-section titles are mirrored from HRMS's own
+panel, so an HRMS upgrade puts the long name back.
+
+So the heading wraps and the link truncates, which is the right split anyway: a
+group label is read, a link is scanned, and "How People Are Categorised" over two
+lines beats "How People Are Categ..." on one.  Only headings wrap - the row's
+fixed height becomes `auto` with a `min-height`, and only here, so the links
+beneath keep their single-line rhythm.
+
+The heading still reads as one: heavier than the links under it and a shade
+darker than the muted grey they use, which is the cue doing the work now that the
+uppercase is gone.
+ */
+.body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor {
+	height: auto;
+	min-height: 24px;
+	gap: 6px;
+	cursor: default;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+.body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor .sidebar-item-label {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--ink-gray-6);
+	white-space: normal;
+	line-height: 1.35;
+	overflow: visible;
+	text-overflow: clip;
+	word-break: break-word;
+}
+
+.body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor:hover {
+	background: transparent;
+}
+
+.body-sidebar
+	.standard-sidebar-item.indent:has(.drop-icon)
+	> .item-anchor
+	.sidebar-item-control {
+	margin-left: auto;
+}
+
+/* --- links ----------------------------------------------------------------
+Stock gives a row a rounded grey fill on hover and a flat one when active.  The
+active state in particular reads as "selected" rather than "you are here", and on
+a dark panel the fill is nearly the same value as the hover, so the two are hard
+to tell apart.  A left accent bar says where you are; the fill stays for hover.
+ */
+.body-sidebar .standard-sidebar-item.active-sidebar > .item-anchor {
+	background: var(--sidebar-active-color);
+	color: var(--ink-gray-9);
+	font-weight: 500;
+	box-shadow: inset 2px 0 0 var(--primary-color);
+	border-radius: 6px;
+}
+
+.body-sidebar .standard-sidebar-item.active-sidebar > .item-anchor:hover {
+	background: var(--sidebar-active-color);
+}
+
+/* --- nested items ---------------------------------------------------------
+The part that actually caused the truncation.
+
+Measured on this panel at 248px, a row two levels deep was 203px wide and gave
+its label 137px, because the row spent 26px on the icon, 28px on the chevron and
+20px on indent before the text started.  "How People Are Categorised" needs
+206px.  So the deepest rows were not slightly tight - they were 70px short, and
+every extra level of nesting took another 16px off a column that had none to
+give.  Opening a sub-menu is what made the rows below it unreadable.
+
+Two things are spent on cues the indent already carries:
+
+  * The icon, at 30px the largest single thing on a nested row.  A nested row is
+    already indented under a labelled parent, in a smaller and quieter type; the
+    icon repeats that at the cost of the text.  Icons stay on the top level, where
+    they are what makes a collapsed panel's 50px rail legible.
+
+    The selector carries `.standard-sidebar-item .item-anchor` to match stock's
+    own, which is four classes deep - `.body-sidebar .standard-sidebar-item
+    .item-anchor .sidebar-item-icon`.  Written any shorter it is three classes and
+    loses on specificity, and the rule silently does nothing: it was written that
+    way first and 35 nested icons were still on screen afterwards, which is how it
+    was caught.
+  * Half the indent step, above.
+
+The chevron stays: it is the control, not decoration, and it is how the row opens.
+`padding-left` replaces the icon so the labels under it stay aligned.
+ */
+.body-sidebar .standard-sidebar-item.indent > .item-anchor .sidebar-item-label,
+.body-sidebar .nested-container .sidebar-item-label {
+	font-size: var(--text-xs);
+	color: var(--ink-gray-5);
+}
+
+.body-sidebar .nested-container .standard-sidebar-item .item-anchor .sidebar-item-icon {
+	display: none;
+}
+
+.body-sidebar .nested-container .item-anchor {
+	padding-left: 20px;
+}
+
+/* 10px, not stock's 16px, and only where stock indents at all.
+
+Measured on this panel: stock's `.indent + .nested-container { margin-left: 16px }`
+fires on 42 of the 176 nested containers - the children of *sub*-sections, whose
+`.standard-sidebar-item` carries `.indent`. The children of a *top*-level section
+get no indent at all, because that row has no `.indent`, so their containers stay
+at 0. So the indent does not compound down the tree the way a first reading of the
+selector suggests; it is one 16px step per sub-section. Halving it is tidier and
+buys 6px on the deepest rows.
+
+The specificity has to match `.indent + .nested-container` exactly to win, and this
+file loads after `desk.bundle.css`, so it does.
+ */
+.body-sidebar .indent + .nested-container {
+	margin-left: 10px;
+}
+
+/* --- the collapsed rail ----------------------------------------------------
+The one thing on this panel that is *worse* than stock, and it is worth being exact
+about why, because two of the three reasons are things this file introduced.
+
+Collapsed, `.body-sidebar` is pinned to `width: 50px` by `sidebar.scss` - not to
+`var(--sidebar-width)`, so the 272px above cannot make a label appear in the rail -
+and `toggle_on_collapse()` (sidebar_item.js) does this on every collapse:
+
+    $(me.wrapper.find(".section-break")).addClass("hidden");
+    $(me.wrapper.find(".divider")).removeClass("hidden");
+    me.open();                     // <-- opens *every* section
+    if (me.item.indent) me.close();
+
+So collapsed, the desk hides every section *heading*, opens every section, and then
+re-closes only the indented ones. Which is a design that works when a collapsed
+rail shows DocType icons: the headings go, the contents stay, and you get a column
+of icons to click. It does not survive this panel, for three reasons:
+
+  * This file removes the icon from every nested row (see the nested-items block
+    above) to buy text width on an expanded panel. In a 50px rail there is no text
+    to buy and no text to show, so those rows became blank - 202 of the 206 rows
+    on the panel measured on the collapsed rail had no icon and no label. They were
+    still in the layout, so the rail was 206 rows tall and 4 of them legible.
+  * A top-level DocType link and a *sub-section heading* both take the link branch
+    of `sidebar_item.html`, so on the collapsed rail they were indistinguishable:
+    both were blank rows.
+  * Every one of this panel's DocTypes is one or two levels down. There is almost
+    nothing at the top level to see, so the rail had almost nothing to show.
+
+The fix is to stop the collapse from opening the sections at all, rather than to
+paper over what opening them does. A collapsed rail is a launcher: it should show
+the things a person goes to often, and the way to reach everything else is to
+expand. So:
+
+  - every nested container stays hidden, so nested DocTypes are not 202 blank rows
+    in the rail - they are reached by expanding, which is what expanding is for;
+  - a top-level *link* keeps its icon, because that is a thing you can click, and
+    the rule above that removes nested icons does not reach it;
+  - a sub-section heading gets an icon back here, so on this panel it is not a
+    blank row either. It takes the link branch of the template, so this is the
+    same `:has(.drop-icon)` distinction the expanded stylesheet already uses, and
+    it needs no new markup: `draw_section_icons()` puts the stored icon on the
+    heading and it is already in the DOM.
+
+The section *headers* stay hidden - that is stock's `sidebar-expand` behaviour and
+it is correct: a header is a label, and a label does not fit in 50px. Its `.divider`
+stays visible in its place, so the top-level links are still grouped.
+
+Scoped to `.body-sidebar-container:not(.expanded)` so it cannot reach an expanded
+panel, and to `.body-sidebar` so it cannot leave the panel.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .nested-container {
+	display: none;
+}
+
+/* The icon the nested-items rule above removes, back for the top level.
+   Written as one selector with the section heading rather than two, because both
+   are the same case: a row in the rail with nothing on it.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .item-anchor > .sidebar-item-icon {
+	display: flex;
+}
+
+.body-sidebar-container:not(.expanded) .body-sidebar .nested-container .item-anchor > .sidebar-item-icon {
+	display: none;
+}
+
+/* A sub-section heading is a link-branch row with a chevron, so it is on the same
+   footing as a top-level link here. Its own icon is the only thing that can be
+   shown in 50px, and `draw_section_icons()` has already put it there.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor {
+	padding-left: 0;
+	gap: 0;
+	justify-content: center;
+}
+
+.body-sidebar-container:not(.expanded) .body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor .sidebar-item-label {
+	display: none;
+}
+
+.body-sidebar-container:not(.expanded) .body-sidebar .standard-sidebar-item.indent:has(.drop-icon) > .item-anchor .sidebar-item-control {
+	display: none;
+}
+
+/* Labels off, icons centred, in the rail. Stock only hides the labels of section
+   headings; every link label is left in the DOM and truncated to nothing, which
+   is what puts a stray "e" on the edge of a 50px panel. Explicit, so no row can be
+   half a character wide.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .item-anchor {
+	justify-content: center;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.body-sidebar-container:not(.expanded) .body-sidebar .item-anchor .sidebar-item-label {
+	display: none;
+}
+
+/* The chevron is the control for opening a section, and on the collapsed rail
+   there is nothing behind it to open into - the section's own rows are hidden by
+   the rule above. A visible chevron on a row that does nothing is a control that
+   lies, so it goes with the label.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .drop-icon {
+	display: none;
+}
+
+/* And a sub-section heading gets no row at all. It is a label for a group the rail
+   cannot show, so a row that opens nothing is decoration pretending to be a
+   control. Its `.divider` - which the desk reveals on collapse - is what stands in
+   for the section it belonged to.
+
+   This is why the rail holds four rows rather than sixteen: Search, Notification,
+   Home and Documents are the only things on this panel a person can reach without
+   expanding, and everything else is reached by expanding, which is what expanding
+   is for. Before this, the rail held 206 rows of which 4 were legible.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .standard-sidebar-item.indent {
+	display: none;
+}
+
+/* The section headers stay hidden - that is stock's `sidebar-expand` behaviour and
+   it is right, a label does not fit in 50px - but the icons this app injects into
+   them were the only per-section cue on the panel, so they go with the labels.
+   The `.divider` the desk reveals in their place is the group marker now.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .item-anchor.section-break > .sidebar-item-icon {
+	display: none;
+}
+
+/* The rail is a launcher, so it is scrolled to the top: a panel that opens
+   wherever the last route left it means the icon you want is often off-screen.
+   `position: sticky` on the scroll container rather than a scroll reset, because
+   the desk re-renders the panel on every route and a JS reset would lose to
+   whichever of the two runs last.
+ */
+.body-sidebar-container:not(.expanded) .body-sidebar .body-sidebar-top {
+	scroll-behavior: auto;
+	overflow-y: auto;
+}

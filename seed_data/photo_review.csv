@@ -1,0 +1,101 @@
+status,file,employee_number,method,reason,candidates
+matched,احمد مجدى احمد بندارى.jpg,H0253,exact,,
+matched,محمد احمد محمد امين .jpg,H0251,exact,,
+matched,آيه أحمد .jpg,V0007,subset,,
+matched,أشرف سمير .jpg,H0321,subset,,
+matched,ابراهيم عوض .jpg,V0091,subset,,
+matched,السيد فرغلى .jpg,H0090,subset,,
+matched,حسام حسن.png,H0066,subset,,
+matched,خالد سليمان.jpg,H0141,subset,,
+matched,شادى صلاح .jpeg,H0308,subset,,
+matched,على عليوه.jpg,H0311,subset,,
+matched,عماد الدين صلاح .jpg,H0248,subset,,
+matched,محمد عادل يوسف .jpg,H0300,subset,,
+matched,محمود جلال .jpg,H0316,subset,,
+matched,نيفين محمد كامل.jpg,V0002,subset,,
+matched,يوسف محمد نجيب .jpg,H0305,subset,,
+matched,ايهاب عمر بدوى الشناوى .jpg,H0117,near_exact,,
+matched,طارق عبد النبى عبد العزيز.jpg,H0231,near_exact,,
+matched,محمد عبد المنعم احمد شاهين .jpg,H0091,near_exact,,
+ambiguous,احمد محمد سيد .jpg,,,subset matches several employees,H0160;H0338
+ambiguous,حمدي محمد.png,,,subset matches several employees,H0327;V0128
+ambiguous,محمد فريد.jpg,,,subset matches several employees,H0150;H0318
+unmatched,'Ahmed Shaban Goma Rezk.jpg,,,closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach,H0337
+unmatched,'Malak Tarek Mamdouh Al-Safti.jpg,,,closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach,H0337
+unmatched,Abdulrahman Nasser Abdul Sattar Taleb.jpg,,,closest H0338 at 0.13 (next V0120 at 0.13); below the confidence needed to attach,H0338
+unmatched,Adel Abdel Baky PIC.jpeg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Ahmed Hammad Mohamed Hammad.jpg,,,closest H0337 at 0.14 (next H0321 at 0.14); below the confidence needed to attach,H0337
+unmatched,Ali Sayed Abdelnaim Ali.jpg,,,closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach,H0337
+unmatched,Asmaa Abdel hamid.jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Aza Mahmoud Abd El Rasheed.jpg,,,closest H0338 at 0.16 (next V0120 at 0.16); below the confidence needed to attach,H0338
+unmatched,Cinderella Mohamed Abdo Megahid Khalaf.jpg,,,closest H0338 at 0.13 (next V0120 at 0.13); below the confidence needed to attach,H0338
+unmatched,Emad Omar Ali Omar.jpg,,,closest H0337 at 0.17 (next H0321 at 0.17); below the confidence needed to attach,H0337
+unmatched,Esaam El Sayed Mohamed.jpg,,,closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach,H0337
+unmatched,Ibrahim Lotfy.jpg,,,closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach,H0337
+unmatched,Jossef George Faiz.jpg,,,closest H0337 at 0.11 (next H0321 at 0.11); below the confidence needed to attach,H0337
+unmatched,Mohamed El Shabrawy Mahmoud Ahmed.jpg,,,closest H0338 at 0.14 (next V0120 at 0.14); below the confidence needed to attach,H0338
+unmatched,Nouran Mohamed Seif El Naser.jpg,,,closest H0338 at 0.16 (next V0120 at 0.15); below the confidence needed to attach,H0338
+unmatched,Omar Gamal Atia - Ayady.jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,0c195762-7bf7-4119-b762-0d95208dff9c.JPG,,,closest V0129 at 0.00 (next V0128 at 0.00); below the confidence needed to attach,V0129
+unmatched,CEO-Mr.Essam.jpg,,,closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach,H0337
+unmatched,COO- Mr.Khaled Soliman.jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Chief Commercial Officer - El Said Mohamed...jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Chief Commercial Officer - El Said Mohamed..jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Chief Commercial Officer - El Said Mohamed.jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Chief Technical Officer - Magdy Beshara..jpeg,,,closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach,H0337
+unmatched,Chief Technical Officer - Magdy Beshara.jpeg,,,closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach,H0337
+unmatched,Corporate Director of Culinary Operations-Amged Mohamed..jpg,,,closest H0338 at 0.12 (next V0120 at 0.12); below the confidence needed to attach,H0338
+unmatched,Corporate Director of Culinary Operations-Amged Mohamed.jpeg,,,closest H0338 at 0.12 (next V0120 at 0.12); below the confidence needed to attach,H0338
+unmatched,Director of Business Development - Haidy Magdy...jpeg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Director of Business Development - Haidy Magdy..jpeg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Director of Business Development - Haidy Magdy.jpeg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,Director of Business Development - Haidy Magdy.jpg,,,closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach,H0337
+unmatched,IMG_1064.JPG,,,closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach,H0337
+unmatched,IMG_1066.JPG,,,closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach,H0337
+unmatched,ISMAIL SIRRY - Cluster GM.JPG,,,closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach,H0337
+unmatched,Regional Director of Finance - Abdel-Rahman Saleh..jpeg,,,closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach,H0337
+unmatched,Regional Director of Finance - Abdel-Rahman Saleh.jpg,,,closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach,H0337
+unmatched,Regional Director of Finance - Hotels-Nader Sobhy.jpg,,,closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach,H0337
+unmatched,Regional Director of Information Systems Management-Haitham Mohamed.jpg,,,closest V0067 at 0.13 (next V0117 at 0.12); below the confidence needed to attach,V0067
+unmatched,Regional Director of Safety& Security-Emad Salah.jpg,,,closest H0338 at 0.14 (next V0120 at 0.13); below the confidence needed to attach,H0338
+unmatched,Saleh Mutawa Saleh Mahdi.jpg,,,closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach,H0337
+unmatched,أحمد الجزار .jpg,,,closest H0266 at 0.55 (next H0290 at 0.52); below the confidence needed to attach,H0266
+unmatched,أيمن أحمد سعد ميسرة .jpg,,,closest H0251 at 0.58 (next H0338 at 0.57); below the confidence needed to attach,H0251
+unmatched,احمد زينهم .jpg,,,closest H0307 at 0.57 (next H0325 at 0.55); below the confidence needed to attach,H0307
+unmatched,احمد عاشور .jpg,,,closest H0201 at 0.61 (next H0307 at 0.50); below the confidence needed to attach,H0201
+unmatched,احمد عوف.jpg,,,closest H0307 at 0.54 (next H0325 at 0.52); below the confidence needed to attach,H0307
+unmatched,احمد محمد عزازى .jpg,,,closest V0023 at 0.72 (next H0251 at 0.71); below the confidence needed to attach,V0023
+unmatched,اللواء وليد الليثى .jpeg,,,closest V0011 at 0.51 (next V0003 at 0.50); below the confidence needed to attach,V0011
+unmatched,باسم احمد .jpg,,,closest H0046 at 0.55 (next H0307 at 0.52); below the confidence needed to attach,H0046
+unmatched,بلال عبد الرزاق.png,,,closest H0141 at 0.52 (next V0011 at 0.50); below the confidence needed to attach,H0141
+unmatched,حسن البقلي.jpg,,,closest H0066 at 0.48 (next H0304 at 0.47); below the confidence needed to attach,H0066
+unmatched,حسن ياسين .jpg,,,closest H0066 at 0.50 (next H0233 at 0.41); below the confidence needed to attach,H0066
+unmatched,راضى نجيب جيد .jpg,,,closest H0340 at 0.47 (next H0305 at 0.43); below the confidence needed to attach,H0340
+unmatched,سارة أبو النجا .jpg,,,closest H0302 at 0.54 (next H0117 at 0.54); below the confidence needed to attach,H0302
+unmatched,سالم ذيدان .jpg,,,closest V0003 at 0.50 (next H0307 at 0.43); below the confidence needed to attach,V0003
+unmatched,سلمان ابراهيم .jpg,,,closest H0140 at 0.55 (next H0160 at 0.53); below the confidence needed to attach,H0140
+unmatched,صابر محمود محمد .jpg,,,closest H0342 at 0.69 (next V0023 at 0.67); below the confidence needed to attach,H0342
+unmatched,صباح محمد.JPG,,,closest H0308 at 0.55 (next H0325 at 0.50); below the confidence needed to attach,H0308
+unmatched,صبرى ابو الفتوح .jpg,,,closest H0335 at 0.44 (next H0216 at 0.44); below the confidence needed to attach,H0335
+unmatched,طارق اباظة.jpg,,,closest H0296 at 0.46 (next H0231 at 0.43); below the confidence needed to attach,H0296
+unmatched,عبد الحميد مجدى .jpg,,,closest H0257 at 0.62 (next H0330 at 0.60); below the confidence needed to attach,H0257
+unmatched,عبد الرحمن سيد.jpg,,,closest H0031 at 0.68 (next H0072 at 0.58); below the confidence needed to attach,H0031
+unmatched,عماد حمودة.jpg,,,closest H0072 at 0.52 (next H0266 at 0.50); below the confidence needed to attach,H0072
+unmatched,عمر طارق فريد .jpg,,,closest H0323 at 0.42 (next H0180 at 0.40); below the confidence needed to attach,H0323
+unmatched,عمرو محمد على عبد الرحيم .jpg,,,closest H0323 at 0.69 (next H0142 at 0.65); below the confidence needed to attach,H0323
+unmatched,غادة كامل.jpg,,,closest H0307 at 0.44 (next V0002 at 0.41); below the confidence needed to attach,H0307
+unmatched,كريم محمد محمد مسلم.jpeg,,,closest V0101 at 0.70 (next H0274 at 0.67); below the confidence needed to attach,V0101
+unmatched,محمد ابو الدهب .jpg,,,closest H0290 at 0.59 (next H0331 at 0.56); below the confidence needed to attach,H0290
+unmatched,محمد ربيع محمد حسن .jpg,,,closest H0150 at 0.67 (next H0251 at 0.65); below the confidence needed to attach,H0150
+unmatched,محمد عبد الله عبد الجيد.jpg,,,closest H0163 at 0.79 (next H0142 at 0.67); below the confidence needed to attach,H0163
+unmatched,مروان زكى.jpg,,,closest H0321 at 0.46 (next H0143 at 0.46); below the confidence needed to attach,H0321
+unmatched,معتصم عبد الله .jpg,,,closest V0011 at 0.51 (next H0129 at 0.51); below the confidence needed to attach,V0011
+unmatched,ميرولا اسامة.png,,,closest V0006 at 0.50 (next H0154 at 0.47); below the confidence needed to attach,V0006
+unmatched,نرمين محمود ابراهيم .jpeg,,,closest H0160 at 0.70 (next V0002 at 0.62); below the confidence needed to attach,H0160
+unmatched,هالة.jpg,,,closest H0296 at 0.28 (next H0266 at 0.27); below the confidence needed to attach,H0296
+unmatched,هبه عباس مرسى .jpg,,,closest H0046 at 0.67 (next H0290 at 0.48); below the confidence needed to attach,H0046
+unmatched,هشام بهنساوى بهنساوى .jpg,,,closest H0031 at 0.45 (next H0129 at 0.44); below the confidence needed to attach,H0031
+unmatched,هشام عبد الصبور .jpg,,,closest H0216 at 0.68 (next H0031 at 0.56); below the confidence needed to attach,H0216
+unmatched,هنا أمجد.jpeg,,,closest V0002 at 0.43 (next H0249 at 0.43); below the confidence needed to attach,V0002
+unmatched,يؤنا ميلاد .jpeg,,,closest H0310 at 0.57 (next V0002 at 0.47); below the confidence needed to attach,H0310
+unmatched,ياسر سعد حسين .jpg,,,closest H0328 at 0.61 (next H0337 at 0.47); below the confidence needed to attach,H0328

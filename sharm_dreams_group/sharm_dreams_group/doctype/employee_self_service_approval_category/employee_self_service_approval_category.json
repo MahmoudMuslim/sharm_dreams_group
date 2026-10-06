@@ -1,0 +1,214 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "field:category_name",
+ "creation": "2026-10-04 00:00:00",
+ "description": "A kind of request an employee can raise from the self-service page - a leave form, a letter, a purchase - together with what it collects and who has to sign it off. Held as data so HR can add a request type without a deployment.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details",
+  "category_name",
+  "description",
+  "column_break",
+  "company",
+  "active",
+  "sequence",
+  "information_collected",
+  "has_date",
+  "has_period",
+  "has_quantity",
+  "column_break_1",
+  "has_amount",
+  "has_reference",
+  "has_location",
+  "has_partner",
+  "requirer_document",
+  "approval_workflow",
+  "manager_approval",
+  "approval_minimum",
+  "approver_sequence",
+  "approvers"
+ ],
+ "fields": [
+  {
+   "fieldname": "details",
+   "fieldtype": "Section Break",
+   "label": "Request Type"
+  },
+  {
+   "fieldname": "category_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  },
+  {
+   "default": "0",
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence"
+  },
+  {
+   "fieldname": "information_collected",
+   "fieldtype": "Section Break",
+   "label": "Information Collected"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_date",
+   "fieldtype": "Select",
+   "label": "Has Date",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_period",
+   "fieldtype": "Select",
+   "label": "Has Period",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_quantity",
+   "fieldtype": "Select",
+   "label": "Has Quantity",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_amount",
+   "fieldtype": "Select",
+   "label": "Has Amount",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_reference",
+   "fieldtype": "Select",
+   "label": "Has Reference",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_location",
+   "fieldtype": "Select",
+   "label": "Has Location",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "fieldname": "has_partner",
+   "fieldtype": "Select",
+   "label": "Has Contact",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "No",
+   "description": "Whether the employee has to attach a document. Enforced on the self-service page, which cannot upload files - so a Required here means the request can only be raised from the desk.",
+   "fieldname": "requirer_document",
+   "fieldtype": "Select",
+   "label": "Requester Document",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "fieldname": "approval_workflow",
+   "fieldtype": "Section Break",
+   "label": "Approval Workflow"
+  },
+  {
+   "default": "No",
+   "fieldname": "manager_approval",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Manager Approval",
+   "options": "No\nOptional\nRequired"
+  },
+  {
+   "default": "0",
+   "description": "How many approvers must sign before the request can complete.",
+   "fieldname": "approval_minimum",
+   "fieldtype": "Int",
+   "label": "Minimum Approvals"
+  },
+  {
+   "default": "0",
+   "description": "When set, approvers act one at a time in sequence order rather than all at once.",
+   "fieldname": "approver_sequence",
+   "fieldtype": "Check",
+   "label": "Approve in Sequence"
+  },
+  {
+   "fieldname": "approvers",
+   "fieldtype": "Table",
+   "label": "Approvers",
+   "options": "Employee Self Service Approval Category Approver"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-04 16:50:08.696701",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Approval Category",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "HR User"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "sequence",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "category_name",
+ "track_changes": 1
+}

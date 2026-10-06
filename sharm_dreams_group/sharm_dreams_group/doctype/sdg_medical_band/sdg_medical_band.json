@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "field:band",
+ "creation": "2026-09-29 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "band",
+  "coverage_limit",
+  "monthly_premium",
+  "source",
+  "section_break_note",
+  "remarks",
+  "active"
+ ],
+ "fields": [
+  {
+   "description": "Band code exactly as issued by the insurer, e.g. 75k C",
+   "fieldname": "band",
+   "fieldtype": "Data",
+   "label": "Coverage Band",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "Sum insured as printed on the policy",
+   "fieldname": "coverage_limit",
+   "fieldtype": "Currency",
+   "label": "Coverage Limit"
+  },
+  {
+   "fieldname": "monthly_premium",
+   "fieldtype": "Currency",
+   "label": "Monthly Premium",
+   "reqd": 1
+  },
+  {
+   "default": "Seeded from payroll workbook",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nSeeded from payroll workbook\nInsurer schedule"
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Medical Band",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "band"
+}

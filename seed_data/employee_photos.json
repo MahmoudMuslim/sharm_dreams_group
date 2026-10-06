@@ -1,0 +1,609 @@
+{
+ "generated_from": "/home/mahmoud/PIC 2025",
+ "summary": {
+  "photos": 101,
+  "matched": 18,
+  "by_method": {
+   "exact": 2,
+   "subset": 13,
+   "near_exact": 3
+  },
+  "ambiguous": 3,
+  "duplicate_employee": 1,
+  "unmatched": 80
+ },
+ "matched": [
+  {
+   "employee_number": "H0253",
+   "employee_name": "Ahmed Ahmed",
+   "method": "exact",
+   "score": 3,
+   "source_file": "احمد مجدى احمد بندارى.jpg",
+   "source_path": "/home/mahmoud/PIC 2025/احمد مجدى احمد بندارى.jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0253.jpg"
+  },
+  {
+   "employee_number": "H0251",
+   "employee_name": "Mohamed Mohamed",
+   "method": "exact",
+   "score": 3,
+   "source_file": "محمد احمد محمد امين .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/محمد احمد محمد امين .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0251.jpg"
+  },
+  {
+   "employee_number": "V0007",
+   "employee_name": "Aya Mohamed",
+   "method": "subset",
+   "score": 2,
+   "source_file": "آيه أحمد .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/آيه أحمد .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/V0007.jpg"
+  },
+  {
+   "employee_number": "H0321",
+   "employee_name": "Ashraf Zaky",
+   "method": "subset",
+   "score": 2,
+   "source_file": "أشرف سمير .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/أشرف سمير .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0321.jpg"
+  },
+  {
+   "employee_number": "V0091",
+   "employee_name": "Ismail Allah",
+   "method": "subset",
+   "score": 2,
+   "source_file": "ابراهيم عوض .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/ابراهيم عوض .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/V0091.jpg"
+  },
+  {
+   "employee_number": "H0090",
+   "employee_name": "ALsayed Ahmed",
+   "method": "subset",
+   "score": 2,
+   "source_file": "السيد فرغلى .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/السيد فرغلى .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0090.jpg"
+  },
+  {
+   "employee_number": "H0066",
+   "employee_name": "Hussam El-Sayed",
+   "method": "subset",
+   "score": 2,
+   "source_file": "حسام حسن.png",
+   "source_path": "/home/mahmoud/PIC 2025/حسام حسن.png",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0066.png"
+  },
+  {
+   "employee_number": "H0141",
+   "employee_name": "Khaled Soliman",
+   "method": "subset",
+   "score": 2,
+   "source_file": "خالد سليمان.jpg",
+   "source_path": "/home/mahmoud/PIC 2025/خالد سليمان.jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0141.jpg"
+  },
+  {
+   "employee_number": "H0308",
+   "employee_name": "Shady Metwaly",
+   "method": "subset",
+   "score": 2,
+   "source_file": "شادى صلاح .jpeg",
+   "source_path": "/home/mahmoud/PIC 2025/شادى صلاح .jpeg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0308.jpeg"
+  },
+  {
+   "employee_number": "H0311",
+   "employee_name": "Aly Elwa",
+   "method": "subset",
+   "score": 2,
+   "source_file": "على عليوه.jpg",
+   "source_path": "/home/mahmoud/PIC 2025/على عليوه.jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0311.jpg"
+  },
+  {
+   "employee_number": "H0248",
+   "employee_name": "Emad Ramdan",
+   "method": "subset",
+   "score": 3,
+   "source_file": "عماد الدين صلاح .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/عماد الدين صلاح .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0248.jpg"
+  },
+  {
+   "employee_number": "H0300",
+   "employee_name": "Mohamed Khalil",
+   "method": "subset",
+   "score": 3,
+   "source_file": "محمد عادل يوسف .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/محمد عادل يوسف .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0300.jpg"
+  },
+  {
+   "employee_number": "H0316",
+   "employee_name": "Mahmoud Al-Ja'ali",
+   "method": "subset",
+   "score": 2,
+   "source_file": "محمود جلال .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/محمود جلال .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0316.jpg"
+  },
+  {
+   "employee_number": "V0002",
+   "employee_name": "Nevine Ahmed",
+   "method": "subset",
+   "score": 3,
+   "source_file": "نيفين محمد كامل.jpg",
+   "source_path": "/home/mahmoud/PIC 2025/نيفين محمد كامل.jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/V0002.jpg"
+  },
+  {
+   "employee_number": "H0305",
+   "employee_name": "Youssef Abdo",
+   "method": "subset",
+   "score": 3,
+   "source_file": "يوسف محمد نجيب .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/يوسف محمد نجيب .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0305.jpg"
+  },
+  {
+   "employee_number": "H0117",
+   "employee_name": "Ehab Shenawy",
+   "method": "near_exact",
+   "score": 0.978,
+   "source_file": "ايهاب عمر بدوى الشناوى .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/ايهاب عمر بدوى الشناوى .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0117.jpg"
+  },
+  {
+   "employee_number": "H0231",
+   "employee_name": "Tarek Ali",
+   "method": "near_exact",
+   "score": 0.885,
+   "source_file": "طارق عبد النبى عبد العزيز.jpg",
+   "source_path": "/home/mahmoud/PIC 2025/طارق عبد النبى عبد العزيز.jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0231.jpg"
+  },
+  {
+   "employee_number": "H0091",
+   "employee_name": "Mohamed Shahin",
+   "method": "near_exact",
+   "score": 0.98,
+   "source_file": "محمد عبد المنعم احمد شاهين .jpg",
+   "source_path": "/home/mahmoud/PIC 2025/محمد عبد المنعم احمد شاهين .jpg",
+   "staged_path": "/home/mahmoud/frappe/sites/dev.localhost/workspace/frappe-bench/import_staging/photos/H0091.jpg"
+  }
+ ],
+ "ambiguous": [
+  {
+   "file": "احمد محمد سيد .jpg",
+   "reason": "subset matches several employees",
+   "candidates": [
+    "H0160",
+    "H0338"
+   ]
+  },
+  {
+   "file": "حمدي محمد.png",
+   "reason": "subset matches several employees",
+   "candidates": [
+    "H0327",
+    "V0128"
+   ]
+  },
+  {
+   "file": "محمد فريد.jpg",
+   "reason": "subset matches several employees",
+   "candidates": [
+    "H0150",
+    "H0318"
+   ]
+  }
+ ],
+ "duplicate_employee": [
+  {
+   "file": "خالد عبد العزيز.png",
+   "reason": "already matched to H0141 by subset (خالد سليمان.jpg)",
+   "suggestion": "H0141"
+  }
+ ],
+ "unmatched": [
+  {
+   "file": "'Ahmed Shaban Goma Rezk.jpg",
+   "reason": "closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "'Malak Tarek Mamdouh Al-Safti.jpg",
+   "reason": "closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Abdulrahman Nasser Abdul Sattar Taleb.jpg",
+   "reason": "closest H0338 at 0.13 (next V0120 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Adel Abdel Baky PIC.jpeg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Ahmed Hammad Mohamed Hammad.jpg",
+   "reason": "closest H0337 at 0.14 (next H0321 at 0.14); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Ali Sayed Abdelnaim Ali.jpg",
+   "reason": "closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Asmaa Abdel hamid.jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Aza Mahmoud Abd El Rasheed.jpg",
+   "reason": "closest H0338 at 0.16 (next V0120 at 0.16); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Cinderella Mohamed Abdo Megahid Khalaf.jpg",
+   "reason": "closest H0338 at 0.13 (next V0120 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Emad Omar Ali Omar.jpg",
+   "reason": "closest H0337 at 0.17 (next H0321 at 0.17); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Esaam El Sayed Mohamed.jpg",
+   "reason": "closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Ibrahim Lotfy.jpg",
+   "reason": "closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Jossef George Faiz.jpg",
+   "reason": "closest H0337 at 0.11 (next H0321 at 0.11); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Mohamed El Shabrawy Mahmoud Ahmed.jpg",
+   "reason": "closest H0338 at 0.14 (next V0120 at 0.14); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Nouran Mohamed Seif El Naser.jpg",
+   "reason": "closest H0338 at 0.16 (next V0120 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Omar Gamal Atia - Ayady.jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "0c195762-7bf7-4119-b762-0d95208dff9c.JPG",
+   "reason": "closest V0129 at 0.00 (next V0128 at 0.00); below the confidence needed to attach",
+   "suggestion": "V0129"
+  },
+  {
+   "file": "CEO-Mr.Essam.jpg",
+   "reason": "closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "COO- Mr.Khaled Soliman.jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Chief Commercial Officer - El Said Mohamed...jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Chief Commercial Officer - El Said Mohamed..jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Chief Commercial Officer - El Said Mohamed.jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Chief Technical Officer - Magdy Beshara..jpeg",
+   "reason": "closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Chief Technical Officer - Magdy Beshara.jpeg",
+   "reason": "closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Corporate Director of Culinary Operations-Amged Mohamed..jpg",
+   "reason": "closest H0338 at 0.12 (next V0120 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Corporate Director of Culinary Operations-Amged Mohamed.jpeg",
+   "reason": "closest H0338 at 0.12 (next V0120 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Director of Business Development - Haidy Magdy...jpeg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Director of Business Development - Haidy Magdy..jpeg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Director of Business Development - Haidy Magdy.jpeg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Director of Business Development - Haidy Magdy.jpg",
+   "reason": "closest H0337 at 0.12 (next H0321 at 0.12); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "IMG_1064.JPG",
+   "reason": "closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "IMG_1066.JPG",
+   "reason": "closest H0337 at 0.08 (next H0321 at 0.08); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "ISMAIL SIRRY - Cluster GM.JPG",
+   "reason": "closest H0337 at 0.07 (next H0321 at 0.07); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Regional Director of Finance - Abdel-Rahman Saleh..jpeg",
+   "reason": "closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Regional Director of Finance - Abdel-Rahman Saleh.jpg",
+   "reason": "closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Regional Director of Finance - Hotels-Nader Sobhy.jpg",
+   "reason": "closest H0337 at 0.13 (next H0321 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "Regional Director of Information Systems Management-Haitham Mohamed.jpg",
+   "reason": "closest V0067 at 0.13 (next V0117 at 0.12); below the confidence needed to attach",
+   "suggestion": "V0067"
+  },
+  {
+   "file": "Regional Director of Safety& Security-Emad Salah.jpg",
+   "reason": "closest H0338 at 0.14 (next V0120 at 0.13); below the confidence needed to attach",
+   "suggestion": "H0338"
+  },
+  {
+   "file": "Saleh Mutawa Saleh Mahdi.jpg",
+   "reason": "closest H0337 at 0.15 (next H0321 at 0.15); below the confidence needed to attach",
+   "suggestion": "H0337"
+  },
+  {
+   "file": "أحمد الجزار .jpg",
+   "reason": "closest H0266 at 0.55 (next H0290 at 0.52); below the confidence needed to attach",
+   "suggestion": "H0266"
+  },
+  {
+   "file": "أيمن أحمد سعد ميسرة .jpg",
+   "reason": "closest H0251 at 0.58 (next H0338 at 0.57); below the confidence needed to attach",
+   "suggestion": "H0251"
+  },
+  {
+   "file": "احمد زينهم .jpg",
+   "reason": "closest H0307 at 0.57 (next H0325 at 0.55); below the confidence needed to attach",
+   "suggestion": "H0307"
+  },
+  {
+   "file": "احمد عاشور .jpg",
+   "reason": "closest H0201 at 0.61 (next H0307 at 0.50); below the confidence needed to attach",
+   "suggestion": "H0201"
+  },
+  {
+   "file": "احمد عوف.jpg",
+   "reason": "closest H0307 at 0.54 (next H0325 at 0.52); below the confidence needed to attach",
+   "suggestion": "H0307"
+  },
+  {
+   "file": "احمد محمد عزازى .jpg",
+   "reason": "closest V0023 at 0.72 (next H0251 at 0.71); below the confidence needed to attach",
+   "suggestion": "V0023"
+  },
+  {
+   "file": "اللواء وليد الليثى .jpeg",
+   "reason": "closest V0011 at 0.51 (next V0003 at 0.50); below the confidence needed to attach",
+   "suggestion": "V0011"
+  },
+  {
+   "file": "باسم احمد .jpg",
+   "reason": "closest H0046 at 0.55 (next H0307 at 0.52); below the confidence needed to attach",
+   "suggestion": "H0046"
+  },
+  {
+   "file": "بلال عبد الرزاق.png",
+   "reason": "closest H0141 at 0.52 (next V0011 at 0.50); below the confidence needed to attach",
+   "suggestion": "H0141"
+  },
+  {
+   "file": "حسن البقلي.jpg",
+   "reason": "closest H0066 at 0.48 (next H0304 at 0.47); below the confidence needed to attach",
+   "suggestion": "H0066"
+  },
+  {
+   "file": "حسن ياسين .jpg",
+   "reason": "closest H0066 at 0.50 (next H0233 at 0.41); below the confidence needed to attach",
+   "suggestion": "H0066"
+  },
+  {
+   "file": "راضى نجيب جيد .jpg",
+   "reason": "closest H0340 at 0.47 (next H0305 at 0.43); below the confidence needed to attach",
+   "suggestion": "H0340"
+  },
+  {
+   "file": "سارة أبو النجا .jpg",
+   "reason": "closest H0302 at 0.54 (next H0117 at 0.54); below the confidence needed to attach",
+   "suggestion": "H0302"
+  },
+  {
+   "file": "سالم ذيدان .jpg",
+   "reason": "closest V0003 at 0.50 (next H0307 at 0.43); below the confidence needed to attach",
+   "suggestion": "V0003"
+  },
+  {
+   "file": "سلمان ابراهيم .jpg",
+   "reason": "closest H0140 at 0.55 (next H0160 at 0.53); below the confidence needed to attach",
+   "suggestion": "H0140"
+  },
+  {
+   "file": "صابر محمود محمد .jpg",
+   "reason": "closest H0342 at 0.69 (next V0023 at 0.67); below the confidence needed to attach",
+   "suggestion": "H0342"
+  },
+  {
+   "file": "صباح محمد.JPG",
+   "reason": "closest H0308 at 0.55 (next H0325 at 0.50); below the confidence needed to attach",
+   "suggestion": "H0308"
+  },
+  {
+   "file": "صبرى ابو الفتوح .jpg",
+   "reason": "closest H0335 at 0.44 (next H0216 at 0.44); below the confidence needed to attach",
+   "suggestion": "H0335"
+  },
+  {
+   "file": "طارق اباظة.jpg",
+   "reason": "closest H0296 at 0.46 (next H0231 at 0.43); below the confidence needed to attach",
+   "suggestion": "H0296"
+  },
+  {
+   "file": "عبد الحميد مجدى .jpg",
+   "reason": "closest H0257 at 0.62 (next H0330 at 0.60); below the confidence needed to attach",
+   "suggestion": "H0257"
+  },
+  {
+   "file": "عبد الرحمن سيد.jpg",
+   "reason": "closest H0031 at 0.68 (next H0072 at 0.58); below the confidence needed to attach",
+   "suggestion": "H0031"
+  },
+  {
+   "file": "عماد حمودة.jpg",
+   "reason": "closest H0072 at 0.52 (next H0266 at 0.50); below the confidence needed to attach",
+   "suggestion": "H0072"
+  },
+  {
+   "file": "عمر طارق فريد .jpg",
+   "reason": "closest H0323 at 0.42 (next H0180 at 0.40); below the confidence needed to attach",
+   "suggestion": "H0323"
+  },
+  {
+   "file": "عمرو محمد على عبد الرحيم .jpg",
+   "reason": "closest H0323 at 0.69 (next H0142 at 0.65); below the confidence needed to attach",
+   "suggestion": "H0323"
+  },
+  {
+   "file": "غادة كامل.jpg",
+   "reason": "closest H0307 at 0.44 (next V0002 at 0.41); below the confidence needed to attach",
+   "suggestion": "H0307"
+  },
+  {
+   "file": "كريم محمد محمد مسلم.jpeg",
+   "reason": "closest V0101 at 0.70 (next H0274 at 0.67); below the confidence needed to attach",
+   "suggestion": "V0101"
+  },
+  {
+   "file": "محمد ابو الدهب .jpg",
+   "reason": "closest H0290 at 0.59 (next H0331 at 0.56); below the confidence needed to attach",
+   "suggestion": "H0290"
+  },
+  {
+   "file": "محمد ربيع محمد حسن .jpg",
+   "reason": "closest H0150 at 0.67 (next H0251 at 0.65); below the confidence needed to attach",
+   "suggestion": "H0150"
+  },
+  {
+   "file": "محمد عبد الله عبد الجيد.jpg",
+   "reason": "closest H0163 at 0.79 (next H0142 at 0.67); below the confidence needed to attach",
+   "suggestion": "H0163"
+  },
+  {
+   "file": "مروان زكى.jpg",
+   "reason": "closest H0321 at 0.46 (next H0143 at 0.46); below the confidence needed to attach",
+   "suggestion": "H0321"
+  },
+  {
+   "file": "معتصم عبد الله .jpg",
+   "reason": "closest V0011 at 0.51 (next H0129 at 0.51); below the confidence needed to attach",
+   "suggestion": "V0011"
+  },
+  {
+   "file": "ميرولا اسامة.png",
+   "reason": "closest V0006 at 0.50 (next H0154 at 0.47); below the confidence needed to attach",
+   "suggestion": "V0006"
+  },
+  {
+   "file": "نرمين محمود ابراهيم .jpeg",
+   "reason": "closest H0160 at 0.70 (next V0002 at 0.62); below the confidence needed to attach",
+   "suggestion": "H0160"
+  },
+  {
+   "file": "هالة.jpg",
+   "reason": "closest H0296 at 0.28 (next H0266 at 0.27); below the confidence needed to attach",
+   "suggestion": "H0296"
+  },
+  {
+   "file": "هبه عباس مرسى .jpg",
+   "reason": "closest H0046 at 0.67 (next H0290 at 0.48); below the confidence needed to attach",
+   "suggestion": "H0046"
+  },
+  {
+   "file": "هشام بهنساوى بهنساوى .jpg",
+   "reason": "closest H0031 at 0.45 (next H0129 at 0.44); below the confidence needed to attach",
+   "suggestion": "H0031"
+  },
+  {
+   "file": "هشام عبد الصبور .jpg",
+   "reason": "closest H0216 at 0.68 (next H0031 at 0.56); below the confidence needed to attach",
+   "suggestion": "H0216"
+  },
+  {
+   "file": "هنا أمجد.jpeg",
+   "reason": "closest V0002 at 0.43 (next H0249 at 0.43); below the confidence needed to attach",
+   "suggestion": "V0002"
+  },
+  {
+   "file": "يؤنا ميلاد .jpeg",
+   "reason": "closest H0310 at 0.57 (next V0002 at 0.47); below the confidence needed to attach",
+   "suggestion": "H0310"
+  },
+  {
+   "file": "ياسر سعد حسين .jpg",
+   "reason": "closest H0328 at 0.61 (next H0337 at 0.47); below the confidence needed to attach",
+   "suggestion": "H0328"
+  }
+ ]
+}

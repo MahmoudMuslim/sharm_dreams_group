@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "field:sub_department_name",
+ "creation": "2026-09-29 12:00:00.000000",
+ "description": "Third level of the org structure, used on Employee.sdg_sub_department",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sub_department_name",
+  "sub_department_name_ar",
+  "looks_like_a_location",
+  "source",
+  "active",
+  "section_break_note",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "sub_department_name",
+   "fieldtype": "Data",
+   "label": "Sub Department",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "sub_department_name_ar",
+   "fieldtype": "Data",
+   "label": "Sub Department (Arabic)"
+  },
+  {
+   "default": "0",
+   "description": "Tick where the master value is a place rather than a sub-department, e.g. Head Office, Sharm El Sheikh, @40",
+   "fieldname": "looks_like_a_location",
+   "fieldtype": "Check",
+   "label": "Appears To Be A Location"
+  },
+  {
+   "default": "Seeded from Master Colleagues Data",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nSeeded from Master Colleagues Data\nMaintained by HR"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Sub Department",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "SDG Payroll Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "sub_department_name"
+}

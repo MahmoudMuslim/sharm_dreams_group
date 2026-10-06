@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-10-04 00:00:00.000000",
+ "description": "One short-lived access token handed to a self-service page tablet at sign-in. The self-service holds no Frappe login, so this row is the whole authorisation: every guest-callable self-service action resolves the caller back to an Employee through it. System Manager only, because the token is stored in the clear and anyone who can read it can act as that employee.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "basic",
+  "employee",
+  "column_break",
+  "access_token",
+  "expiry"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic",
+   "fieldtype": "Section Break",
+   "label": "Employee Self Service Session"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "base64url token handed to the browser. It is the only thing authorising a self-service page request, so it is stored in the clear: a hashed column could not be looked up by value, which is the one operation every self-service action performs.",
+   "fieldname": "access_token",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Access Token",
+   "reqd": 1
+  },
+  {
+   "fieldname": "expiry",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Expiry",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Session",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

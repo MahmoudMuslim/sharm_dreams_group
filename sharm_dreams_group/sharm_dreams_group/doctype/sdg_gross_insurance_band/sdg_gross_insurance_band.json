@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "format:SDG-GIB-{#####}",
+ "creation": "2026-09-29 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "from_gross",
+  "to_gross",
+  "life_insurance",
+  "si_base",
+  "source",
+  "section_break_note",
+  "remarks",
+  "active"
+ ],
+ "fields": [
+  {
+   "description": "Inclusive lower bound of the monthly gross salary range",
+   "fieldname": "from_gross",
+   "fieldtype": "Currency",
+   "label": "From Gross (>=)",
+   "reqd": 1
+  },
+  {
+   "description": "Exclusive upper bound. Use a very large number for the top band",
+   "fieldname": "to_gross",
+   "fieldtype": "Currency",
+   "label": "To Gross (<)",
+   "reqd": 1
+  },
+  {
+   "description": "Deducted from the employee. Zero where there is no life cover",
+   "fieldname": "life_insurance",
+   "fieldtype": "Currency",
+   "label": "Life Insurance (monthly)"
+  },
+  {
+   "description": "Final Limit: the ceiling SI, training fund and employer SI are charged on",
+   "fieldname": "si_base",
+   "fieldtype": "Currency",
+   "label": "Social Insurance Base"
+  },
+  {
+   "default": "Seeded from payroll workbook",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nSeeded from payroll workbook\nInsurer schedule\nPay scale"
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Gross Insurance Band",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

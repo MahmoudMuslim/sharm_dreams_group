@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "format:SDG-FMB-{#####}",
+ "creation": "2026-09-29 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "medical_band",
+  "has_spouse",
+  "children_count",
+  "monthly_premium",
+  "member_multiplier",
+  "source",
+  "section_break_note",
+  "remarks",
+  "active"
+ ],
+ "fields": [
+  {
+   "fieldname": "medical_band",
+   "fieldtype": "Link",
+   "label": "Medical Band",
+   "options": "SDG Medical Band",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "has_spouse",
+   "fieldtype": "Check",
+   "label": "Covers Spouse",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "children_count",
+   "fieldtype": "Int",
+   "label": "Children Covered",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "monthly_premium",
+   "fieldtype": "Currency",
+   "label": "Monthly Family Premium",
+   "reqd": 1
+  },
+  {
+   "description": "premium / annual per member rate. Read only, derived",
+   "fieldname": "member_multiplier",
+   "fieldtype": "Float",
+   "label": "Per Member Multiplier",
+   "read_only": 1
+  },
+  {
+   "default": "Seeded from payroll workbook",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nSeeded from payroll workbook\nBroker schedule"
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Family Medical Band",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

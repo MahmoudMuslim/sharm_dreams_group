@@ -1,0 +1,467 @@
+{
+ "app": "sharm_dreams_group",
+ "charts": [
+  {
+   "chart_name": "Headcount by Company",
+   "label": "Headcount by Company"
+  },
+  {
+   "chart_name": "Leavers by Company",
+   "label": "Leavers by Company"
+  },
+  {
+   "chart_name": "Payroll Net by Company",
+   "label": "Payroll Net by Company"
+  },
+  {
+   "chart_name": "Headcount by Department",
+   "label": "Headcount by Department"
+  },
+  {
+   "chart_name": "Social Insurance Status",
+   "label": "Social Insurance Status"
+  },
+  {
+   "chart_name": "Employment Category",
+   "label": "Employment Category"
+  },
+  {
+   "chart_name": "Medical Cover by Band",
+   "label": "Medical Cover by Band"
+  },
+  {
+   "chart_name": "Payroll Gross by Company",
+   "label": "Payroll Gross by Company"
+  },
+  {
+   "chart_name": "People of Determination by Company",
+   "label": "People of Determination by Company"
+  }
+ ],
+ "content": "[{\"id\": \"sdg-header\", \"type\": \"header\", \"data\": {\"text\": \"Sharm Dreams Group\", \"level\": 4, \"col\": 12}}, {\"id\": \"sdg-spacer-people\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-people\", \"type\": \"header\", \"data\": {\"text\": \"People\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-active-headcount\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active Headcount\", \"col\": 2}}, {\"id\": \"sdg-card-leavers\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Leavers\", \"col\": 2}}, {\"id\": \"sdg-card-joined-this-fy\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Joined This FY\", \"col\": 2}}, {\"id\": \"sdg-card-joined-90-days\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Joined (90 days)\", \"col\": 2}}, {\"id\": \"sdg-card-tenure-5-years\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Tenure 5+ Years\", \"col\": 2}}, {\"id\": \"sdg-card-people-of-determination\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"People of Determination\", \"col\": 2}}, {\"id\": \"sdg-chart-headcount-by-company\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Headcount by Company\", \"col\": 12}}, {\"id\": \"sdg-chart-headcount-by-department\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Headcount by Department\", \"col\": 6}}, {\"id\": \"sdg-chart-employment-category\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Employment Category\", \"col\": 6}}, {\"id\": \"sdg-chart-leavers-by-company\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Leavers by Company\", \"col\": 12}}, {\"id\": \"sdg-chart-people-of-determination-by-c\", \"type\": \"chart\", \"data\": {\"chart_name\": \"People of Determination by Company\", \"col\": 12}}, {\"id\": \"sdg-spacer-workforce-profile\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-workforce-profile\", \"type\": \"header\", \"data\": {\"text\": \"Workforce Profile\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-military-service-exempted\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Military Service Exempted\", \"col\": 4}}, {\"id\": \"sdg-card-no-gender-record\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Gender Record\", \"col\": 4}}, {\"id\": \"sdg-card-no-governorate\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Governorate\", \"col\": 4}}, {\"id\": \"sdg-spacer-records-to-complete\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-records-to-complete\", \"type\": \"header\", \"data\": {\"text\": \"Records To Complete\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-no-si-number\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No SI Number\", \"col\": 2}}, {\"id\": \"sdg-card-no-id-expiry\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No ID Expiry\", \"col\": 2}}, {\"id\": \"sdg-card-id-expired\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"ID Expired\", \"col\": 2}}, {\"id\": \"sdg-card-id-expiring-90d\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"ID Expiring (90d)\", \"col\": 2}}, {\"id\": \"sdg-card-id-expiring-30d\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"ID Expiring (30d)\", \"col\": 2}}, {\"id\": \"sdg-card-no-department\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Department\", \"col\": 2}}, {\"id\": \"sdg-card-no-designation\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Designation\", \"col\": 2}}, {\"id\": \"sdg-card-no-contract-start-date\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Contract Start Date\", \"col\": 2}}, {\"id\": \"sdg-card-no-contract-type\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Contract Type\", \"col\": 2}}, {\"id\": \"sdg-card-no-contract-end-date\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"No Contract End Date\", \"col\": 2}}, {\"id\": \"sdg-card-penalty-cases\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Penalty Cases\", \"col\": 2}}, {\"id\": \"sdg-spacer-contracts\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-contracts\", \"type\": \"header\", \"data\": {\"text\": \"Contracts\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-limited-term-staff\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Limited-Term Staff\", \"col\": 2}}, {\"id\": \"sdg-card-contract-types-in-use\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Contract Types In Use\", \"col\": 2}}, {\"id\": \"sdg-card-contracts-ending-90d\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Contracts Ending (90d)\", \"col\": 2}}, {\"id\": \"sdg-card-contracts-ending-30d\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Contracts Ending (30d)\", \"col\": 2}}, {\"id\": \"sdg-card-contracts-ended\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Contracts Ended\", \"col\": 2}}, {\"id\": \"sdg-spacer-benefits-insurance\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-benefits-insurance\", \"type\": \"header\", \"data\": {\"text\": \"Benefits & Insurance\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-medically-insured\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Medically Insured\", \"col\": 2}}, {\"id\": \"sdg-card-active-without-medical-recor\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active Without Medical Record\", \"col\": 2}}, {\"id\": \"sdg-card-medical-cover-cost\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Medical Cover Cost\", \"col\": 2}}, {\"id\": \"sdg-card-social-insurance-enrolled\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Social Insurance Enrolled\", \"col\": 2}}, {\"id\": \"sdg-card-school-fee-cases\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"School Fee Cases\", \"col\": 2}}, {\"id\": \"sdg-chart-medical-cover-by-band\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Medical Cover by Band\", \"col\": 6}}, {\"id\": \"sdg-chart-social-insurance-status\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Social Insurance Status\", \"col\": 6}}, {\"id\": \"sdg-spacer-payroll\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-payroll\", \"type\": \"header\", \"data\": {\"text\": \"Payroll\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-payroll-net\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Payroll Net\", \"col\": 2}}, {\"id\": \"sdg-card-payroll-gross\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Payroll Gross\", \"col\": 2}}, {\"id\": \"sdg-card-employer-cost\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Employer Cost\", \"col\": 2}}, {\"id\": \"sdg-card-average-net-salary\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Average Net Salary\", \"col\": 2}}, {\"id\": \"sdg-card-average-gross-salary\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Average Gross Salary\", \"col\": 2}}, {\"id\": \"sdg-card-lowest-net-salary\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Lowest Net Salary\", \"col\": 2}}, {\"id\": \"sdg-card-highest-net-salary\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Highest Net Salary\", \"col\": 2}}, {\"id\": \"sdg-card-loan-repayment\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Loan Repayment\", \"col\": 2}}, {\"id\": \"sdg-card-employees-on-a-loan\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Employees On A Loan\", \"col\": 2}}, {\"id\": \"sdg-card-paid-this-payroll\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Paid This Payroll\", \"col\": 2}}, {\"id\": \"sdg-chart-payroll-net-by-company\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Payroll Net by Company\", \"col\": 12}}, {\"id\": \"sdg-chart-payroll-gross-by-company\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Payroll Gross by Company\", \"col\": 12}}, {\"id\": \"sdg-spacer-discipline\", \"type\": \"spacer\", \"data\": {\"height\": 12}}, {\"id\": \"sdg-band-discipline\", \"type\": \"header\", \"data\": {\"text\": \"Discipline\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-card-with-a-penalty\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"With a Penalty\", \"col\": 2}}, {\"id\": \"sdg-card-clear\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Clear\", \"col\": 2}}, {\"id\": \"sdg-card-warning\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Warning\", \"col\": 2}}, {\"id\": \"sdg-card-minor\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Minor\", \"col\": 2}}, {\"id\": \"sdg-card-serious\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Serious\", \"col\": 2}}, {\"id\": \"sdg-card-critical\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Critical\", \"col\": 2}}, {\"id\": \"sdg-setup-spacer\", \"type\": \"spacer\", \"data\": {\"height\": 24}}, {\"id\": \"sdg-setup-header\", \"type\": \"header\", \"data\": {\"text\": \"Setup\", \"level\": 4, \"col\": 12}}, {\"id\": \"sdg-setup-note\", \"type\": \"paragraph\", \"data\": {\"text\": \"Band tables and settings. The dashboards above are where the figures live; these are the tables behind them.\", \"col\": 12}}, {\"id\": \"sdg-setup-rates-bands\", \"type\": \"header\", \"data\": {\"text\": \"Rates & Bands\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-income-tax-slab\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Income Tax Slab\", \"col\": 3, \"link_to\": \"Income Tax Slab\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-gross-insurance-band\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Gross Insurance Band\", \"col\": 3, \"link_to\": \"SDG Gross Insurance Band\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-medical-band\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Medical Band\", \"col\": 3, \"link_to\": \"SDG Medical Band\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-family-medical-band\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Family Medical Band\", \"col\": 3, \"link_to\": \"SDG Family Medical Band\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-payroll-settings\", \"type\": \"header\", \"data\": {\"text\": \"Payroll Settings\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-payroll-settings\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Payroll Settings\", \"col\": 3, \"link_to\": \"SDG Payroll Settings\", \"doc_view\": \"\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-penalty-settings\", \"type\": \"header\", \"data\": {\"text\": \"Penalty Settings\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-penalty-level\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Penalty Level\", \"col\": 3, \"link_to\": \"SDG Penalty Level\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-group-allocation\", \"type\": \"header\", \"data\": {\"text\": \"Group Allocation\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-group-allocation\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Group Allocation\", \"col\": 3, \"link_to\": \"SDG Group Allocation\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-vocabularies\", \"type\": \"header\", \"data\": {\"text\": \"Vocabularies\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-employment-category\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Employment Category\", \"col\": 3, \"link_to\": \"SDG Employment Category\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-contract-type\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Contract Type\", \"col\": 3, \"link_to\": \"SDG Contract Type\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-sub-department\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Sub Department\", \"col\": 3, \"link_to\": \"SDG Sub Department\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-insurance\", \"type\": \"header\", \"data\": {\"text\": \"Insurance\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-insured-person\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Insured Person\", \"col\": 3, \"link_to\": \"SDG Insured Person\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-school-fees\", \"type\": \"header\", \"data\": {\"text\": \"School Fees\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-school-fee\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG School Fee\", \"col\": 3, \"link_to\": \"SDG School Fee\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-cost-of-living-coupon\", \"type\": \"header\", \"data\": {\"text\": \"Cost Of Living Coupon\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-sdg-coupon-granted\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Coupon Granted\", \"col\": 3, \"link_to\": \"SDG Coupon Granted\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-sdg-coupon-band\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"SDG Coupon Band\", \"col\": 3, \"link_to\": \"SDG Coupon Band\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-setup-self-services-employees\", \"type\": \"header\", \"data\": {\"text\": \"Self Services Employees\", \"level\": 5, \"col\": 12}}, {\"id\": \"sdg-employee-self-service-settin\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Settings\", \"col\": 3, \"link_to\": \"Employee Self Service Settings\", \"doc_view\": \"\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-locati\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Location\", \"col\": 3, \"link_to\": \"Employee Self Service Location\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-biomet\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Biometric Credential\", \"col\": 3, \"link_to\": \"Employee Self Service Biometric Credential\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-approv\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Approval Category\", \"col\": 3, \"link_to\": \"Employee Self Service Approval Category\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-approv\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Approval Request\", \"col\": 3, \"link_to\": \"Employee Self Service Approval Request\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-sessio\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Session\", \"col\": 3, \"link_to\": \"Employee Self Service Session\", \"doc_view\": \"List\", \"color\": \"Grey\"}}, {\"id\": \"sdg-employee-self-service-preaut\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Employee Self Service Preauth\", \"col\": 3, \"link_to\": \"Employee Self Service Preauth\", \"doc_view\": \"List\", \"color\": \"Grey\"}}]",
+ "creation": "2026-09-29 15:42:24.677597",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "organization",
+ "idx": 1,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Sharm Dreams Group",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Contract Type",
+   "link_count": 0,
+   "link_to": "SDG Contract Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Employment Category",
+   "link_count": 0,
+   "link_to": "SDG Employment Category",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Family Medical Band",
+   "link_count": 0,
+   "link_to": "SDG Family Medical Band",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Gross Insurance Band",
+   "link_count": 0,
+   "link_to": "SDG Gross Insurance Band",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Insured Person",
+   "link_count": 0,
+   "link_to": "SDG Insured Person",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Medical Band",
+   "link_count": 0,
+   "link_to": "SDG Medical Band",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Payroll Settings",
+   "link_count": 0,
+   "link_to": "SDG Payroll Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SDG Sub Department",
+   "link_count": 0,
+   "link_to": "SDG Sub Department",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-04 21:47:28.315898",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Sharm Dreams Group",
+ "number_cards": [
+  {
+   "label": "Active Headcount",
+   "number_card_name": "Active Headcount"
+  },
+  {
+   "label": "Leavers",
+   "number_card_name": "Leavers"
+  },
+  {
+   "label": "Joined This FY",
+   "number_card_name": "Joined This FY"
+  },
+  {
+   "label": "Joined (90 days)",
+   "number_card_name": "Joined (90 days)"
+  },
+  {
+   "label": "No SI Number",
+   "number_card_name": "No SI Number"
+  },
+  {
+   "label": "No ID Expiry",
+   "number_card_name": "No ID Expiry"
+  },
+  {
+   "label": "ID Expired",
+   "number_card_name": "ID Expired"
+  },
+  {
+   "label": "ID Expiring (90d)",
+   "number_card_name": "ID Expiring (90d)"
+  },
+  {
+   "label": "No Department",
+   "number_card_name": "No Department"
+  },
+  {
+   "label": "No Designation",
+   "number_card_name": "No Designation"
+  },
+  {
+   "label": "No Gender Record",
+   "number_card_name": "No Gender Record"
+  },
+  {
+   "label": "No Governorate",
+   "number_card_name": "No Governorate"
+  },
+  {
+   "label": "Military Service Exempted",
+   "number_card_name": "Military Service Exempted"
+  },
+  {
+   "label": "Medically Insured",
+   "number_card_name": "Medically Insured"
+  },
+  {
+   "label": "Active Without Medical Record",
+   "number_card_name": "Active Without Medical Record"
+  },
+  {
+   "label": "People of Determination",
+   "number_card_name": "People of Determination"
+  },
+  {
+   "label": "Payroll Net",
+   "number_card_name": "Payroll Net"
+  },
+  {
+   "label": "Payroll Gross",
+   "number_card_name": "Payroll Gross"
+  },
+  {
+   "label": "Employer Cost",
+   "number_card_name": "Employer Cost"
+  },
+  {
+   "label": "Loan Repayment",
+   "number_card_name": "Loan Repayment"
+  },
+  {
+   "label": "Paid This Payroll",
+   "number_card_name": "Paid This Payroll"
+  },
+  {
+   "label": "Average Net Salary",
+   "number_card_name": "Average Net Salary"
+  },
+  {
+   "label": "Average Gross Salary",
+   "number_card_name": "Average Gross Salary"
+  },
+  {
+   "label": "Lowest Net Salary",
+   "number_card_name": "Lowest Net Salary"
+  },
+  {
+   "label": "Highest Net Salary",
+   "number_card_name": "Highest Net Salary"
+  },
+  {
+   "label": "Employees On A Loan",
+   "number_card_name": "Employees On A Loan"
+  },
+  {
+   "label": "Contract Types In Use",
+   "number_card_name": "Contract Types In Use"
+  },
+  {
+   "label": "No Contract Type",
+   "number_card_name": "No Contract Type"
+  },
+  {
+   "label": "No Contract Start Date",
+   "number_card_name": "No Contract Start Date"
+  },
+  {
+   "label": "Limited-Term Staff",
+   "number_card_name": "Limited-Term Staff"
+  },
+  {
+   "label": "No Contract End Date",
+   "number_card_name": "No Contract End Date"
+  },
+  {
+   "label": "Contracts Ended",
+   "number_card_name": "Contracts Ended"
+  },
+  {
+   "label": "Contracts Ending (90d)",
+   "number_card_name": "Contracts Ending (90d)"
+  },
+  {
+   "label": "Contracts Ending (30d)",
+   "number_card_name": "Contracts Ending (30d)"
+  },
+  {
+   "label": "Medical Cover Cost",
+   "number_card_name": "Medical Cover Cost"
+  },
+  {
+   "label": "Social Insurance Enrolled",
+   "number_card_name": "Social Insurance Enrolled"
+  },
+  {
+   "label": "School Fee Cases",
+   "number_card_name": "School Fee Cases"
+  },
+  {
+   "label": "ID Expiring (30d)",
+   "number_card_name": "ID Expiring (30d)"
+  },
+  {
+   "label": "Tenure 5+ Years",
+   "number_card_name": "Tenure 5+ Years"
+  },
+  {
+   "label": "Penalty Cases",
+   "number_card_name": "Penalty Cases"
+  },
+  {
+   "label": "Clear",
+   "number_card_name": "Clear"
+  },
+  {
+   "label": "Critical",
+   "number_card_name": "Critical"
+  },
+  {
+   "label": "Minor",
+   "number_card_name": "Minor"
+  },
+  {
+   "label": "Serious",
+   "number_card_name": "Serious"
+  },
+  {
+   "label": "Warning",
+   "number_card_name": "Warning"
+  },
+  {
+   "label": "With a Penalty",
+   "number_card_name": "With a Penalty"
+  }
+ ],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": -1.0,
+ "shortcuts": [
+  {
+   "doc_view": "List",
+   "icon": "octicon-graph",
+   "label": "SDG Gross Insurance Band",
+   "link_to": "SDG Gross Insurance Band",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-graph",
+   "label": "SDG Medical Band",
+   "link_to": "SDG Medical Band",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-graph",
+   "label": "SDG Family Medical Band",
+   "link_to": "SDG Family Medical Band",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-gear",
+   "label": "SDG Payroll Settings",
+   "link_to": "SDG Payroll Settings",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-file-directory",
+   "label": "SDG Employment Category",
+   "link_to": "SDG Employment Category",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-file-directory",
+   "label": "SDG Contract Type",
+   "link_to": "SDG Contract Type",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-file-directory",
+   "label": "SDG Sub Department",
+   "link_to": "SDG Sub Department",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "icon": "octicon-file-directory",
+   "label": "SDG Insured Person",
+   "link_to": "SDG Insured Person",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Income Tax Slab",
+   "link_to": "Income Tax Slab",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "SDG Coupon Band",
+   "link_to": "SDG Coupon Band",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "SDG Group Allocation",
+   "link_to": "SDG Group Allocation",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "SDG Penalty Level",
+   "link_to": "SDG Penalty Level",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "SDG Coupon Granted",
+   "link_to": "SDG Coupon Granted",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "SDG School Fee",
+   "link_to": "SDG School Fee",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Approval Category",
+   "link_to": "Employee Self Service Approval Category",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Approval Request",
+   "link_to": "Employee Self Service Approval Request",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Biometric Credential",
+   "link_to": "Employee Self Service Biometric Credential",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Location",
+   "link_to": "Employee Self Service Location",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Preauth",
+   "link_to": "Employee Self Service Preauth",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Employee Self Service Session",
+   "link_to": "Employee Self Service Session",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "",
+   "label": "Employee Self Service Settings",
+   "link_to": "Employee Self Service Settings",
+   "type": "DocType"
+  }
+ ],
+ "title": "Sharm Dreams Group",
+ "type": "Workspace"
+}

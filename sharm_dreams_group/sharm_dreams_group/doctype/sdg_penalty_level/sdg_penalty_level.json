@@ -1,0 +1,133 @@
+{
+ "actions": [],
+ "autoname": "field:level_name",
+ "creation": "2026-09-30 12:30:00.000000",
+ "description": "The rules that turn an employee's penalty points into a level: a colour for the list view and the action that level demands. Held as data rather than code so HR can change a threshold or a colour without a deployment.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "level_name",
+  "column_break_rules",
+  "from_points",
+  "to_points",
+  "indicator",
+  "colour",
+  "section_break_action",
+  "action_required",
+  "escalation_note",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "description": "What this level is called, e.g. Warning",
+   "fieldname": "level_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Level",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_rules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "description": "This level applies from this many points. The highest band an employee reaches wins, so the bands are read from the top down.",
+   "fieldname": "from_points",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "From Points",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Optional. Leave blank for 'this many points and above'. Set it to cap the band, e.g. 2 to 5.",
+   "fieldname": "to_points",
+   "fieldtype": "Int",
+   "label": "To Points"
+  },
+  {
+   "columns": 2,
+   "description": "Colours the left-hand indicator on the Employee list. Green through red.",
+   "fieldname": "indicator",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "List Indicator",
+   "options": "\nGreen\nBlue\nYellow\nOrange\nRed\nPurple\nGrey"
+  },
+  {
+   "columns": 2,
+   "description": "Used on the employee card and the dashboard tile. Keep it consistent with the indicator so the two never disagree.",
+   "fieldname": "colour",
+   "fieldtype": "Color",
+   "label": "Colour"
+  },
+  {
+   "fieldname": "section_break_action",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "What HR must do when an employee reaches this level. Shown on the Employee form, so the rule travels with the person rather than living in a policy document.",
+   "fieldname": "action_required",
+   "fieldtype": "Small Text",
+   "label": "Action Required"
+  },
+  {
+   "description": "Optional. Anything that escalates at this level beyond the action, e.g. who is notified.",
+   "fieldname": "escalation_note",
+   "fieldtype": "Small Text",
+   "label": "Escalation Note"
+  },
+  {
+   "columns": 2,
+   "description": "Display order, lowest band first. Only affects the order levels are listed in; which band applies is decided by from_points.",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-30 12:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Penalty Level",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "SDG Payroll Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "level_name"
+}

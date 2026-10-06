@@ -1,0 +1,127 @@
+{
+ "actions": [],
+ "creation": "2026-09-30 12:30:00",
+ "description": "One recorded penalty against an employee. Deliberately has no effect on salary: it feeds the level that HR acts on, not the payslip.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "penalty_date",
+  "penalty_type",
+  "points",
+  "column_break_status",
+  "status",
+  "expires_on",
+  "section_break_detail",
+  "reason",
+  "action_taken",
+  "column_break_audit",
+  "issued_by",
+  "reference"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "description": "When it happened. A penalty dated in the future is a mistake and is rejected on save.",
+   "fieldname": "penalty_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Penalty Date",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Kept open-ended rather than tied to attendance types, because the working vocabulary differs by company and HR is the one who knows it.",
+   "fieldname": "penalty_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "\nAbsenteeism\nLate Arrival\nPolicy Breach\nMisconduct\nQuality\nSafety\nCustomer Complaint\nOther",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Weight, not a count. A verbal warning is 1, a formal written warning 3, a case escalated to HR 5. Levels are thresholds on this, so escalating a single penalty never means editing old rows.",
+   "fieldname": "points",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Points",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "description": "Only Open and Acknowledged penalties count towards the level. Waived and Withdrawn are kept for the record but stop counting; Expired is set automatically once expires_on has passed.",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "\nOpen\nAcknowledged\nAppealed\nWaived\nWithdrawn",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Optional. After this date the penalty stops counting, so an old warning does not follow someone for the rest of their career. Blank means it counts until waived.",
+   "fieldname": "expires_on",
+   "fieldtype": "Date",
+   "label": "Expires On"
+  },
+  {
+   "fieldname": "section_break_detail",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 8,
+   "description": "What happened, in the words the employee was actually told.",
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "reqd": 1
+  },
+  {
+   "columns": 8,
+   "description": "What was done about it, if anything. The level's own action is separate and comes from the Penalty Level.",
+   "fieldname": "action_taken",
+   "fieldtype": "Small Text",
+   "label": "Action Taken"
+  },
+  {
+   "fieldname": "column_break_audit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 4,
+   "default": "Administrator",
+   "description": "Left as Administrator unless set, so a penalty raised by a script is attributed honestly rather than to nobody.",
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Issued By",
+   "options": "User"
+  },
+  {
+   "columns": 4,
+   "description": "Ticket, email or note this came from.",
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-01 12:08:46.909863",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Penalty",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "penalty_date",
+ "sort_order": "DESC",
+ "states": []
+}

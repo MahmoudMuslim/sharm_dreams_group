@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-30 00:00:00.000000",
+ "description": "The company's school fee for one child of an employee. HR sets the fee once here and children point at it, rather than the same figure being typed into every employee's form.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "school_fee_name",
+  "amount",
+  "column_break_counts",
+  "child_count",
+  "employee_count",
+  "section_break_note",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "description": "How the fee is referred to in practice, e.g. \"Primary - Egyptian curriculum\".",
+   "fieldname": "school_fee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "School Fee",
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "columns": 2,
+   "description": "The monthly fee. Currency rather than a whole number of pounds, because Egyptian fees carry piastres and an integer field would silently round them.",
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_counts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "description": "How many children currently point at this fee.",
+   "fieldname": "child_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Children",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "description": "How many distinct employees have a child on this fee.",
+   "fieldname": "employee_count",
+   "fieldtype": "Int",
+   "label": "Employees",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 4,
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG School Fee",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "SDG Payroll User",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "school_fee_name",
+ "autoname": "field:school_fee_name"
+}

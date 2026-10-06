@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "hash",
+ "creation": "2026-09-29 12:00:00.000000",
+ "description": "A cost-of-living coupon handed to an employee, and the notes counted",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "period_month",
+  "employee",
+  "band",
+  "amount",
+  "notes_100",
+  "notes_200",
+  "notes_250",
+  "notes_total",
+  "section_break_src",
+  "workbook_row",
+  "source_sheet",
+  "signature_received",
+  "section_break_note",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "description": "First day of the month the coupon was handed over",
+   "fieldname": "period_month",
+   "fieldtype": "Date",
+   "label": "Period Month",
+   "reqd": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 0,
+   "description": "Optional. Blank where the workbook names no work ID, or one the site does not have - see the Unrecorded Coupon flag."
+  },
+  {
+   "fieldname": "band",
+   "fieldtype": "Link",
+   "label": "Band",
+   "options": "SDG Coupon Band"
+  },
+  {
+   "default": "0",
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "notes_100",
+   "fieldtype": "Int",
+   "label": "100 Notes"
+  },
+  {
+   "default": "0",
+   "fieldname": "notes_200",
+   "fieldtype": "Int",
+   "label": "200 Notes"
+  },
+  {
+   "default": "0",
+   "fieldname": "notes_250",
+   "fieldtype": "Int",
+   "label": "250 Notes"
+  },
+  {
+   "default": "0",
+   "description": "100 x n100 + 200 x n200 + 250 x n250, must equal Amount",
+   "fieldname": "notes_total",
+   "fieldtype": "Currency",
+   "label": "Notes Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_src",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "fieldname": "workbook_row",
+   "fieldtype": "Int",
+   "label": "Workbook Row",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_sheet",
+   "fieldtype": "Data",
+   "label": "Source Sheet",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "signature_received",
+   "fieldtype": "Check",
+   "label": "Signature Received"
+  },
+  {
+   "fieldname": "sdg_unrecorded",
+   "fieldtype": "Check",
+   "label": "Unrecorded Coupon",
+   "insert_after": "signature_received",
+   "default": "0",
+   "description": "The workbook records this coupon but no Employee could be matched to it, so it is cash that left without an owner. It is kept and flagged here rather than dropped, so the shortfall is countable and visible instead of silent."
+  },
+  {
+   "fieldname": "section_break_note",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Coupon Granted",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "SDG Payroll Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee",
+ "track_changes": 1
+}

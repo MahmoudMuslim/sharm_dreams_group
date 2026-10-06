@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 12:00:00.000000",
+ "description": "One row per document in an employee's personnel file",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "document_item",
+  "status",
+  "notes"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "description": "The document this row is about",
+   "fieldname": "document_item",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Document",
+   "options": "\nHRA\nLOI\nID\n6 PIC\nMilitary\nMedical 111\nSocial S1\nCriminal Record\nEducation Certificate\nEmployment Permit\nSecurity Check\nBank Details\nEmployment of Relatives\nBeneficiary\nCode of Business Conduct\nUpdated CV / Interview Papers\nJob Description\nReference Check",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Held = on file, Missing = not yet received, Not Applicable = not required. Deliberately not mandatory: 57 of the master's cells are blank and three carry a stray 'Copy', and an empty status means 'not recorded'. Making it mandatory would make every save of an employee holding such a row fail.",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "\nHeld\nMissing\nNot Applicable"
+  },
+  {
+   "description": "Why it is missing, who chased it, or where the paper copy is",
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Employee File Item",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

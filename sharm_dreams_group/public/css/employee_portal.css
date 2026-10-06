@@ -1,0 +1,425 @@
+/* Copyright (c) 2026, Sharm Dreams Group and contributors
+ * For license information, see license.txt
+ *
+ * The header is a CSS comment, not `#` as in every Python file in this app. `#` is an
+ * ID selector here, so the parser took everything from the copyright line through to the
+ * first `{` - the opening brace of `.ep-root` - as one invalid selector list and threw
+ * the rule away. Every `--ep-*` custom property is defined on `.ep-root`, so losing that
+ * one rule left every other rule referencing variables that did not exist: no card
+ * surfaces, no borders, no colours. The page still laid out and behaved correctly, and
+ * no test could see it. Only looking at it did.
+ */
+
+/* The employee portal.
+
+ * Scoped under `.ep-root` throughout, and never injected into the desk: the root is a
+ * full-viewport element, and putting that in `app_include_css` would lay it over every
+ * page in the system. Linked by `www/employee-portal.html` instead.
+ *
+ * Sizes are in `rem` off a 16px base so the page scales with the tablet's own font
+ * setting - a kiosk at arm's length is read at arm's length.
+ */
+
+.ep-root {
+	--ep-bg: #f4f6f8;
+	--ep-card: #ffffff;
+	--ep-ink: #1f2933;
+	--ep-muted: #6b7280;
+	--ep-line: #e2e8f0;
+	--ep-accent: #2563eb;
+	--ep-accent-ink: #ffffff;
+	--ep-good: #059669;
+	--ep-warn: #b45309;
+	--ep-bad: #b91c1c;
+	--ep-gap: 1rem;
+
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	background: var(--ep-bg);
+	color: var(--ep-ink);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font-size: 16px;
+	line-height: 1.45;
+	overflow: hidden;
+	-webkit-text-size-adjust: 100%;
+}
+
+/* ------------------------------------------------------------------ header */
+.ep-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--ep-gap);
+	padding: 0.75rem 1.25rem;
+	background: var(--ep-card);
+	border-bottom: 1px solid var(--ep-line);
+	flex: 0 0 auto;
+}
+
+.ep-brand-name { font-weight: 700; font-size: 1.05rem; }
+.ep-head-right { display: flex; align-items: center; gap: 0.5rem; }
+.ep-lang-wrap { position: relative; }
+
+.ep-lang-btn,
+.ep-signout {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.7rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	background: var(--ep-card);
+	color: var(--ep-ink);
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.ep-lang-btn.active { border-color: var(--ep-accent); color: var(--ep-accent); }
+/* An author `display` beats the user-agent's `[hidden] { display: none }` - the
+   classes above set `display` on both buttons, so without this the Sign out button
+   is on screen before anyone has signed in. */
+.ep-root [hidden] { display: none !important; }
+
+.ep-caret { font-size: 0.7em; }
+
+.ep-lang-dd {
+	position: absolute;
+	inset-inline-end: 0;
+	top: calc(100% + 0.35rem);
+	min-width: 11rem;
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 0.6rem;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+	padding: 0.35rem;
+	z-index: 30;
+}
+
+.ep-dropdown-title {
+	font-size: 0.7rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	padding: 0.3rem 0.5rem;
+}
+
+.ep-lang-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	padding: 0.5rem;
+	border: 0;
+	border-radius: 0.4rem;
+	background: transparent;
+	color: inherit;
+	font-size: 0.95rem;
+	text-align: start;
+	cursor: pointer;
+}
+
+.ep-lang-item:hover { background: #eef2f7; }
+.ep-lang-item.active { color: var(--ep-accent); font-weight: 600; }
+
+/* -------------------------------------------------------------------- main */
+.ep-main {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 1.25rem;
+}
+
+.ep-host { max-width: 46rem; margin: 0 auto; }
+.ep-fade { animation: ep-fade 0.18s ease-out; }
+
+@keyframes ep-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-fade { animation: none; }
+}
+
+/* ------------------------------------------------------------------ blocks */
+.ep-card {
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 0.8rem;
+	padding: 1rem 1.1rem;
+	margin-bottom: var(--ep-gap);
+}
+
+.ep-card-title {
+	font-size: 0.78rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	margin: 0 0 0.6rem;
+}
+
+/* ------------------------------------------------------------------ tiles */
+.ep-tiles {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 0.6rem;
+	margin-bottom: var(--ep-gap);
+}
+
+.ep-tile {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+	padding: 0.9rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.8rem;
+	background: var(--ep-card);
+	color: inherit;
+	font-size: 1rem;
+	font-weight: 600;
+	text-align: start;
+	cursor: pointer;
+}
+
+.ep-tile:hover { border-color: var(--ep-accent); }
+.ep-tile-icon { color: var(--ep-accent); font-size: 1.1rem; }
+
+/* ------------------------------------------------------------------ inputs */
+.ep-label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; }
+
+.ep-input {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 0.7rem 0.8rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	font-size: 1rem;
+	background: var(--ep-card);
+	color: inherit;
+}
+
+.ep-input:focus { outline: 2px solid var(--ep-accent); outline-offset: 1px; }
+
+.ep-field { margin-bottom: 0.9rem; }
+
+.ep-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	width: 100%;
+	padding: 0.8rem 1rem;
+	border: 0;
+	border-radius: 0.6rem;
+	background: var(--ep-accent);
+	color: var(--ep-accent-ink);
+	font-size: 1rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ep-btn:disabled { opacity: 0.6; cursor: default; }
+.ep-btn-ghost { background: transparent; color: var(--ep-accent); border: 1px solid var(--ep-line); }
+
+.ep-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-bottom: 0.8rem;
+	padding: 0.4rem 0.6rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	background: var(--ep-card);
+	color: var(--ep-muted);
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+/* ------------------------------------------------------------------- rows */
+.ep-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.8rem 0;
+	border-bottom: 1px solid var(--ep-line);
+}
+
+.ep-row:last-child { border-bottom: 0; }
+.ep-row-main { min-width: 0; }
+.ep-row-title { font-weight: 600; }
+.ep-row-meta { color: var(--ep-muted); font-size: 0.85rem; margin-top: 0.15rem; }
+.ep-row-value { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+
+/* --------------------------------------------------------------- balances */
+.ep-balance { padding: 0.75rem 0; border-bottom: 1px solid var(--ep-line); }
+.ep-balance:last-child { border-bottom: 0; }
+
+.ep-bar {
+	position: relative;
+	height: 0.5rem;
+	border-radius: 0.25rem;
+	background: #e5eaf0;
+	overflow: hidden;
+	margin-top: 0.45rem;
+}
+
+.ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 0.25rem; }
+
+/* ----------------------------------------------------------------- status */
+.ep-badge {
+	display: inline-block;
+	padding: 0.15rem 0.5rem;
+	border-radius: 999px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	background: #eef2f7;
+	color: var(--ep-muted);
+}
+
+.ep-badge--good { background: #dcfce7; color: var(--ep-good); }
+.ep-badge--info { background: #dbeafe; color: var(--ep-accent); }
+.ep-badge--warn { background: #fef3c7; color: var(--ep-warn); }
+.ep-badge--bad { background: #fee2e2; color: var(--ep-bad); }
+
+.ep-alert {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+	padding: 0.8rem 0.9rem;
+	border-radius: 0.6rem;
+	margin-bottom: var(--ep-gap);
+	font-size: 0.95rem;
+}
+
+.ep-alert--bad { background: #fee2e2; color: var(--ep-bad); }
+.ep-alert--info { background: #dbeafe; color: var(--ep-accent); }
+
+.ep-empty { text-align: center; padding: 2rem 1rem; color: var(--ep-muted); }
+.ep-empty-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+.ep-empty-title { font-weight: 600; margin-bottom: 0.25rem; }
+
+.ep-spin {
+	display: inline-block;
+	width: 1.1rem;
+	height: 1.1rem;
+	border: 2px solid rgba(37, 99, 235, 0.3);
+	border-top-color: var(--ep-accent);
+	border-radius: 50%;
+	animation: ep-spin 0.7s linear infinite;
+}
+
+@keyframes ep-spin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-spin { animation: none; }
+}
+
+/* Only for screen readers: the page swaps whole screens, so without this nothing
+   would be announced or move focus. */
+.ep-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Right-to-left: the layout follows the text, so nothing is mirrored by hand. */
+[dir="rtl"] .ep-row,
+[dir="rtl"] .ep-balance { text-align: start; }
+[dir="rtl"] .ep-lang-item { text-align: start; }
+
+/* Narrow tablets held in portrait. */
+@media (max-width: 30rem) {
+	.ep-main { padding: 0.9rem; }
+	.ep-tiles { grid-template-columns: 1fr; }
+}
+
+/* The self-assessment stars. Big hit targets: this is pressed at the end of a shift,
+   possibly by someone wearing gloves, and a five-point scale in a dropdown is four
+   more taps than it needs to be. */
+.ep-stars { display: flex; align-items: center; gap: 0.15rem; }
+
+.ep-star {
+	background: none;
+	border: 0;
+	/* Big target on purpose. A 26x26 star is a browser-sized target for a tablet on a
+	 * wall: at arm's length, pressed by someone who may be wearing gloves, and at the
+	 * end of a shift when they are in a hurry. */
+	padding: 0.45rem;
+	cursor: pointer;
+	color: var(--ep-muted, #9aa4b2);
+	font-size: 1.6rem;
+	line-height: 1;
+	border-radius: 0.25rem;
+}
+
+.ep-star:hover { color: #f0b429; }
+
+/* `--on` rather than a hover-only style, so what is currently saved stays visible
+   after the pointer moves away. */
+.ep-star--on { color: #f0b429; }
+
+.ep-star:focus-visible { outline: 2px solid var(--ep-accent, #2f6feb); }
+
+.ep-star-value {
+	margin-inline-start: 0.5rem;
+	font-size: 0.85rem;
+	color: var(--ep-muted, #6b7280);
+	font-variant-numeric: tabular-nums;
+}
+
+[dir="rtl"] .ep-stars { flex-direction: row-reverse; }
+
+/* ------------------------------------------------------- wall-tablet sizing
+ *
+ * Everything above is sized for a browser window. This is a tablet on a wall, read at
+ * arm's length, often by someone wearing gloves, and measured after it was built: the
+ * six dashboard tiles came out 363x51 with 21px icons, which is a browser-sized target
+ * for a surface you tap with a whole hand.
+ *
+ * These are appended rather than folded into the rules above so the sizes they change
+ * are all in one place, and so nothing above has to be re-read to see what a tap target
+ * now measures. Equal specificity, later in the file, so these win.
+ *
+ * The floor is 3rem (48px) on anything tappable, which is the smallest target that is
+ * reliably hittable without looking directly at it. Where a rule above used a smaller
+ * padding, it is the padding that grows - not the font, except for the tile labels,
+ * which are read at a distance and so are scaled with the target.
+ */
+.ep-tile { min-height: 5.5rem; padding: 1.1rem 1.25rem; gap: 0.9rem; font-size: 1.15rem; }
+.ep-tile-icon { font-size: 2.1rem; width: 2.9rem; height: 2.9rem; }
+.ep-btn { min-height: 3.25rem; padding: 0.7rem 1.1rem; font-size: 1.05rem; }
+.ep-back,
+.ep-lang-btn,
+.ep-signout { min-height: 3rem; padding: 0.6rem 0.9rem; }
+
+/* Rows are tapped to open a payslip or a claim, so they need the same floor even
+ * though they read as list items rather than buttons. */
+.ep-row { min-height: 3.5rem; padding-top: 0.85rem; padding-bottom: 0.85rem; }
+
+/* Three columns where there is room. Two columns at 875px wide left each tile 363px
+ * across and 51px tall - a wide, thin target. Wider and taller is easier to hit and
+ * stops the label wrapping on the longer ones ("Shift & attendance"). */
+@media (min-width: 60rem) {
+	.ep-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Touch feedback. A tablet gives no hover, so a tap that changes nothing looks broken
+ * even when it worked. `:active` is the only state a finger can actually see. */
+.ep-tile:active,
+.ep-btn:active,
+.ep-star:active { transform: scale(0.97); }
+.ep-tile,
+.ep-btn,
+.ep-star,
+.ep-row { transition: transform 80ms ease, background-color 80ms ease; }

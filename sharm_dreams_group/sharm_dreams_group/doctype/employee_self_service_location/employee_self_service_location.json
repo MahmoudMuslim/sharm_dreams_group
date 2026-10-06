@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "field:employee_self_service_location_name",
+ "creation": "2026-10-04 00:00:00.000000",
+ "description": "One punch zone: a centre point and the radius around it an employee must be inside to check in or out. Anchored to the employee's Company, so one zone per site.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee_self_service_location_name",
+  "company",
+  "column_break",
+  "latitude",
+  "longitude",
+  "column_break_1",
+  "radius_km",
+  "active"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee_self_service_location_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Location Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Latitude",
+   "precision": "9",
+   "reqd": 1
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Longitude",
+   "precision": "9",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0.5",
+   "fieldname": "radius_km",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Acceptable Radius (km)",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active",
+   "reqd": 0
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-10-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Location",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "HR User"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_self_service_location_name",
+ "track_changes": 1
+}

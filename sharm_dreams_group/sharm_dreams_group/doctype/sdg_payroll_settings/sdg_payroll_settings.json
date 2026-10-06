@@ -1,0 +1,195 @@
+{
+ "actions": [],
+ "creation": "2026-09-29 12:00:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_si",
+  "si_employee_rate",
+  "si_employer_rate",
+  "training_fund_rate",
+  "training_fund_fixed",
+  "martyrs_fund_rate",
+  "emergency_fund_rate",
+  "emergency_base_cap",
+  "column_break_tax",
+  "section_tax",
+  "exemption_standard",
+  "exemption_determination",
+  "delegated_tax_rate",
+  "tax_rounding_multiple",
+  "insurance_cap_percent",
+  "insurance_cap_max",
+  "section_earnings",
+  "monthly_days_divisor",
+  "official_day_multiplier",
+  "family_member_annual_rate"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_si",
+   "fieldtype": "Section Break",
+   "label": "Social Insurance & Statutory"
+  },
+  {
+   "default": "11",
+   "fieldname": "si_employee_rate",
+   "fieldtype": "Percent",
+   "label": "SI Employee Rate",
+   "reqd": 1
+  },
+  {
+   "default": "18.75",
+   "fieldname": "si_employer_rate",
+   "fieldtype": "Percent",
+   "label": "SI Employer Rate",
+   "reqd": 1
+  },
+  {
+   "default": "0.25",
+   "fieldname": "training_fund_rate",
+   "fieldtype": "Percent",
+   "label": "Training & Employment Fund",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Used when the rate cannot be applied",
+   "fieldname": "training_fund_fixed",
+   "fieldtype": "Currency",
+   "label": "Training Fund Fixed Fallback"
+  },
+  {
+   "default": "0.05",
+   "description": "0.05% of gross = P * 5/10000",
+   "fieldname": "martyrs_fund_rate",
+   "fieldtype": "Percent",
+   "label": "Martyrs Fund Rate",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "emergency_fund_rate",
+   "fieldtype": "Percent",
+   "label": "Emergency Fund Rate",
+   "reqd": 1
+  },
+  {
+   "default": "2720",
+   "fieldname": "emergency_base_cap",
+   "fieldtype": "Currency",
+   "label": "Emergency Fund Base Cap",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tax",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_tax",
+   "fieldtype": "Section Break",
+   "label": "Income Tax"
+  },
+  {
+   "default": "1666.66",
+   "fieldname": "exemption_standard",
+   "fieldtype": "Currency",
+   "label": "Exemption - Normal Employee",
+   "reqd": 1
+  },
+  {
+   "default": "2500",
+   "fieldname": "exemption_determination",
+   "fieldtype": "Currency",
+   "label": "Exemption - People of Determination",
+   "reqd": 1
+  },
+  {
+   "default": "10",
+   "description": "Flat rate applied to a row that has a Delegated Company",
+   "fieldname": "delegated_tax_rate",
+   "fieldtype": "Percent",
+   "label": "Delegated Row Tax Rate",
+   "reqd": 1
+  },
+  {
+   "default": "10",
+   "description": "Annual tax base is floored to a multiple of this",
+   "fieldname": "tax_rounding_multiple",
+   "fieldtype": "Int",
+   "label": "Annual Base Rounding",
+   "reqd": 1
+  },
+  {
+   "default": "15",
+   "fieldname": "insurance_cap_percent",
+   "fieldtype": "Percent",
+   "label": "Insurance Cap (% of base)",
+   "reqd": 1
+  },
+  {
+   "default": "10000",
+   "fieldname": "insurance_cap_max",
+   "fieldtype": "Currency",
+   "label": "Insurance Cap (max)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_earnings",
+   "fieldtype": "Section Break",
+   "label": "Earnings"
+  },
+  {
+   "default": "30",
+   "description": "Monthly gross is divided by this to get a daily rate",
+   "fieldname": "monthly_days_divisor",
+   "fieldtype": "Int",
+   "label": "Days Divisor",
+   "reqd": 1
+  },
+  {
+   "default": "2",
+   "description": "Official days are valued at this multiple of the daily rate",
+   "fieldname": "official_day_multiplier",
+   "fieldtype": "Int",
+   "label": "Official Day Multiplier",
+   "reqd": 1
+  },
+  {
+   "default": "3100",
+   "description": "Per covered family member per year. Monthly = this / 12",
+   "fieldname": "family_member_annual_rate",
+   "fieldtype": "Currency",
+   "label": "Family Member Annual Rate",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "SDG Payroll Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,141 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Sharm Dreams Group &mdash; Employee Self Service{% endblock %}
+
+{% block head_include %}
+{# The theme, settled before anything paints. This has to run *before* the
+   stylesheet link below, and before <body> exists, or a tablet on the dark setting
+   flashes a white page on every load and every reload.
+
+   It reads the same cookie the server read, but the cookie *name* is injected
+   rather than repeated here, so a rename cannot leave the two halves disagreeing.
+
+   "system" is resolved here and nowhere else: the server cannot ask the browser
+   what it prefers, and doing it in CSS instead would mean writing the dark palette
+   twice. See the note above the token block in self_service.css. #}
+<script>
+(function () {
+	var stored = "system";
+	var parts = document.cookie ? document.cookie.split(";") : [];
+	for (var i = 0; i < parts.length; i++) {
+		var pair = parts[i].trim().split("=");
+		if (decodeURIComponent(pair[0]) === {{ self_service_theme_cookie|tojson }}) {
+			stored = decodeURIComponent(pair[1] || "");
+			break;
+		}
+	}
+	if (stored !== "light" && stored !== "dark") {
+		stored = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)
+			? "dark"
+			: "light";
+	}
+	document.documentElement.setAttribute("data-k-theme", stored);
+})();
+</script>
+{# Font Awesome 4.7 is the only icon font this bench ships, and Frappe does NOT
+   include it on website pages -- so without this every <i class="fa ..."> on the
+   self-service page rendered as an empty box. Odoo's kiosk used FA5, so two of the names have
+   no FA4 equivalent and are mapped in self-service.css (see .k-ico-*). #}
+<link rel="stylesheet" href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css">
+<link rel="stylesheet" href="{{ self_service_css }}">
+{% endblock %}
+
+{% block page_content %}
+{# `self_service_lang`, not `lang`: Frappe's website context already defines `lang`
+   (the site default), so reading that here always yielded "en". #}
+{% set k = SELF_SERVICE_STRINGS.get(self_service_lang, SELF_SERVICE_STRINGS.get("en")) %}
+{% set dir = "rtl" if self_service_lang == "ar" else "ltr" %}
+{% set company_name = frappe.db.get_default("company") or "Sharm Dreams Group" %}
+
+<!-- Frappe's base template already owns <body>, so the self-service page is a full-viewport
+     root element instead: the header/main/footer column, the page background and
+     the text direction all hang off this one node. -->
+<div class="k-root" id="essRoot" dir="{{ dir }}" lang="{{ self_service_lang }}" data-lang="{{ self_service_lang }}"
+     data-company="{{ company_name }}" data-delay="{{ INACTIVITY_MS }}">
+
+	<!-- ============================================================ header -->
+	<header class="k-header">
+		<div class="k-brand">
+			<span class="k-brand-logo d-inline-flex align-items-center justify-content-center rounded-pill">
+				<i class="fa fa-building"></i>
+			</span>
+			<span class="k-hidden-sm">
+				<span class="k-brand-name d-block">{{ company_name }}</span>
+				<span class="k-brand-sub d-block">{{ k.employee_self_service }}</span>
+			</span>
+		</div>
+
+		<div class="k-lang" id="langWrap">
+			<button type="button" class="k-lang-btn{% if self_service_lang == 'en' %} active{% endif %}" id="langBtn"
+			        aria-expanded="false" aria-haspopup="true">
+				<i class="fa fa-globe"></i>
+				<span id="langName">{{ self_service_current_lang }}</span>
+				<span class="k-lang-code" id="langCode">{{ self_service_lang|upper }}</span>
+				<i class="fa fa-caret-down k-lang-caret" id="langCaret"></i>
+			</button>
+			<div class="k-lang-dd" id="langDd" hidden>
+				<div class="k-lang-dd-head"><i class="fa fa-language me-1"></i> {{ k.language }}</div>
+				{# rendered from SELF_SERVICE_LANGUAGES so the menu cannot drift from the
+                   server's list; the current one is marked here, not in JS #}
+				{% for item in self_service_languages %}
+				<button type="button" class="k-lang-item{% if item.code == self_service_lang %} active{% endif %}"
+				        data-code="{{ item.code }}" lang="{{ item.code }}">
+					<span class="k-lang-flag"><i class="fa {% if item.code == self_service_lang %}fa-check{% else %}fa-language{% endif %}"></i></span>
+					<span class="flex-grow-1">{{ item.name }}</span>
+					<span class="k-lang-tag">{{ item.code|upper }}</span>
+				</button>
+				{% endfor %}
+			</div>
+		</div>
+
+		{# The light/dark picker, deliberately shaped like the language menu beside
+		   it so the header reads as one control group rather than two. Rendered
+		   server-side from SELF_SERVICE_THEME_ITEMS so it cannot drift from the
+		   list the server accepts; the "active" mark is set here for the resolved
+		   theme, and JS moves it when the tablet's own setting changes under
+		   "Match device". #}
+		<div class="k-lang" id="themeWrap">
+			<button type="button" class="k-lang-btn k-theme-btn{% if self_service_theme != 'system' %} active{% endif %}" id="themeBtn"
+			        aria-expanded="false" aria-haspopup="true"
+			        title="{{ k.theme }}">
+				<i class="fa" id="themeIcon"></i>
+			</button>
+			<div class="k-lang-dd" id="themeDd" hidden>
+				<div class="k-lang-dd-head"><i class="fa fa-adjust me-1"></i> {{ k.theme }}</div>
+				{% for item in SELF_SERVICE_THEME_ITEMS %}
+				<button type="button" class="k-lang-item{% if item.code == self_service_theme %} active{% endif %}"
+				        data-theme="{{ item.code }}">
+					<span class="k-lang-flag"><i class="fa {% if item.code == self_service_theme %}fa-check{% else %}{{ item.icon }}{% endif %}"></i></span>
+					<span class="flex-grow-1">{{ _(item.label) }}</span>
+				</button>
+				{% endfor %}
+			</div>
+		</div>
+
+		<div class="k-hidden-md text-end">
+			<div class="k-clock k-tabular"><span id="clockTime">--:--</span><i class="fa fa-circle-o k-clock-dot"></i></div>
+			<div class="k-header-date" id="clockDate"></div>
+		</div>
+	</header>
+
+	<!-- ============================================================== main -->
+	<main class="k-main">
+		<div class="k-screen-center" id="screenHost"></div>
+	</main>
+
+	<footer class="k-footer">
+		<i class="fa fa-bolt"></i> {{ k.powered_by }}
+	</footer>
+
+	{# screen-reader announcements: the self-service page swaps whole screens, so nothing
+	   would otherwise be announced or move focus on its own #}
+	<div id="essLive" class="k-sr" role="status" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+<script>
+window.CSRF_TOKEN = "{{ frappe.session.csrf_token }}";
+window.SELF_SERVICE_I18N = {{ SELF_SERVICE_STRINGS_JSON }};
+window.INACTIVITY_MS = {{ INACTIVITY_MS }};
+</script>
+<script src="{{ self_service_js }}"></script>
+{% endblock %}

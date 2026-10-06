@@ -1,0 +1,236 @@
+/* Copyright (c) 2026, Sharm Dreams Group and contributors
+For license information, see license.txt
+ */
+
+/* The dashboard page's own styling.
+
+Shipped as a `.bundle.css` for the reason the JS bundle is a bundle: nginx
+serves everything under `/assets/` with a one-year `Cache-Control`, so an
+unhashed URL is a file the browser never asks for again.  `bundled_asset` adds
+the content hash, and a change here changes the URL.
+
+Scoped to `.dashboard-page` throughout. The desk's own dashboard styles are
+shared with every other widget surface, so an unscoped `.widget-box` or
+`.chart-holder` rule here would follow the user onto the Form, the List and the
+workspace blocks. Everything below is namespaced to the page this app's factory
+builds.
+ */
+
+/* --- the card grid ---------------------------------------------------------
+`render_section` asks `WidgetGroup` for a column count, which stamps
+`class="widget-group-body grid-col-{n}"`.  Frappe styles `.grid-col-1`,
+`.grid-col-2` and `.grid-col-3` in `desk/desktop.scss` and has no fourth, so
+`grid-col-4` matched nothing: the group stayed `display: block` and all 43 cards
+stacked one per row, the full width of the page, on every dashboard this app
+builds.  Nothing was broken enough to notice in a test - the cards were all
+there, all clickable, all counted - and the only symptom was a dashboard that
+scrolled forever.
+
+So the width is applied as the custom property `--sharm-cols`, which
+`render_section` sets from the layout's own number.  A class per width would be
+twelve rules to keep in step with a table that is meant to be edited; a property
+is one rule for any count.  The stock classes are removed as the property is set,
+since nothing here keys off them and a re-render would otherwise leave both.
+
+Responsive the way Frappe's own `.grid-col-3` is rather than a fixed count: a fixed
+`repeat(4, 1fr)` squeezes a card to a fifth of a phone-width column and wraps every
+label.  `auto-fill` drops columns as the window narrows, so what the layout declares
+is the widest a row may be and never a floor.
+
+Two bounds, and both are wanted.  `calc(100% / var(--sharm-cols))` is the declared
+width: a floor of a nth of the container is what caps the row at that many columns
+without pinning them, so 4 across on a wide screen becomes 2 on a laptop and 1 on a
+phone by itself.  `max(<readability floor>, that)` keeps the label and its figure on
+one line when the two disagree - which is the whole point of asking for six cards on
+the gap band rather than four.  Below about 700px the readability floor wins and the
+row stops shrinking.
+
+`--sharm-cols` is set by `sharm_apply_columns` from the layout's own number, so this
+is one rule rather than one per width: six bands on one dashboard can ask for five,
+six, two and three cards across and none of them needs a class written for it here.
+The default in the `var()` is the desk's four, which is what a stock dashboard - with
+no layout of ours at all - gets.
+
+The floor is per kind, not one number for both.  A card holds a label and a figure;
+220px is what still fits "Average Gross Salary" beside its number on one line.  A
+chart holds an axis, and its x-axis labels rotate when they run out of room, so it
+needs less - and 220px on a 1280px screen is five charts across, more than any band
+here wants.
+ */
+.dashboard-page .widget-group-body.sharm-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(max(220px, calc(100% / var(--sharm-cols, 4))), 1fr));
+	column-gap: 15px;
+	row-gap: 15px;
+	align-items: start;
+}
+
+.dashboard-page .widget-group-body.sharm-charts {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(max(340px, calc(100% / var(--sharm-cols, 2))), 1fr));
+	column-gap: 15px;
+	row-gap: 15px;
+	align-items: start;
+}
+
+/* --- outer margin ---------------------------------------------------------
+The page's figures sat against the desk's own content edge: no air on the left or
+right, so a card's border was as far left as the sidebar's, and the whole thing read
+as a table that had been stretched rather than a dashboard.  8px is the desk's
+`--padding-md`; more than that and the first card no longer lines up with the page
+title above it, which is the alignment the eye actually uses to read a band.
+
+Vertical air is left alone. `.dashboard-view` already sets `gap: 24px` between
+sections and `padding-bottom`, and this is only the horizontal.
+ */
+.dashboard-page .dashboard-view {
+	padding-left: 8px;
+	padding-right: 8px;
+}
+
+/* Below the desk's `sm` breakpoint the sidebar is full-width and the page has no
+side edge to sit against, so the margin would only inset the cards away from the
+screen. */
+@media (max-width: 767px) {
+	.dashboard-page .dashboard-view {
+		padding-left: 0;
+		padding-right: 0;
+	}
+}
+
+/* --- section headings -----------------------------------------------------
+The stock heading is plain text at body weight, and four of them in a row read
+as four unconnected lists. A rule and some air make the sections read as the
+bands they are.
+ */
+.dashboard-page .dashboard-view {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding-bottom: 24px;
+}
+
+.dashboard-page .dashboard-section-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0 0 2px;
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: var(--ink-gray-6);
+}
+
+.dashboard-page .dashboard-section-head::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--border-color);
+}
+
+/* --- cards ----------------------------------------------------------------
+Number cards are already clickable here (the widget patch gives them a route),
+so they get the same affordance the charts do. Without it the cards look
+tappable and the charts do not, which is backwards: the chart is the one that
+most needs the hint.
+ */
+.dashboard-page .dashboard-widget-box,
+.dashboard-page .number-widget-box {
+	transition:
+		box-shadow 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.dashboard-page .number-widget-box:hover,
+.dashboard-page .sharm-clickable:hover {
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+	border-color: var(--ink-gray-4);
+}
+
+.dashboard-page .number-widget-box,
+.dashboard-page .sharm-clickable {
+	cursor: pointer;
+}
+
+.dashboard-page .number-widget-box:focus-visible,
+.dashboard-page .sharm-clickable:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 1px;
+}
+
+/* --- charts ---------------------------------------------------------------
+The affordance is applied to `.sharm-clickable`, which dashboard_view.js puts on
+the chart's *wrapper* div - `chart_widget.js` builds `this.chart_wrapper` as a
+bare `<div>`, so the wrapper carries no class of its own to target.  That wrapper
+is the parent of `.chart-container`, which in turn holds the svg:
+
+    .dashboard-widget-box > .widget-body > .sharm-clickable
+        > .chart-container > svg.frappe-chart
+
+So the pointer and the hover both come from the shared `.sharm-clickable` rules
+above, and the only thing left to say here is the shape of the drawing area.
+This block used to target `.chart-holder`, a class no widget ever emits, so
+none of it applied.
+
+`.sharm-clickable` is set only for a chart that actually has a drill-down: a
+stock chart stays a picture and gets no pointer.
+ */
+.dashboard-page .sharm-clickable .chart-container {
+	border-radius: var(--border-radius-md);
+}
+
+.dashboard-page .sharm-clickable svg [data-point-index] {
+	cursor: pointer;
+}
+
+/* --- empty state ----------------------------------------------------------
+A section whose widgets have not resolved yet should not read as a finished
+band with nothing in it.
+ */
+.dashboard-page .dashboard-section-empty {
+	padding: 18px 0;
+	color: var(--ink-gray-5);
+	font-size: 13px;
+}
+
+/* --- what can be clicked ---------------------------------------------------
+A card or a chart that goes somewhere says so.  It used to be invisible: an
+unwired card and a wired one looked identical, so "the charts do nothing" could
+not be told apart from "the click handler is broken" without a console.
+
+The marker is deliberately quiet - an underline and a small arrow - so a dashboard
+still reads as a dashboard, but a glance is enough to see which figures lead
+somewhere.  Anything without the class genuinely has nowhere to go.
+ */
+.dashboard-page .sharm-clickable-card .widget-body {
+	cursor: pointer;
+	text-decoration: underline dotted;
+	text-underline-offset: 3px;
+	text-decoration-color: var(--ink-gray-4);
+}
+
+.dashboard-page .sharm-clickable-card:hover .widget-body {
+	text-decoration-color: var(--primary-color);
+	background: var(--hover-bg);
+	border-radius: var(--border-radius-sm);
+}
+
+/* On the *number*, not on the body.
+
+The first version hung this off `.widget-body`, which reads fine and looks wrong:
+`.widget-body` is a block whose only child is `.widget-content > .number`, so a
+generated inline box after that block content starts a line of its own. Every
+card showed the number, then the arrow underneath it on a line of its own, which
+reads as a rendering fault rather than as an affordance.
+
+`.number` is an inline box holding the figure, so the arrow lands where it was
+meant to: immediately after it, superscript, at a fraction of its size.
+ */
+.dashboard-page .sharm-clickable-card .widget-body .number::after {
+	content: "\00a0\2197";
+	font-size: 0.7em;
+	vertical-align: super;
+	opacity: 0.45;
+	margin-left: 2px;
+}

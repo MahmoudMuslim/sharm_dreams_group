@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "creation": "2026-10-04 00:00:00.000000",
+ "description": "One approver a request type can be routed to. Copied onto the request when it is raised, so editing the request type later does not retroactively change requests already in flight.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "approver_user",
+  "column_break",
+  "required",
+  "sequence"
+ ],
+ "fields": [
+  {
+   "fieldname": "approver_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Approver",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "A required approver must approve for the request to complete, whatever Minimum Approvals says.",
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required",
+   "reqd": 0
+  },
+  {
+   "default": "0",
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence",
+   "reqd": 0
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sharm Dreams Group",
+ "name": "Employee Self Service Approval Category Approver",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "ASC",
+ "states": []
+}

@@ -1,0 +1,21 @@
+{
+ "app": "sharm_dreams_group",
+ "bg_color": "gray",
+ "creation": "2026-09-30 18:13:05.416283",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "App",
+ "idx": 1,
+ "label": "Sharm Dreams Group",
+ "link": "/desk/sharm-dreams-group",
+ "link_type": "External",
+ "logo_url": "/assets/sharm_dreams_group/images/logo.png",
+ "modified": "2026-09-30 18:13:57.576845",
+ "modified_by": "Administrator",
+ "name": "Sharm Dreams Group",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}
