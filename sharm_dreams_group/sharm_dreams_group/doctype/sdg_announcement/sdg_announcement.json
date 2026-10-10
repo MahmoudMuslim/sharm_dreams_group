@@ -1,0 +1,122 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Company-wide announcements for the employee portal",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"title",
+		"content",
+		"priority",
+		"published_on",
+		"expires_on",
+		"target_section",
+		"target_companies",
+		"target_departments",
+		"is_active"
+	],
+	"fields": [
+		{
+			"fieldname": "title",
+			"fieldtype": "Data",
+			"label": "Title",
+			"reqd": 1
+		},
+		{
+			"fieldname": "content",
+			"fieldtype": "Text Editor",
+			"label": "Content",
+			"reqd": 1
+		},
+		{
+			"default": "Normal",
+			"fieldname": "priority",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Priority",
+			"options": "\nNormal\nHigh\nUrgent"
+		},
+		{
+			"fieldname": "published_on",
+			"fieldtype": "Date",
+			"label": "Published On",
+			"reqd": 1
+		},
+		{
+			"fieldname": "expires_on",
+			"fieldtype": "Date",
+			"label": "Expires On"
+		},
+		{
+			"default": "Everyone",
+			"fieldname": "target_section",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Target Audience",
+			"options": "\nEveryone\nBy Company\nBy Department"
+		},
+		{
+			"depends_on": "eval:doc.target_section==\"By Company\"",
+			"fieldname": "target_companies",
+			"fieldtype": "Table MultiSelect",
+			"label": "Target Companies",
+			"options": "Company"
+		},
+		{
+			"depends_on": "eval:doc.target_section==\"By Department\"",
+			"fieldname": "target_departments",
+			"fieldtype": "Table MultiSelect",
+			"label": "Target Departments",
+			"options": "Department"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_active",
+			"fieldtype": "Check",
+			"label": "Active"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "SDG Announcement",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "published_on",
+	"sort_order": "DESC",
+	"states": []
+}

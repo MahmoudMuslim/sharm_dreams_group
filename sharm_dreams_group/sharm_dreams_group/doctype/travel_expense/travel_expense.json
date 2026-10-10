@@ -1,0 +1,66 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Expense line item for travel request",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"expense_type",
+		"expense_date",
+		"amount",
+		"currency",
+		"description",
+		"receipt"
+	],
+	"fields": [
+		{
+			"fieldname": "expense_type",
+			"fieldtype": "Link",
+			"label": "Expense Type",
+			"options": "Expense Claim Type",
+			"reqd": 1
+		},
+		{
+			"fieldname": "expense_date",
+			"fieldtype": "Date",
+			"label": "Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "amount",
+			"fieldtype": "Currency",
+			"label": "Amount",
+			"reqd": 1
+		},
+		{
+			"fetch_from": "expense_type.default_currency",
+			"fieldname": "currency",
+			"fieldtype": "Link",
+			"label": "Currency",
+			"options": "Currency"
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Data",
+			"label": "Description"
+		},
+		{
+			"fieldname": "receipt",
+			"fieldtype": "Attach",
+			"label": "Receipt"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Travel Expense",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "expense_date",
+	"sort_order": "ASC",
+	"states": []
+}

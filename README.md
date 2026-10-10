@@ -314,28 +314,24 @@ or internally inconsistent. Those are decisions for the business, not bugs:
 - all three medical bands — the `75k C` sample is a single employee
 - `Married + 1 Child` — the coupon register's stated total is 300 EGP adrift
 
-## Employee self service
+## Employee portal
 
 A wall tablet at the entrance: employees clock in, read their payslips, file leave
-and approval requests, all **without a Frappe user account**. Ported from the Odoo
-self-service addon, which it follows closely.
+and expense claims, all **without a Frappe user account**.
 
-The page is `/self-services-employees`. It is deliberately **not** a desk page — it
-is a website page with its own CSS and JS, linked by the page itself rather than
-injected through `app_include_css` / `app_include_js`, because `self_service.css` positions
-a fixed full-viewport root element that would sit on top of the desk everywhere else.
+The page is `/employee-portal`. It is deliberately **not** a desk page — it is a
+website page with its own CSS and JS, linked by the page itself rather than
+injected through `app_include_css` / `app_include_js`, because the portal CSS
+positions a fixed full-viewport root element that would sit on top of the desk
+everywhere else.
 
-The address matches the desk label — *Self Services Employees* — rather than the word
-"self-service", which describes the tablet and not the feature. The DocTypes keep their
-`Employee Self Service *` names and the `self_service/` package keeps its name. Frappe derives the route
-from the template filename and turns hyphens into underscores for the controller
-module, so the two files are `www/self-services-employees.html` and
-`www/self_services_employees.py` — the arrangement Frappe's own `www/update-password`
-uses. The route is written down once, in `renderers.PAGE_ROUTE`, and `TestWiring`
-checks the constant, the two filenames and the client's hardcoded API path against
-each other, because none of the three is reconciled at runtime.
+The route is written down once in `sharm_dreams_group.portal.renderers.PAGE_ROUTE`
+(`employee-portal`), and the two renderers (`PortalApiRenderer`, `PortalLangRenderer`)
+are registered in `hooks.py` via `page_renderer`. The old self-service page at
+`/self-services-employees` has been removed; its approval workflow is superseded
+by the portal's compensatory approval system (Leave In Lieu via Leave Allocation).
 
-There is **no redirect from `/self-service`**. It 404s.
+There is **no redirect from `/self-service` or `/self-services-employees`**. They 404.
 
 ### Light and dark
 
@@ -395,18 +391,16 @@ the ratio the palette's own comment claims.
 
 National ID (`Employee.sdg_national_id`) plus Employee Number
 (`Employee.employee_number`). Both are stock-or-already-there, so no new field is
-involved and the number on the self-service page is the number on the contract.
+involved and the number on the portal page is the number on the contract.
 
-The self-service then mints a **Employee Self Service Session** — one row, one opaque token, eight hours.
+The portal then mints a **Employee Self Service Session** — one row, one opaque token, eight hours.
 That token is the whole authorisation for every action afterwards; `resolve_session`
-turns it back into an Employee and nothing else on the self-service page reads a user id.
+turns it back into an Employee and nothing else on the portal reads a user id.
 Employees have no user, so two consequences run through the code:
 
 - `request_leave` and `cancel_leave` run as the employee's own user (or
   `Administrator`), because HRMS's `validate_balance_leaves` rejects guests with a
   message an employee cannot act on.
-- `Employee Self Service Approval Request.request_owner` is left empty; `employee` is who really
-  raised it.
 
 Once a device is enrolled it is **required**: `sign_in` refuses the pair and the
 WebAuthn challenge becomes the only way back in.
@@ -422,18 +416,17 @@ pair check exists at all rather than the biometric being unconditional.
 Two operational notes the walk-through turned up, both verified against a real
 signed-in session:
 
-- The page **signs itself out after 30 seconds of idle** (`#essRoot[data-delay]`,
-  default `30000`). That is deliberate for a shared wall tablet, but it will cut
+- The page **signs itself out after 30 seconds of idle** (default `30000`). That is deliberate for a shared wall tablet, but it will cut
   off anyone driving the page from a script or a debugger that pauses between
   steps; raise `data-delay` rather than removing the timer.
-- Punches, leave requests and approvals all key off the session token alone, so
+- Punches, leave requests and expense claims all key off the session token alone, so
   signing out mid-task loses nothing that was submitted and does not roll back
   anything already written.
 
 ### Why the routes are not `/api/method`
 
-Both self-service routes are page renderers. On a bench running the `press` app, its auth
-hook rejects every `/api/` path for a non-system user — so a self-service front-end that
+Both portal routes are page renderers. On a bench running the `press` app, its auth
+hook rejects every `/api/` path for a non-system user — so a portal front-end that
 used `/api/method` would work on one bench and 404 on another. Nothing is opened up
 by moving off `/api/`: every action is still authorised by the session token. It
 just stops the answer depending on which apps are installed.
@@ -455,7 +448,7 @@ punches, but an explicitly-off setting is an instruction and is obeyed.
 The zone is the employee's **work location**, not their company: this group runs
 14 sites across 13 companies, so a per-company circle would either span the
 country or refuse everybody. `Shift Assignment.shift_location` links to HRMS's own
-`Shift Location`, and that is what `self_service.geo` reads — the same rows HRMS's
+`Shift Location`, and that is what `attendance.punch` reads — the same rows HRMS's
 `Employee Checkin.validate_distance_from_shift_location` reads, with the radius in
 metres. `seeder.assign_work_locations` fills the link from each employee's branch.
 
@@ -464,77 +457,69 @@ site that already has rows is not left with unreachable data; new zones go on th
 Shifts card.
 
 `Employee Checkin.sdg_self_service_geo_status` and `sdg_self_service_geo_message` carry the
-verdict. Read-only — the self-service page writes them, nobody edits them.
+verdict. Read-only — the portal writes them, nobody edits them.
 
-### The vacation balances
+### The leave balances
 
-The balances screen shows entitlement minus usage, for six buckets. Only the
-entitlement half is stored — six `sdg_vacation_*_days` Float fields on Employee.
-The spent half is **derived** from the employee's Leave Applications, so the two
-cannot drift; a stored "used" figure eventually would.
+The balances screen reads from **Leave Allocation**, not from six custom fields.
+The old self-service page used `sdg_vacation_*_days` fields (all zero on this site).
+The portal uses standard HRMS Leave Allocations with day multipliers from the
+Leave Type (`sdg_vacation_day_multiplier`), so a day worked on a weekly rest day
+or public holiday costs two days of allowance.
 
-Each leave is weighted by its Leave Type's `sdg_vacation_day_multiplier`, seeded to
-2 for `WD` (working a weekly rest day burns two days of allowance) and 1 for
-everything else. Bucket codes come from the Sharm leave vocabulary in
-`seed.json`; `PH`, `REM` and `CF` are not leave types HR has created yet, so they
-count nothing today and start counting the day one is given that code.
+Usage is derived from the employee's Leave Applications (Approved + Open), so the
+two cannot drift. The portal also shows pending requests separately from approved
+ones, carry-forward terms, and the individual requests behind each balance.
 
-Note this coexists with `Leave Allocation`, which is where HRMS keeps entitlement.
-Nothing else in this app reads these six fields — they exist for the self-service page.
+### Where the portal tables live
 
-### Where the self-service tables live
+On the workspace as an **Employee Portal** card (replacing the old *Self Services
+Employees* card), and in the desk sidebar under **Time & Attendance → Employee Portal**.
+The label is for what the employee does; the DocTypes keep their `Employee Self Service *`
+names, so this is a display string and not a schema rename. The workspace card
+exists because `workspace.py` refuses to pass when a DocType this app owns is not
+reachable from the desk.
 
-On the workspace as a **Self Services Employees** card, and in the desk sidebar
-under **Time & Attendance → Self Services Employees**. The label is for what the
-employee does; the DocTypes keep their `Employee Self Service *` names, so this is a display string
-and not a schema rename. The workspace card exists because `workspace.py` refuses to
-pass when a DocType this app owns is not reachable from the desk.
-
-Two of the seven are **System Manager only**, deliberately:
+Two of the four are **System Manager only**, deliberately:
 
 - `Employee Self Service Session` — `access_token` is stored in the clear, because it is the whole
   authorisation and a hashed column could not be looked up by value. Anyone who can
-  read it can act as that employee on the self-service page.
+  read it can act as that employee on the portal.
 - `Employee Self Service Preauth` — a live row is a biometric sign-in in progress, and answering its
   challenge enrols a device for that employee.
 
 They are linked anyway: a System Manager debugging "this employee cannot sign in"
 needs to see them. The link 403s for HR rather than 404ing, which is the honest
-outcome — they exist, they are just not yours. The other five (`Employee Self Service Settings`,
-`Employee Self Service Location`, `Employee Self Service Biometric Credential`, `Employee Self Service Approval Category`,
-`Employee Self Service Approval Request`) are HR's to administer.
+outcome — they exist, they are just not yours. The other two (`Employee Self Service Settings`,
+`Employee Self Service Biometric Credential`) are HR's to administer.
 
 ### Files
 
 | Path | What |
 | --- | --- |
-| `self_service/api.py` | sign-in, profile, punch, payslips, leave |
-| `self_service/time_off.py` | balances, cancelling a request |
-| `self_service/approval.py` | request types, submission, tracking |
-| `self_service/webauthn.py` + `webauthn_ops.py` | biometric sign-in; the second has no Frappe imports at all |
-| `self_service/geo.py` | the punch zone check |
-| `self_service/vacation.py` | the balance arithmetic |
-| `self_service/renderers.py` | `/self-services-employees-api` and `/self-services-employees/setlang` |
-| `www/self-services-employees.html` + `www/self_services_employees.py` | the page |
-| `self_service/test_self_service.py` | 80 tests |
+| `portal/portal.py` | sign-in, balances, leave, payslips, profile |
+| `portal/attendance.py` | shifts, attendance, punch |
+| `portal/notifications.py` | notifications |
+| `portal/performance.py` | performance appraisals |
+| `portal/expenses.py` | expense claims |
+| `portal/compensatory.py` | Leave In Lieu accruals and approvals |
+| `portal/leave_policy.py` | leave classification and pool logic |
+| `portal/test_portal.py` | tests |
+| `self_service/webauthn.py` + `webauthn_ops.py` | biometric sign-in (shared with old page) |
+| `portal/renderers.py` | `/employee-portal-api` and `/employee-portal/setlang` |
+| `www/employee-portal.html` + `www/employee_portal.py` | the page |
+| `www/self-services-employees.html` + `www/self_services_employees.py` | **REMOVED** |
 
-`renderers.ACTIONS` is the front door: an action missing from that map is
-unreachable over HTTP however correct the client is. `TestWiring` asserts the map
-and `self_service.js` agree from both ends — it is how a missing `approvals` entry was
-caught during the port.
+`ACTIONS` is the front door: an action missing from that map is
+unreachable over HTTP however correct the client is.
 
 ### Tests
 
     bench --site <site> run-tests --app sharm_dreams_group \
-        --module sharm_dreams_group.self_service.test_self_service
+        --module sharm_dreams_group.portal.test_portal
 
-Safe to run against the live site. Two self-service actions commit on purpose, and
-`FrappeTestCase` rolls back per *class* rather than per test while opening each
-class with a commit — so the base class stubs `commit` for the class, purges its own
-namespace at both ends, and commits the final purge. Everything it creates is named
-with the `ESS-TEST-` prefix, which is what lets cleanup be both safe (it cannot
-touch a real employee) and self-healing (it clears its own residue from an earlier
-run).
+Safe to run against the live site. Actions that commit are rolled back by the
+test framework.
 
 ## Dashboard permissions
 

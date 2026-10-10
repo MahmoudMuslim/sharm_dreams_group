@@ -92,31 +92,28 @@ CARDS: list[tuple[str, list[str]]] = [
 	# card from School Fees because the two are granted on different rules: school
 	# fees follow the child, the coupon follows the family.
 	("Cost Of Living Coupon", ["SDG Coupon Granted", "SDG Coupon Band"]),
-	# The employee self-service.  Linked so the reachability guard is satisfied and a
+	# The employee portal.  Linked so the reachability guard is satisfied and a
 	# System Manager can open these when a sign-in is not working - but note the
 	# split in who may read what:
 	#
 	#   * `Employee Self Service Session` and `Employee Self Service Preauth` are System Manager only.  A session
-	#     row holds the plaintext token that authorises every self-service action, and a
+	#     row holds the plaintext token that authorises every portal action, and a
 	#     pre-auth row holds a live biometric challenge, so anybody who can read
 	#     either can act as that employee.  They are here for debugging, not for
 	#     daily use, and the link 403s for HR rather than not existing.
-	#   * The other four are HR's: the settings, the enrolled devices, and the two
-	#     approval masters.  The punch zone is not here: it is a `Shift Location`,
-	#     linked on the Shifts card, because a zone belongs to a work location and
-	#     not to the self-service surface.
+	#   * The other two are HR's: the settings and the enrolled biometric devices.
+	#     The punch zone is not here: it is a `Shift Location`, linked on the
+	#     Shifts card, because a zone belongs to a work location and not to the
+	#     portal surface.
 	#
 	# The card is labelled for what the employee does, not for the hardware: this is
-	# the self-service surface an HR manager looks after, rather than for the
-	# tablet it happens to run on. Only the label - the DocTypes keep their
-	# names, which is also what stops this reading as a rename of the schema.
+	# the portal surface an HR manager looks after, rather than for the tablet it
+	# happens to run on. Only the label - the DocTypes keep their names.
 	(
-		"Self Services Employees",
+		"Employee Portal",
 		[
 			"Employee Self Service Settings",
 			"Employee Self Service Biometric Credential",
-			"Employee Self Service Approval Category",
-			"Employee Self Service Approval Request",
 			"Employee Self Service Session",
 			"Employee Self Service Preauth",
 		],
@@ -262,7 +259,15 @@ ADOPTED_DOCTYPES = {"Income Tax Slab"}
 # nothing writes to it" is a decision someone should be able to find, not an accident
 # to rediscover. The DocType and its validator are kept so a site that already has rows
 # in it is not left with data nobody can reach; deleting them is a separate call.
-SUPERSEDED_DOCTYPES = {"Employee Self Service Location"}
+#
+# The old self-service page (at /self-services-employees) used these two DocTypes for
+# its approval workflow. They are superseded by the portal's compensatory approval
+# system (Leave In Lieu via Leave Allocation). Kept so existing rows are not orphaned.
+SUPERSEDED_DOCTYPES = {
+	"Employee Self Service Location",
+	"Employee Self Service Approval Category",
+	"Employee Self Service Approval Request",
+}
 
 
 def apply() -> None:

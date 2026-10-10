@@ -431,6 +431,291 @@
 .ep-attn-head { font-size: 0.92rem; font-weight: 600; }
 .ep-attn-detail { color: var(--ep-muted); font-size: 0.82rem; }
 
+/* Notification strip on dashboard */
+.ep-attn-strip {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	margin-bottom: var(--ep-gap);
+}
+
+.ep-attn-strip .ep-attn {
+	border-top: 0;
+	border-radius: 0.6rem;
+	border: 1px solid var(--ep-line);
+	background: var(--ep-card);
+	padding: 0.75rem 0.9rem;
+}
+
+.ep-attn-strip .ep-attn:first-of-type { border-top: 0; }
+.ep-attn-strip .ep-attn:hover { background: var(--ep-line); }
+
+/* Tile badge */
+.ep-tile-badge {
+	flex-shrink: 0;
+}
+
+/* Documents */
+.ep-doc-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-doc-summary .ep-badge { font-size: 0.85rem; padding: 0.35rem 0.6rem; display: inline-flex; align-items: center; gap: 0.35rem; }
+.ep-doc-summary .ep-badge i { font-size: 0.85rem; }
+
+/* Announcements */
+.ep-announcement:last-child { border-bottom: 0; }
+.ep-announcement strong { color: var(--ep-ink); }
+
+/* Colleagues */
+.ep-colleagues-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.ep-colleagues-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media (min-width: 48rem) {
+	.ep-colleagues-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 72rem) {
+	.ep-colleagues-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.ep-colleague-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-colleague-card .ep-row-meta { font-size: 0.8rem; margin-top: 0.15rem; }
+.ep-colleague-card .ep-row-meta i { width: 1rem; text-align: center; margin-right: 0.25rem; color: var(--ep-muted); }
+
+/* Support */
+.ep-support-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media (min-width: 48rem) {
+	.ep-support-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 72rem) {
+	.ep-support-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.ep-support-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-support-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-faq-item summary::-webkit-details-marker,
+.ep-help-item summary::-webkit-details-marker { display: none; }
+.ep-faq-item summary,
+.ep-help-item summary { position: relative; }
+.ep-faq-item summary i,
+.ep-help-item summary i { position: absolute; right: 1rem; transition: transform 0.2s; }
+.ep-faq-item[open] summary i,
+.ep-help-item[open] summary i { transform: rotate(90deg); }
+.ep-policy-item a { font-size: 0.85rem; }
+
+/* Org Chart */
+.ep-org-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.ep-org-chart { display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 0; }
+.ep-org-node { position: relative; }
+.ep-org-node.ep-org-has-parent::before {
+	content: "";
+	position: absolute;
+	left: 2.5rem;
+	top: -0.5rem;
+	bottom: 0;
+	width: 2px;
+	background: var(--ep-line);
+	z-index: 0;
+}
+.ep-org-node:last-child::before { display: none; }
+.ep-org-node.ep-org-in-path::before { background: var(--ep-accent); }
+.ep-org-card {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 0.8rem;
+	position: relative;
+	z-index: 1;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.ep-org-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: var(--ep-accent); }
+.ep-org-card.ep-org-me { border-color: var(--ep-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
+.ep-org-me-badge {
+	background: var(--ep-accent);
+	color: var(--ep-accent-ink);
+	font-size: 0.65rem;
+	font-weight: 700;
+	padding: 0.1rem 0.4rem;
+	border-radius: 999px;
+	margin-left: 0.5rem;
+}
+.ep-org-toggle {
+	background: none;
+	border: none;
+	padding: 0.25rem;
+	color: var(--ep-muted);
+	cursor: pointer;
+	border-radius: 0.35rem;
+	flex-shrink: 0;
+	width: 2rem;
+	height: 2rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.ep-org-toggle:hover { background: var(--ep-line); color: var(--ep-ink); }
+.ep-org-toggle-placeholder { width: 2rem; flex-shrink: 0; }
+.ep-org-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.ep-org-info { flex: 1; min-width: 0; }
+.ep-org-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-org-desig { color: var(--ep-muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-org-dept, .ep-org-empnum { color: var(--ep-muted); font-size: 0.75rem; margin-top: 0.15rem; }
+.ep-org-dept i, .ep-org-empnum i { width: 1rem; text-align: center; margin-right: 0.25rem; }
+.ep-org-children { display: block; margin-left: 3rem; padding-left: 1rem; border-left: 2px solid var(--ep-line); }
+.ep-org-node.ep-org-in-path > .ep-org-children { border-left-color: var(--ep-accent); }
+.ep-org-flash { animation: ep-org-flash 2s ease; }
+@keyframes ep-org-flash {
+	0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
+	50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ep-accent) 40%, transparent); }
+}
+
+/* Leave Calendar */
+.ep-cal-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.ep-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
+.ep-cal-day { min-height: 80px; padding: 0.25rem; display: flex; flex-direction: column; }
+.ep-cal-day.ep-cal-weekend { background: color-mix(in srgb, var(--ep-muted) 8%, var(--ep-card)); }
+.ep-cal-day.ep-cal-today .ep-cal-date { background: var(--ep-accent); color: var(--ep-accent-ink); }
+.ep-cal-date { font-weight: 600; text-align: center; padding: 0.35rem 0.5rem; border-radius: 0.35rem 0.35rem 0 0; }
+.ep-cal-leave { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); border-radius: 0.25rem; padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* PWA: Offline & Install banners */
+.ep-offline-banner {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.75rem 1rem;
+	background: var(--ep-warn);
+	color: white;
+	font-size: 0.9rem;
+	font-weight: 500;
+	z-index: 1000;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+	animation: ep-slide-down 0.3s ease;
+}
+.ep-offline-banner i { font-size: 1.1rem; }
+.ep-offline-dismiss {
+	background: none;
+	border: none;
+	color: white;
+	font-size: 1.5rem;
+	line-height: 1;
+	padding: 0;
+	cursor: pointer;
+	opacity: 0.8;
+}
+.ep-offline-dismiss:hover { opacity: 1; }
+.ep-root.ep-offline .ep-offline-banner { display: flex; }
+@keyframes ep-slide-down {
+	from { transform: translateY(-100%); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+.ep-install-banner {
+	position: fixed;
+	bottom: 1rem;
+	left: 1rem;
+	right: 1rem;
+	max-width: 400px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding: 1rem;
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 1rem;
+	box-shadow: 0 8px 32px rgba(15, 23, 42, 0.2);
+	z-index: 1000;
+	animation: ep-slide-up 0.4s ease;
+}
+.ep-install-content {
+	display: flex;
+	gap: 0.75rem;
+	align-items: flex-start;
+}
+.ep-install-content i { font-size: 2rem; color: var(--ep-accent); flex-shrink: 0; }
+.ep-install-content strong { display: block; font-size: 0.95rem; margin-bottom: 0.15rem; }
+.ep-install-content span { font-size: 0.85rem; color: var(--ep-muted); }
+.ep-install-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.ep-install-actions .ep-btn { padding: 0.6rem 1.25rem; font-size: 0.9rem; }
+.ep-install-actions .ep-btn-ghost { padding: 0.6rem 1.25rem; font-size: 0.9rem; }
+@keyframes ep-slide-up {
+	from { transform: translateY(100%); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+/* Shift Swaps */
+.ep-swap-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-swap-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-swap-pending { border-left: 4px solid var(--ep-warn); }
+.ep-swap-pending .ep-row-title { font-weight: 600; }
+
+/* Benefits */
+.ep-benefits-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-benefit-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-benefit-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-claim-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-claim-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-wellness-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-wellness-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Learning */
+.ep-learning-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-learning-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-learning-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-cert-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-cert-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-lpath-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-lpath-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Assets */
+.ep-assets-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-asset-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-asset-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-asset-req { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-asset-req:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Travel */
+.ep-travel-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-travel-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-travel-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Loans */
+.ep-loans-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-loan-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-loan-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Wellness */
+.ep-wellness-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-wellness-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-wellness-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* Recognition */
+.ep-recognition-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ep-badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.ep-badge-card { border: 1px solid var(--ep-line); border-radius: 0.8rem; padding: 1rem; background: var(--ep-card); text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-badge-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-recognition-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.ep-recognition-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+
+/* PWA: Install button in header (fallback) */
+.ep-install-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.7rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	background: var(--ep-card);
+	color: var(--ep-ink);
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+.ep-install-btn:hover { background: var(--ep-line); }
+
 /* --------------------------------------------------------------- details */
 /* Two lists on one screen: what HR holds (read-only) and the few fields the employee
    keeps up to date themselves. The boundary is the point, so it is drawn. */

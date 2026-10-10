@@ -1,0 +1,152 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Safety incident reporting",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"reported_by",
+		"reported_by_name",
+		"incident_type",
+		"incident_date",
+		"location",
+		"description",
+		"severity",
+		"status",
+		"root_cause",
+		"corrective_action",
+		"investigated_by",
+		"investigation_date",
+		"attachments"
+	],
+	"fields": [
+		{
+			"fieldname": "reported_by",
+			"fieldtype": "Link",
+			"label": "Reported By",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "reported_by.employee_name",
+			"fieldname": "reported_by_name",
+			"fieldtype": "Data",
+			"label": "Reported By Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "incident_type",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Incident Type",
+			"options": "\nInjury\nNear Miss\nProperty Damage\nEnvironmental\nSecurity\nVehicle\nOther",
+			"reqd": 1
+		},
+		{
+			"fieldname": "incident_date",
+			"fieldtype": "Datetime",
+			"label": "Incident Date/Time",
+			"reqd": 1
+		},
+		{
+			"fieldname": "location",
+			"fieldtype": "Data",
+			"label": "Location",
+			"reqd": 1
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Text",
+			"label": "Description",
+			"reqd": 1
+		},
+		{
+			"default": "Low",
+			"fieldname": "severity",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Severity",
+			"options": "\nLow\nMedium\nHigh\nCritical"
+		},
+		{
+			"default": "Open",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nOpen\nUnder Investigation\nResolved\nClosed"
+		},
+		{
+			"fieldname": "root_cause",
+			"fieldtype": "Small Text",
+			"label": "Root Cause"
+		},
+		{
+			"fieldname": "corrective_action",
+			"fieldtype": "Small Text",
+			"label": "Corrective Action"
+		},
+		{
+			"fieldname": "investigated_by",
+			"fieldtype": "Link",
+			"label": "Investigated By",
+			"options": "Employee"
+		},
+		{
+			"fieldname": "investigation_date",
+			"fieldtype": "Datetime",
+			"label": "Investigation Date"
+		},
+		{
+			"fieldname": "attachments",
+			"fieldtype": "Table",
+			"label": "Attachments",
+			"options": "Safety Incident Attachment"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Safety Incident",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "incident_date",
+	"sort_order": "DESC",
+	"states": []
+}

@@ -1,0 +1,45 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Attachment for safety incident",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"attachment_type",
+		"file",
+		"description"
+	],
+	"fields": [
+		{
+			"default": "Photo",
+			"fieldname": "attachment_type",
+			"fieldtype": "Select",
+			"label": "Attachment Type",
+			"options": "\nPhoto\nDocument\nReport\nOther"
+		},
+		{
+			"fieldname": "file",
+			"fieldtype": "Attach",
+			"label": "File",
+			"reqd": 1
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Data",
+			"label": "Description"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Safety Incident Attachment",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

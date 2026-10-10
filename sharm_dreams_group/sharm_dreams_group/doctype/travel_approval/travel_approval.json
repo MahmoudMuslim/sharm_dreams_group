@@ -1,0 +1,64 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Approval record for travel request",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"approver",
+		"approver_name",
+		"role",
+		"status",
+		"action_date",
+		"remarks"
+	],
+	"fields": [
+		{
+			"fieldname": "approver",
+			"fieldtype": "Link",
+			"label": "Approver",
+			"options": "Employee",
+			"reqd": 1
+		},
+		{
+			"fetch_from": "approver.employee_name",
+			"fieldname": "approver_name",
+			"fieldtype": "Data",
+			"label": "Approver Name"
+		},
+		{
+			"fieldname": "role",
+			"fieldtype": "Data",
+			"label": "Role"
+		},
+		{
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"label": "Status",
+			"options": "\nApproved\nRejected"
+		},
+		{
+			"fieldname": "action_date",
+			"fieldtype": "Datetime",
+			"label": "Action Date"
+		},
+		{
+			"fieldname": "remarks",
+			"fieldtype": "Small Text",
+			"label": "Remarks"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Travel Approval",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "action_date",
+	"sort_order": "ASC",
+	"states": []
+}

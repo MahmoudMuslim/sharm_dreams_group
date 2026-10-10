@@ -1,0 +1,176 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Employee enrollment in a training course",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"employee_name",
+		"course",
+		"course_name",
+		"training_provider",
+		"start_date",
+		"end_date",
+		"status",
+		"progress",
+		"completion_date",
+		"certificate_number",
+		"score",
+		"is_mandatory",
+		"due_date",
+		"hours",
+		"feedback",
+		"attachments"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"label": "Employee",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "employee.employee_name",
+			"fieldname": "employee_name",
+			"fieldtype": "Data",
+			"label": "Employee Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "course",
+			"fieldtype": "Link",
+			"label": "Course",
+			"options": "Course",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "course.course_name",
+			"fieldname": "course_name",
+			"fieldtype": "Data",
+			"label": "Course Name",
+			"read_only": 1
+		},
+		{
+			"fetch_from": "course.training_provider",
+			"fieldname": "training_provider",
+			"fieldtype": "Link",
+			"label": "Training Provider",
+			"options": "Training Provider",
+			"read_only": 1
+		},
+		{
+			"fieldname": "start_date",
+			"fieldtype": "Date",
+			"label": "Start Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "end_date",
+			"fieldtype": "Date",
+			"label": "End Date"
+		},
+		{
+			"default": "Not Started",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nNot Started\nIn Progress\nCompleted\nDropped\nExpired"
+		},
+		{
+			"default": 0,
+			"fieldname": "progress",
+			"fieldtype": "Percent",
+			"label": "Progress (%)"
+		},
+		{
+			"fieldname": "completion_date",
+			"fieldtype": "Date",
+			"label": "Completion Date"
+		},
+		{
+			"fieldname": "certificate_number",
+			"fieldtype": "Data",
+			"label": "Certificate Number"
+		},
+		{
+			"fieldname": "score",
+			"fieldtype": "Float",
+			"label": "Score (%)"
+		},
+		{
+			"default": 0,
+			"fieldname": "is_mandatory",
+			"fieldtype": "Check",
+			"label": "Mandatory"
+		},
+		{
+			"fieldname": "due_date",
+			"fieldtype": "Date",
+			"label": "Due Date"
+		},
+		{
+			"fieldname": "hours",
+			"fieldtype": "Float",
+			"label": "Hours"
+		},
+		{
+			"fieldname": "feedback",
+			"fieldtype": "Small Text",
+			"label": "Feedback"
+		},
+		{
+			"fieldname": "attachments",
+			"fieldtype": "Table",
+			"label": "Attachments",
+			"options": "Employee Course Attachment"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Course Enrollment",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

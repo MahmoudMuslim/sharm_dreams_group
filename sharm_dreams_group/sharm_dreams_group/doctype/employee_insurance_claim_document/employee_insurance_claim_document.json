@@ -1,0 +1,45 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Supporting document for insurance claim",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"document_type",
+		"file",
+		"description"
+	],
+	"fields": [
+		{
+			"default": "Bill",
+			"fieldname": "document_type",
+			"fieldtype": "Select",
+			"label": "Document Type",
+			"options": "\nBill\nPrescription\nReport\nDischarge Summary\nInvoice\nOther"
+		},
+		{
+			"fieldname": "file",
+			"fieldtype": "Attach",
+			"label": "File",
+			"reqd": 1
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Data",
+			"label": "Description"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Insurance Claim Document",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

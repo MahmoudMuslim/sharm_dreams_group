@@ -1,0 +1,166 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Employee travel request",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"employee_name",
+		"purpose",
+		"departure_date",
+		"return_date",
+		"destination",
+		"mode_of_travel",
+		"estimated_cost",
+		"actual_cost",
+		"advance_amount",
+		"status",
+		"approval_status",
+		"description",
+		"expenses",
+		"approvals"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"label": "Employee",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "employee.employee_name",
+			"fieldname": "employee_name",
+			"fieldtype": "Data",
+			"label": "Employee Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "purpose",
+			"fieldtype": "Small Text",
+			"label": "Purpose",
+			"reqd": 1
+		},
+		{
+			"fieldname": "departure_date",
+			"fieldtype": "Date",
+			"label": "Departure Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "return_date",
+			"fieldtype": "Date",
+			"label": "Return Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "destination",
+			"fieldtype": "Data",
+			"label": "Destination",
+			"reqd": 1
+		},
+		{
+			"fieldname": "mode_of_travel",
+			"fieldtype": "Link",
+			"label": "Mode of Travel",
+			"options": "Mode of Travel",
+			"reqd": 1
+		},
+		{
+			"fieldname": "estimated_cost",
+			"fieldtype": "Currency",
+			"label": "Estimated Cost",
+			"reqd": 1
+		},
+		{
+			"fieldname": "actual_cost",
+			"fieldtype": "Currency",
+			"label": "Actual Cost"
+		},
+		{
+			"fieldname": "advance_amount",
+			"fieldtype": "Currency",
+			"label": "Advance Amount",
+			"default": 0
+		},
+		{
+			"default": "Draft",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nDraft\nSubmitted\nApproved\nRejected\nCancelled\nCompleted"
+		},
+		{
+			"default": "Pending",
+			"fieldname": "approval_status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Approval Status",
+			"options": "\nPending\nApproved\nRejected"
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		},
+		{
+			"fieldname": "expenses",
+			"fieldtype": "Table",
+			"label": "Travel Expenses",
+			"options": "Travel Expense"
+		},
+		{
+			"fieldname": "approvals",
+			"fieldtype": "Table",
+			"label": "Approvals",
+			"options": "Travel Approval"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Travel Request",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "departure_date",
+	"sort_order": "DESC",
+	"states": []
+}

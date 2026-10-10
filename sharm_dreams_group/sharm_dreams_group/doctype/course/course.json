@@ -1,0 +1,162 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Training course catalog",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"course_name",
+		"course_code",
+		"description",
+		"category",
+		"training_provider",
+		"duration_hours",
+		"delivery_mode",
+		"language",
+		"is_mandatory",
+		"target_roles",
+		"prerequisites",
+		"certification",
+		"cost",
+		"currency",
+		"is_active"
+	],
+	"fields": [
+		{
+			"fieldname": "course_name",
+			"fieldtype": "Data",
+			"label": "Course Name",
+			"reqd": 1
+		},
+		{
+			"fieldname": "course_code",
+			"fieldtype": "Data",
+			"label": "Course Code",
+			"reqd": 1
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Text Editor",
+			"label": "Description"
+		},
+		{
+			"default": "General",
+			"fieldname": "category",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Category",
+			"options": "\nGeneral\nTechnical\nCompliance\nLeadership\nSafety\nLanguage\nSoftware\nProduct\nOther"
+		},
+		{
+			"fieldname": "training_provider",
+			"fieldtype": "Link",
+			"label": "Training Provider",
+			"options": "Training Provider"
+		},
+		{
+			"fieldname": "duration_hours",
+			"fieldtype": "Float",
+			"label": "Duration (Hours)",
+			"reqd": 1
+		},
+		{
+			"default": "E-Learning",
+			"fieldname": "delivery_mode",
+			"fieldtype": "Select",
+			"label": "Delivery Mode",
+			"options": "\nE-Learning\nInstructor-Led\nBlended\nOn-the-Job\nWorkshop\nWebinar"
+		},
+		{
+			"default": "English",
+			"fieldname": "language",
+			"fieldtype": "Select",
+			"label": "Language",
+			"options": "\nEnglish\nArabic\nFrench\nSpanish\nOther"
+		},
+		{
+			"default": 0,
+			"fieldname": "is_mandatory",
+			"fieldtype": "Check",
+			"label": "Mandatory for Role"
+		},
+		{
+			"fieldname": "target_roles",
+			"fieldtype": "Table MultiSelect",
+			"label": "Target Roles",
+			"options": "Role"
+		},
+		{
+			"fieldname": "prerequisites",
+			"fieldtype": "Table MultiSelect",
+			"label": "Prerequisite Courses",
+			"options": "Course"
+		},
+		{
+			"fieldname": "certification",
+			"fieldtype": "Link",
+			"label": "Leads to Certification",
+			"options": "Certification Type"
+		},
+		{
+			"fieldname": "cost",
+			"fieldtype": "Currency",
+			"label": "Cost"
+		},
+		{
+			"fieldname": "currency",
+			"fieldtype": "Link",
+			"label": "Currency",
+			"options": "Currency",
+			"default": "EGP"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_active",
+			"fieldtype": "Check",
+			"label": "Active"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Course",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "course_name",
+	"sort_order": "ASC",
+	"states": []
+}

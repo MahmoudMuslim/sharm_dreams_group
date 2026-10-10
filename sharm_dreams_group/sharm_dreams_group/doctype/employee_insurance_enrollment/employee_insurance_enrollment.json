@@ -1,0 +1,185 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Employee insurance enrollment details",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"employee_name",
+		"insurance_scheme",
+		"insurance_company",
+		"plan_name",
+		"coverage_type",
+		"sum_insured",
+		"premium_amount",
+		"premium_frequency",
+		"employee_contribution",
+		"employer_contribution",
+		"start_date",
+		"end_date",
+		"status",
+		"policy_number",
+		"card_number",
+		"network_providers",
+		"dependents"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"label": "Employee",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "employee.employee_name",
+			"fieldname": "employee_name",
+			"fieldtype": "Data",
+			"label": "Employee Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "insurance_scheme",
+			"fieldtype": "Link",
+			"label": "Insurance Scheme",
+			"options": "Insurance Scheme",
+			"reqd": 1
+		},
+		{
+			"fetch_from": "insurance_scheme.insurance_company",
+			"fieldname": "insurance_company",
+			"fieldtype": "Link",
+			"label": "Insurance Company",
+			"options": "Insurance Company",
+			"read_only": 1
+		},
+		{
+			"fieldname": "plan_name",
+			"fieldtype": "Data",
+			"label": "Plan Name",
+			"reqd": 1
+		},
+		{
+			"default": "Individual",
+			"fieldname": "coverage_type",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Coverage Type",
+			"options": "\nIndividual\nFamily\nEmployee + Spouse\nEmployee + Children"
+		},
+		{
+			"fieldname": "sum_insured",
+			"fieldtype": "Currency",
+			"label": "Sum Insured",
+			"reqd": 1
+		},
+		{
+			"fieldname": "premium_amount",
+			"fieldtype": "Currency",
+			"label": "Total Premium",
+			"reqd": 1
+		},
+		{
+			"default": "Monthly",
+			"fieldname": "premium_frequency",
+			"fieldtype": "Select",
+			"label": "Premium Frequency",
+			"options": "\nMonthly\nQuarterly\nSemi-Annually\nAnnually"
+		},
+		{
+			"fieldname": "employee_contribution",
+			"fieldtype": "Currency",
+			"label": "Employee Contribution"
+		},
+		{
+			"fieldname": "employer_contribution",
+			"fieldtype": "Currency",
+			"label": "Employer Contribution"
+		},
+		{
+			"fieldname": "start_date",
+			"fieldtype": "Date",
+			"label": "Start Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "end_date",
+			"fieldtype": "Date",
+			"label": "End Date"
+		},
+		{
+			"default": "Active",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nActive\nExpired\nCancelled\nPending"
+		},
+		{
+			"fieldname": "policy_number",
+			"fieldtype": "Data",
+			"label": "Policy Number"
+		},
+		{
+			"fieldname": "card_number",
+			"fieldtype": "Data",
+			"label": "Card Number"
+		},
+		{
+			"fieldname": "network_providers",
+			"fieldtype": "Text",
+			"label": "Network Providers (Hospitals/Clinics)"
+		},
+		{
+			"fieldname": "dependents",
+			"fieldtype": "Table",
+			"label": "Covered Dependents",
+			"options": "Employee Insurance Dependent"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Insurance Enrollment",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "start_date",
+	"sort_order": "DESC",
+	"states": []
+}

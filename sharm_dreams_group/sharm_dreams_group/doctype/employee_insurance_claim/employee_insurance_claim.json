@@ -1,0 +1,138 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Employee insurance claim",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"employee_name",
+		"insurance_enrollment",
+		"claim_type",
+		"claim_date",
+		"hospital_provider",
+		"amount_claimed",
+		"amount_approved",
+		"status",
+		"description",
+		"documents"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"label": "Employee",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "employee.employee_name",
+			"fieldname": "employee_name",
+			"fieldtype": "Data",
+			"label": "Employee Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "insurance_enrollment",
+			"fieldtype": "Link",
+			"label": "Insurance Enrollment",
+			"options": "Employee Insurance Enrollment",
+			"reqd": 1
+		},
+		{
+			"default": "Medical",
+			"fieldname": "claim_type",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Claim Type",
+			"options": "\nMedical\nDental\nVision\nPharmacy\nMaternity\nWellness\nOther"
+		},
+		{
+			"fieldname": "claim_date",
+			"fieldtype": "Date",
+			"label": "Claim Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "hospital_provider",
+			"fieldtype": "Data",
+			"label": "Hospital / Provider",
+			"reqd": 1
+		},
+		{
+			"fieldname": "amount_claimed",
+			"fieldtype": "Currency",
+			"label": "Amount Claimed",
+			"reqd": 1
+		},
+		{
+			"fieldname": "amount_approved",
+			"fieldtype": "Currency",
+			"label": "Amount Approved"
+		},
+		{
+			"default": "Draft",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nDraft\nSubmitted\nUnder Review\nApproved\nRejected\nPaid"
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		},
+		{
+			"fieldname": "documents",
+			"fieldtype": "Table",
+			"label": "Supporting Documents",
+			"options": "Employee Insurance Claim Document"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Insurance Claim",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

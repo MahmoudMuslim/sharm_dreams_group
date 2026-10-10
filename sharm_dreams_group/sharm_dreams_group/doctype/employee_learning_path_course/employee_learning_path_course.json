@@ -1,0 +1,74 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Course within a learning path",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"course",
+		"course_name",
+		"sequence",
+		"is_mandatory",
+		"status",
+		"progress",
+		"completion_date"
+	],
+	"fields": [
+		{
+			"fieldname": "course",
+			"fieldtype": "Link",
+			"label": "Course",
+			"options": "Course",
+			"reqd": 1
+		},
+		{
+			"fetch_from": "course.course_name",
+			"fieldname": "course_name",
+			"fieldtype": "Data",
+			"label": "Course Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "sequence",
+			"fieldtype": "Int",
+			"label": "Sequence"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_mandatory",
+			"fieldtype": "Check",
+			"label": "Mandatory"
+		},
+		{
+			"default": "Not Started",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"label": "Status",
+			"options": "\nNot Started\nIn Progress\nCompleted\nSkipped"
+		},
+		{
+			"default": 0,
+			"fieldname": "progress",
+			"fieldtype": "Percent",
+			"label": "Progress (%)"
+		},
+		{
+			"fieldname": "completion_date",
+			"fieldtype": "Date",
+			"label": "Completion Date"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Learning Path Course",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "sequence",
+	"sort_order": "ASC",
+	"states": []
+}

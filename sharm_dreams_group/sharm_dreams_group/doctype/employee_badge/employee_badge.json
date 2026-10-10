@@ -1,0 +1,114 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Badges earned by employees",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"employee_name",
+		"badge_name",
+		"badge_type",
+		"earned_date",
+		"description",
+		"icon",
+		"color"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"label": "Employee",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fetch_from": "employee.employee_name",
+			"fieldname": "employee_name",
+			"fieldtype": "Data",
+			"label": "Employee Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "badge_name",
+			"fieldtype": "Data",
+			"label": "Badge Name",
+			"reqd": 1
+		},
+		{
+			"default": "Peer Recognition",
+			"fieldname": "badge_type",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Badge Type",
+			"options": "\nPeer Recognition\nManager Recognition\nMilestone\nAchievement\nWellness\nSafety\nLearning\nInnovation\nLeadership\nOther"
+		},
+		{
+			"fieldname": "earned_date",
+			"fieldtype": "Date",
+			"label": "Earned Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		},
+		{
+			"fieldname": "icon",
+			"fieldtype": "Data",
+			"label": "Icon (Font Awesome class)",
+			"default": "fa-trophy"
+		},
+		{
+			"fieldname": "color",
+			"fieldtype": "Data",
+			"label": "Color (hex)",
+			"default": "#f59e0b"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Badge",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "earned_date",
+	"sort_order": "DESC",
+	"states": []
+}

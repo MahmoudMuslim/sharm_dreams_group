@@ -1,0 +1,95 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Recognition type configuration",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"type_name",
+		"default_points",
+		"icon",
+		"color",
+		"description",
+		"is_active"
+	],
+	"fields": [
+		{
+			"fieldname": "type_name",
+			"fieldtype": "Data",
+			"label": "Type Name",
+			"reqd": 1
+		},
+		{
+			"default": 0,
+			"fieldname": "default_points",
+			"fieldtype": "Int",
+			"label": "Default Points"
+		},
+		{
+			"default": "fa-star",
+			"fieldname": "icon",
+			"fieldtype": "Data",
+			"label": "Icon (Font Awesome class)"
+		},
+		{
+			"default": "#f59e0b",
+			"fieldname": "color",
+			"fieldtype": "Data",
+			"label": "Color (hex)"
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_active",
+			"fieldtype": "Check",
+			"label": "Active"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Recognition Type",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "type_name",
+	"sort_order": "ASC",
+	"states": []
+}

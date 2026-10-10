@@ -1,0 +1,128 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Shift swap request between employees",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"requester",
+		"requester_name",
+		"recipient",
+		"recipient_name",
+		"shift_date",
+		"requester_shift",
+		"recipient_shift",
+		"reason",
+		"status"
+	],
+	"fields": [
+		{
+			"fieldname": "requester",
+			"fieldtype": "Link",
+			"label": "Requester",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fieldname": "requester_name",
+			"fieldtype": "Data",
+			"label": "Requester Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "recipient",
+			"fieldtype": "Link",
+			"label": "Recipient",
+			"options": "Employee",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fieldname": "recipient_name",
+			"fieldtype": "Data",
+			"label": "Recipient Name",
+			"read_only": 1
+		},
+		{
+			"fieldname": "shift_date",
+			"fieldtype": "Date",
+			"label": "Shift Date",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fieldname": "requester_shift",
+			"fieldtype": "Link",
+			"label": "Your Shift",
+			"options": "Shift Type",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fieldname": "recipient_shift",
+			"fieldtype": "Link",
+			"label": "Colleague's Shift",
+			"options": "Shift Type",
+			"read_only": 1,
+			"reqd": 1
+		},
+		{
+			"fieldname": "reason",
+			"fieldtype": "Small Text",
+			"label": "Reason"
+		},
+		{
+			"default": "Pending",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Status",
+			"options": "\nPending\nApproved\nRejected\nCancelled",
+			"read_only": 1
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Shift Swap Request",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

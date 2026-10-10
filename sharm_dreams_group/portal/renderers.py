@@ -46,6 +46,51 @@ ACTIONS = {
 	# details
 	"my_details": portal.my_details,
 	"update_my_details": portal.update_my_details,
+	# documents
+	"my_documents": portal.my_documents,
+	# announcements
+	"my_announcements": portal.my_announcements,
+	# directory
+	"my_colleagues": portal.my_colleagues,
+	# org chart
+	"my_org_chart": portal.my_org_chart,
+	# leave calendar
+	"my_leave_calendar": portal.my_leave_calendar,
+	# timesheets & overtime
+	"my_timesheets": portal.my_timesheets,
+	"submit_timesheet": portal.submit_timesheet,
+	"activity_types": portal.activity_types,
+	"my_overtime": portal.my_overtime,
+	"submit_overtime": portal.submit_overtime,
+	# shift swaps
+	"my_shift_swaps": portal.my_shift_swaps,
+	"request_shift_swap": portal.request_shift_swap,
+	"approve_shift_swap": portal.approve_shift_swap,
+	"reject_shift_swap": portal.reject_shift_swap,
+	# benefits
+	"my_benefits": portal.my_benefits,
+	# learning
+	"my_learning": portal.my_learning,
+	# assets
+	"my_assets": portal.my_assets,
+	"request_asset": portal.request_asset,
+	"asset_categories": portal.asset_categories,
+	# travel
+	"my_travel": portal.my_travel,
+	"request_travel": portal.request_travel,
+	"travel_modes": portal.travel_modes,
+	# loans
+	"my_loans": portal.my_loans,
+	"request_loan": portal.request_loan,
+	"loan_types": portal.loan_types,
+	# wellness
+	"my_wellness": portal.my_wellness,
+	# recognition
+	"my_recognition": portal.my_recognition,
+	"send_recognition": portal.send_recognition,
+	"recognition_types": portal.recognition_types,
+	# support
+	"my_support": portal.my_support,
 	# biometric sign-in
 	#
 	# The self-service page's tested two-step WebAuthn flow, reused as-is rather than
@@ -211,6 +256,52 @@ class PortalApiRenderer:
 		request wrapper - so the traceback points at werkzeug and not at the line that
 		caused it.
 		"""
+		frappe.local.response["http_status_code"] = status_code
+		frappe.local.response["message"] = {"error": error}
+		return build_response("json")
+
+
+class PortalLangRenderer:
+	"""The language switcher endpoint behind the portal page."""
+
+	def __init__(self, endpoint=None, http_status_code=None):
+		request = getattr(frappe.local, "request", None)
+		self.endpoint = endpoint
+		self.http_status_code = http_status_code
+		self.path = endpoint or (request.path if request else "")
+
+	def can_render(self):
+		return bool(self.path) and self.path.endswith(f"{PAGE_ROUTE}/setlang")
+
+	def render(self):
+		frappe.local.response["type"] = "json"
+		frappe.local.response["allow_cache"] = False
+
+		if not getattr(frappe.local, "request", None):
+			return self._respond(_("This endpoint needs an HTTP request."), 400)
+
+		if frappe.request.method != "POST":
+			return self._respond(_("This endpoint accepts POST only."), 405)
+
+		payload = frappe.request.get_json(silent=True) or frappe.form_dict
+		lang = payload.get("lang")
+		if not lang:
+			return self._respond(_("Language not specified."), 400)
+
+		# Set the language cookie
+		frappe.local.response["set_cookie"] = {
+			"key": "employee_portal_lang",
+			"value": lang,
+			"max_age": 365 * 24 * 60 * 60,
+			"httponly": True,
+			"secure": frappe.conf.get("force_ssl", False),
+			"samesite": "Lax",
+		}
+
+		frappe.local.response["message"] = {"ok": True, "lang": lang}
+		return build_response("json")
+
+	def _respond(self, error, status_code):
 		frappe.local.response["http_status_code"] = status_code
 		frappe.local.response["message"] = {"error": error}
 		return build_response("json")

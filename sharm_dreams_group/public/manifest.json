@@ -1,0 +1,23 @@
+{
+	"name": "Sharm Dreams Employee Portal",
+	"short_name": "Employee Portal",
+	"description": "Self-service portal for Sharm Dreams Group employees",
+	"start_url": "/employee-portal",
+	"display": "standalone",
+	"background_color": "#f4f6f8",
+	"theme_color": "#2563eb",
+	"orientation": "portrait-primary",
+	"scope": "/employee-portal",
+	"icons": [
+		{
+			"src": "/assets/sharm_dreams_group/images/logo.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any maskable"
+		}
+	],
+	"categories": ["business", "productivity"],
+	"lang": "en",
+	"dir": "ltr",
+	"prefer_related_applications": false
+}

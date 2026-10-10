@@ -1,0 +1,112 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Support topics: FAQ, Policies, Help articles for the employee portal",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"title",
+		"category",
+		"content",
+		"attachment",
+		"is_published",
+		"sort_order",
+		"target_companies",
+		"target_departments"
+	],
+	"fields": [
+		{
+			"fieldname": "title",
+			"fieldtype": "Data",
+			"label": "Title",
+			"reqd": 1
+		},
+		{
+			"default": "FAQ",
+			"fieldname": "category",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Category",
+			"options": "\nFAQ\nPolicy\nHelp",
+			"reqd": 1
+		},
+		{
+			"fieldname": "content",
+			"fieldtype": "Text Editor",
+			"label": "Content",
+			"reqd": 1
+		},
+		{
+			"fieldname": "attachment",
+			"fieldtype": "Attach",
+			"label": "Attachment (for policies)"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_published",
+			"fieldtype": "Check",
+			"label": "Published"
+		},
+		{
+			"default": 0,
+			"fieldname": "sort_order",
+			"fieldtype": "Int",
+			"label": "Sort Order"
+		},
+		{
+			"fieldname": "target_companies",
+			"fieldtype": "Table MultiSelect",
+			"label": "Target Companies",
+			"options": "Company"
+		},
+		{
+			"fieldname": "target_departments",
+			"fieldtype": "Table MultiSelect",
+			"label": "Target Departments",
+			"options": "Department"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "SDG Support Topic",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "sort_order",
+	"sort_order": "ASC",
+	"states": []
+}

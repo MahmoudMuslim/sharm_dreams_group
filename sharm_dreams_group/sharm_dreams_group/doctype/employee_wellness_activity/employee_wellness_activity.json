@@ -1,0 +1,73 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Activity within a wellness program",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"activity_name",
+		"activity_type",
+		"target_value",
+		"unit",
+		"completed_value",
+		"completed_on",
+		"status"
+	],
+	"fields": [
+		{
+			"fieldname": "activity_name",
+			"fieldtype": "Data",
+			"label": "Activity Name",
+			"reqd": 1
+		},
+		{
+			"default": "Steps",
+			"fieldname": "activity_type",
+			"fieldtype": "Select",
+			"label": "Activity Type",
+			"options": "\nSteps\nExercise\nMeditation\nWater Intake\nSleep\nHealth Check\nVaccination\nOther"
+		},
+		{
+			"fieldname": "target_value",
+			"fieldtype": "Float",
+			"label": "Target Value"
+		},
+		{
+			"fieldname": "unit",
+			"fieldtype": "Data",
+			"label": "Unit",
+			"default": "count"
+		},
+		{
+			"fieldname": "completed_value",
+			"fieldtype": "Float",
+			"label": "Completed Value",
+			"default": 0
+		},
+		{
+			"fieldname": "completed_on",
+			"fieldtype": "Date",
+			"label": "Completed On"
+		},
+		{
+			"default": "Pending",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"label": "Status",
+			"options": "\nPending\nCompleted\nSkipped"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 1,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Employee Wellness Activity",
+	"owner": "Administrator",
+	"permissions": [],
+	"row_format": "Dynamic",
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

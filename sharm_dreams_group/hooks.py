@@ -17,43 +17,19 @@ app_home = "/desk/sharm-dreams-group"
 required_apps = ["frappe/erpnext/hrms"]
 
 # ------------------------------------------------------------------------------
-# Employee self-service
+# Employee portal
 # ------------------------------------------------------------------------------
-# Two routes the self-service page talks to, neither of which is a `/api/method` call.
+# The employee portal at `/employee-portal` is the single self-service surface.
+# It uses page renderers (not `/api/method`) so it works on benches running the
+# `press` app, which rejects `/api/` paths for non-system users.
 #
-# `/self-services-employees-api` is the action endpoint and
-# `/self-services-employees/setlang` switches language. They are page renderers
-# rather than API methods because a self-service page is a guest: on a bench running the
-# `press` app its auth hook rejects every `/api/` path for a non-system user, so a
-# self-service front-end that used `/api/method` would work on one bench and 404 on
-# another. Nothing is opened up by moving off `/api/` - every action is still
-# authorised by the short-lived Employee Self Service Session token minted at sign-in - it just
-# stops the answer depending on which apps are installed.
-#
-# The route itself is named once, in `self_service/renderers.py::PAGE_ROUTE`, which is
-# what both renderers match against.
-#
-# The page is `www/self-services-employees.html` plus
-# `www/self_services_employees.py`, which Frappe maps to the route
-# `/self-services-employees`. The two filenames differ in the one place Frappe
-# requires it: the route comes from the template, and hyphens become underscores in
-# the controller's module name (`website/page_renderers/template_page.py::
-# set_pymodule`) - the same arrangement as Frappe's own `www/update-password.html`
-# and `www/update_password.py`.
-#
-# Its CSS and JS are linked by that page rather than injected with
-# `app_include_css` / `app_include_js`: self-service.css positions a fixed full-viewport
-# root element, and injecting that into the desk would put it over the top of
-# every page.
+# Two routes: `/employee-portal-api` for actions, `/employee-portal/setlang` for language.
+# Both are defined in `sharm_dreams_group.portal.renderers.PortalApiRenderer` and
+# `PortalLangRenderer`. Authorisation is via the `Employee Self Service Session`
+# token minted at sign-in (National ID + Employee Number).
 page_renderer = [
-	"sharm_dreams_group.self_service.renderers.SelfServiceApiRenderer",
-	"sharm_dreams_group.self_service.renderers.SelfServiceLangRenderer",
-	# The employee portal, at /employee-portal, built alongside the page above rather
-	# than replacing it. Both are listed on purpose: the old page stays up until the
-	# portal has been used long enough to trust, and the two share only the
-	# `Employee Self Service Session` doctype - a token does not care which page
-	# minted it, so forking it would mean two login histories for one tablet.
 	"sharm_dreams_group.portal.renderers.PortalApiRenderer",
+	"sharm_dreams_group.portal.renderers.PortalLangRenderer",
 ]
 
 # ------------------------------------------------------------------------------

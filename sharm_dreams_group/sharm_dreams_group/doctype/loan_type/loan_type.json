@@ -1,0 +1,101 @@
+{
+	"actions": [],
+	"creation": "2026-10-10 12:00:00.000000",
+	"description": "Loan type configuration for salary advances and employee loans",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"loan_type_name",
+		"interest_rate",
+		"max_amount",
+		"max_repayment_periods",
+		"requires_guarantor",
+		"is_active",
+		"description"
+	],
+	"fields": [
+		{
+			"fieldname": "loan_type_name",
+			"fieldtype": "Data",
+			"label": "Loan Type Name",
+			"reqd": 1
+		},
+		{
+			"default": 0,
+			"fieldname": "interest_rate",
+			"fieldtype": "Float",
+			"label": "Interest Rate (%)"
+		},
+		{
+			"fieldname": "max_amount",
+			"fieldtype": "Currency",
+			"label": "Maximum Amount"
+		},
+		{
+			"default": 12,
+			"fieldname": "max_repayment_periods",
+			"fieldtype": "Int",
+			"label": "Maximum Repayment Periods (Months)"
+		},
+		{
+			"default": 0,
+			"fieldname": "requires_guarantor",
+			"fieldtype": "Check",
+			"label": "Requires Guarantor"
+		},
+		{
+			"default": 1,
+			"fieldname": "is_active",
+			"fieldtype": "Check",
+			"label": "Active"
+		},
+		{
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"istable": 0,
+	"links": [],
+	"modified": "2026-10-10 12:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sharm Dreams Group",
+	"name": "Loan Type",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "HR Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"read": 1,
+			"role": "Employee",
+			"share": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "loan_type_name",
+	"sort_order": "ASC",
+	"states": []
+}

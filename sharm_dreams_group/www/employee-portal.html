@@ -14,23 +14,16 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 	<title>Employee Portal</title>
 	<link rel="icon" href="/assets/sharm_dreams_group/images/logo.png" />
-	<!-- Bumped to v=3. The `?v=` is the only thing that stops a wall tablet serving a
-	     stale stylesheet, and v=2 shipped a file whose first line began with `#` - an ID
-	     selector, not a comment - which silently discarded the rule defining every
-	     custom property. The bump is not cosmetic: without it an already-visited tablet
-	     keeps the broken copy. -->
-	<!-- Font Awesome, served from the copy inside Frappe's own assets rather than from a
-	     CDN. Every icon in this portal is a CSS background on a `<i class="fa ...">`, so
-	     without this the header caret, the six dashboard tiles and the star rating all
-	     render as nothing at all - and the star buttons, whose entire content is a glyph,
-	     collapse to a 6x6 pixel tap target on a wall tablet. A CDN would fix that too,
-	     but a tablet with no route to the internet would be back to invisible icons with
-	     no way to tell why. This is Font Awesome 4, which is what Frappe v16 bundles;
-	     the icon names used here (`fa-star`, `fa-clock-o`, `fa-receipt`) are FA4 names and
-	     would need renaming under FA5. -->
+	<link rel="manifest" href="/assets/sharm_dreams_group/manifest.json" />
+	<meta name="theme-color" content="#2563eb" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+	<meta name="apple-mobile-web-app-title" content="Employee Portal" />
+	<link rel="apple-touch-icon" href="/assets/sharm_dreams_group/images/logo.png" />
+	<!-- Bumped to v=4 for PWA support -->
 	<link rel="stylesheet"
 		href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css?v=4.7.0" />
-	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=17" />
+	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=18" />
 </head>
 <body>
 	<div class="ep-root" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
@@ -79,6 +72,28 @@
 		{# Announced on every screen change. The page swaps whole screens, so without
 		   this nothing would move focus or be read out on a wall tablet. #}
 		<div id="epLive" class="ep-sr" role="status" aria-live="polite" aria-atomic="true"></div>
+
+		{# Offline indicator #}
+		<div id="epOfflineBanner" class="ep-offline-banner" hidden role="alert" aria-live="assertive">
+			<i class="fa fa-wifi"></i>
+			<span>You are offline. Showing cached data.</span>
+			<button type="button" class="ep-offline-dismiss" aria-label="Dismiss">&times;</button>
+		</div>
+
+		{# Install prompt #}
+		<div id="epInstallBanner" class="ep-install-banner" hidden role="dialog" aria-labelledby="installTitle">
+			<div class="ep-install-content">
+				<i class="fa fa-mobile"></i>
+				<div>
+					<strong id="installTitle">Install Employee Portal</strong>
+					<span>Add to home screen for offline access</span>
+				</div>
+			</div>
+			<div class="ep-install-actions">
+				<button type="button" class="ep-btn ep-btn-ghost" id="installCancel">Later</button>
+				<button type="button" class="ep-btn" id="installConfirm">Install</button>
+			</div>
+		</div>
 	</div>
 
 	<script>
@@ -89,6 +104,77 @@
 			csrf: {{ portal_csrf | tojson }}
 		};
 	</script>
-	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=33"></script>
+	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=34"></script>
+	<script>
+		// Service Worker registration
+		if ('serviceWorker' in navigator) {
+			window.addEventListener('load', function() {
+				navigator.serviceWorker.register('/assets/sharm_dreams_group/sw.js')
+					.then(function(reg) {
+						console.log('SW registered:', reg.scope);
+						// Check for updates periodically
+						setInterval(function() { reg.update(); }, 60 * 60 * 1000);
+					})
+					.catch(function(err) {
+						console.log('SW registration failed:', err);
+					});
+			});
+		}
+
+		// Online/offline detection
+		window.addEventListener('online', function() {
+			document.getElementById('epOfflineBanner').hidden = true;
+			document.body.classList.remove('ep-offline');
+		});
+		window.addEventListener('offline', function() {
+			document.getElementById('epOfflineBanner').hidden = false;
+			document.body.classList.add('ep-offline');
+		});
+		// Initial state
+		if (!navigator.onLine) {
+			document.getElementById('epOfflineBanner').hidden = false;
+			document.body.classList.add('ep-offline');
+		}
+
+		// Install prompt handling
+		let deferredPrompt;
+		window.addEventListener('beforeinstallprompt', function(e) {
+			e.preventDefault();
+			deferredPrompt = e;
+			// Show install banner after 10 seconds if not dismissed
+			setTimeout(function() {
+				if (deferredPrompt && !localStorage.getItem('epInstallDismissed')) {
+					document.getElementById('epInstallBanner').hidden = false;
+				}
+			}, 10000);
+		});
+		document.getElementById('installConfirm').addEventListener('click', function() {
+			if (deferredPrompt) {
+				deferredPrompt.prompt();
+				deferredPrompt.userChoice.then(function(choice) {
+					if (choice.outcome === 'accepted') {
+						localStorage.setItem('epInstallAccepted', 'true');
+					}
+					deferredPrompt = null;
+					document.getElementById('epInstallBanner').hidden = true;
+				});
+			}
+		});
+		document.getElementById('installCancel').addEventListener('click', function() {
+			localStorage.setItem('epInstallDismissed', 'true');
+			deferredPrompt = null;
+			document.getElementById('epInstallBanner').hidden = true;
+		});
+		document.getElementById('epOfflineDismiss').addEventListener('click', function() {
+			document.getElementById('epOfflineBanner').hidden = true;
+		});
+
+		// Notify SW of version
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.ready.then(function(reg) {
+				reg.active.postMessage('getVersion');
+			});
+		}
+	</script>
 </body>
 </html>
