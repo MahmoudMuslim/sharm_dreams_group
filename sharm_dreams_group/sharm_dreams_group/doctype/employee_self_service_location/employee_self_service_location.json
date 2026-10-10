@@ -3,7 +3,7 @@
  "allow_import": 1,
  "autoname": "field:employee_self_service_location_name",
  "creation": "2026-10-04 00:00:00.000000",
- "description": "One punch zone: a centre point and the radius around it an employee must be inside to check in or out. Anchored to the employee's Company, so one zone per site.",
+ "description": "SUPERSEDED - no longer read by anything. The punch fence is now the Shift Location on the employee's Shift Assignment, which carries the centre and the checkin radius in metres (see `self_service.geo`). Configured a zone here and nothing will happen; configure Shift Location on the Shifts card instead. Kept only so a site with existing rows is not left with unreachable data.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [

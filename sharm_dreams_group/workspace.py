@@ -101,8 +101,10 @@ CARDS: list[tuple[str, list[str]]] = [
 	#     pre-auth row holds a live biometric challenge, so anybody who can read
 	#     either can act as that employee.  They are here for debugging, not for
 	#     daily use, and the link 403s for HR rather than not existing.
-	#   * The other five are HR's: the settings, the punch zones, the enrolled
-	#     devices, and the two approval masters.
+	#   * The other four are HR's: the settings, the enrolled devices, and the two
+	#     approval masters.  The punch zone is not here: it is a `Shift Location`,
+	#     linked on the Shifts card, because a zone belongs to a work location and
+	#     not to the self-service surface.
 	#
 	# The card is labelled for what the employee does, not for the hardware: this is
 	# the self-service surface an HR manager looks after, rather than for the
@@ -112,7 +114,6 @@ CARDS: list[tuple[str, list[str]]] = [
 		"Self Services Employees",
 		[
 			"Employee Self Service Settings",
-			"Employee Self Service Location",
 			"Employee Self Service Biometric Credential",
 			"Employee Self Service Approval Category",
 			"Employee Self Service Approval Request",
@@ -252,6 +253,17 @@ def _expected_doctypes() -> set[str]:
 # only be opened by typing a URL.
 ADOPTED_DOCTYPES = {"Income Tax Slab"}
 
+# App-owned DocTypes deliberately kept off the workspace, with the reason recorded.
+#
+# `Employee Self Service Location` was the per-company punch zone. The geofence is now
+# the `Shift Location` on the employee's shift assignment - HRMS's own work-location
+# doctype, already linked on the Shifts card - so this one has no reader. It is listed
+# rather than left to trip the reachability guard, because "this doctype exists but
+# nothing writes to it" is a decision someone should be able to find, not an accident
+# to rediscover. The DocType and its validator are kept so a site that already has rows
+# in it is not left with data nobody can reach; deleting them is a separate call.
+SUPERSEDED_DOCTYPES = {"Employee Self Service Location"}
+
 
 def apply() -> None:
 	"""Create or refresh the workspace and the stock Link Cards.  Idempotent."""
@@ -293,7 +305,7 @@ def apply() -> None:
 		)
 
 	reachable = reachable_doctypes()
-	missing = sorted(expected - reachable)
+	missing = sorted(expected - reachable - SUPERSEDED_DOCTYPES)
 	print(f"workspace: {WORKSPACE}  {len(reachable & expected)} of {len(expected)} doctypes linked")
 	if missing:
 		frappe.throw(
@@ -1082,7 +1094,13 @@ def verify() -> None:
 	print(f"  public={ws.public}  module={ws.module}  app={ws.app}")
 	print(f"  doctypes owned: {len(expected)}   linked: {len(reachable & expected)}")
 	for name in sorted(expected):
-		print(f"    {'ok     ' if name in reachable else 'MISSING'}  {name}")
+		if name in SUPERSEDED_DOCTYPES:
+			note = "SUPERSEDED (intentionally unlinked)"
+		elif name in reachable:
+			note = "ok"
+		else:
+			note = "MISSING"
+		print(f"    {note:38}  {name}")
 
 	print("\n=== database tables ===")
 	print("\n".join(table_report()))
@@ -1118,9 +1136,12 @@ def verify() -> None:
 			frappe._("Link Cards missing links: {0}").format(frappe.as_json(missing_links)),
 			title=frappe._("Incomplete Link Card"),
 		)
-	if sorted(expected - reachable):
+	# A superseded doctype is excluded from the guard by name, not by pattern, so a
+	# doctype that merely stops being reachable is still a failure.
+	unreachable = expected - reachable - SUPERSEDED_DOCTYPES
+	if sorted(unreachable):
 		frappe.throw(
-			frappe._("Not reachable from the desk: {0}").format(", ".join(sorted(expected - reachable))),
+			frappe._("Not reachable from the desk: {0}").format(", ".join(sorted(unreachable))),
 			title=frappe._("Unreachable DocType"),
 		)
 	print("\nall doctypes are reachable and every block resolves")

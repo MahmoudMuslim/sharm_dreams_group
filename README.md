@@ -440,17 +440,28 @@ just stops the answer depending on which apps are installed.
 
 ### Geofencing starts **off**, and that is deliberate
 
-A punch zone is a centre point and a radius. `Company` has no latitude or
-longitude field, and no coordinate for any of the group companies exists in the
-master workbook or the seed data — so seeding a zone would mean inventing a
-number, and enforcement on with a wrong centre refuses every punch at the real
-office.
+A punch zone is a centre point and a radius, and no coordinate for any of the
+group's work sites exists in the master workbook or the seed data — so seeding
+one would mean inventing a number, and enforcement on with a wrong centre refuses
+every punch at the real office.
 
 So install leaves `geo_punch_enforce` at 0 and prints what is left to do. Punches
-work and every one records its coordinates. HR adds a `Employee Self Service Location` per site and
-turns the flag on. Note the asymmetry: `self_service.geo.is_enforced` fails **closed** to
+work and every one records its coordinates. HR gives each `Shift Location` a
+centre and a radius and turns the flag on. Note the asymmetry:
+`self_service.geo.is_enforced` fails **closed** to
 enforced when the setting cannot be read at all, so an unreachable database refuses
 punches, but an explicitly-off setting is an instruction and is obeyed.
+
+The zone is the employee's **work location**, not their company: this group runs
+14 sites across 13 companies, so a per-company circle would either span the
+country or refuse everybody. `Shift Assignment.shift_location` links to HRMS's own
+`Shift Location`, and that is what `self_service.geo` reads — the same rows HRMS's
+`Employee Checkin.validate_distance_from_shift_location` reads, with the radius in
+metres. `seeder.assign_work_locations` fills the link from each employee's branch.
+
+`Employee Self Service Location` is superseded and read by nothing. It is kept so a
+site that already has rows is not left with unreachable data; new zones go on the
+Shifts card.
 
 `Employee Checkin.sdg_self_service_geo_status` and `sdg_self_service_geo_message` carry the
 verdict. Read-only — the self-service page writes them, nobody edits them.

@@ -664,17 +664,17 @@ class TestSidebarRecovery(FrappeTestCase):
 		still agree on the full set, and that each is actually written.
 		"""
 		from sharm_dreams_group.setup import HRMS_PANEL_GROUPS
-		from sharm_dreams_group.workspace import _expected_doctypes
+		from sharm_dreams_group.workspace import _expected_doctypes, SUPERSEDED_DOCTYPES
 
 		specified = {name for _sec, subs in HRMS_PANEL_GROUPS for _title, names in subs for name in names}
 		self.assertEqual(
 			specified & _expected_doctypes(),
-			_expected_doctypes(),
+			_expected_doctypes() - SUPERSEDED_DOCTYPES,
 			"the panel spec and this app's DocTypes disagree",
 		)
 
 		in_panel = {r.link_to for r in self.doc.items if r.type == "Link"}
-		for name in _expected_doctypes():
+		for name in _expected_doctypes() - SUPERSEDED_DOCTYPES:
 			self.assertIn(name, in_panel, name)
 
 
@@ -764,10 +764,10 @@ class TestHrmsPanelCoverage(FrappeTestCase):
 
 	def test_every_table_this_app_owns_is_still_reachable(self):
 		"""The mirror was dropped; our own tables must not be dropped with it."""
-		from sharm_dreams_group.workspace import _expected_doctypes
+		from sharm_dreams_group.workspace import _expected_doctypes, SUPERSEDED_DOCTYPES
 
 		own = _expected_doctypes() | {"Income Tax Slab"}
-		missing = own - self.in_panel
+		missing = own - SUPERSEDED_DOCTYPES - self.in_panel
 		self.assertEqual(missing, set(), "tables this app owns are not in the panel")
 
 	def test_every_grouped_doctype_exists(self):

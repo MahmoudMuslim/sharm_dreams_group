@@ -1088,7 +1088,18 @@ def can_view_dashboard() -> bool:
 	if user == "Administrator" or "System Manager" in frappe.get_roles():
 		return True
 	return bool(
-		{"HR Manager", "HR User", "SDG Payroll Manager", "SDG Payroll User"} & set(frappe.get_roles())
+		{
+			"HR Manager",
+			"HR User",
+			"SDG Payroll Manager",
+			"SDG Payroll User",
+			"Employee",
+			"Employee Self Service",
+			"Accounts User",
+			"Accounts Manager",
+			"Payroll User",
+		}
+		& set(frappe.get_roles())
 	)
 
 

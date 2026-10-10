@@ -23,7 +23,14 @@ import frappe
 from frappe import _
 from frappe.utils.response import build_response
 
-from sharm_dreams_group.portal import attendance, expenses, performance, portal
+from sharm_dreams_group.portal import (
+	attendance,
+	expenses,
+	notifications,
+	performance,
+	portal,
+)
+from sharm_dreams_group.self_service import webauthn
 
 PAGE_ROUTE = "employee-portal"
 API_ROUTE = f"{PAGE_ROUTE}-api"
@@ -36,10 +43,25 @@ ACTIONS = {
 	"sign_in": portal.sign_in,
 	"sign_out": portal.sign_out,
 	"my_profile": portal.my_profile,
+	# details
+	"my_details": portal.my_details,
+	"update_my_details": portal.update_my_details,
+	# biometric sign-in
+	#
+	# The self-service page's tested two-step WebAuthn flow, reused as-is rather than
+	# reimplemented beside it. `webauthn_login` decides between first-time enrolment
+	# (attest) and an existing device (assert) once National ID and Employee Number
+	# match, and `webauthn_verify` is the only thing that mints a session. Shared on
+	# purpose: the credentials and pre-auth rows are the same DocTypes the self-service
+	# page uses, so a device enrolled on one page signs in on the other.
+	"webauthn_login": webauthn.webauthn_login,
+	"webauthn_verify": webauthn.webauthn_verify,
 	# balances and time off
 	"my_balances": portal.my_balances,
 	"leave_types": portal.leave_types,
 	"my_leaves": portal.my_leaves,
+	"my_holidays": portal.my_holidays,
+	"my_notifications": notifications.my_notifications,
 	"request_leave": portal.request_leave,
 	"cancel_leave": portal.cancel_leave,
 	# payroll
@@ -50,6 +72,10 @@ ACTIONS = {
 	"my_shifts": attendance.my_shifts,
 	"my_attendance": attendance.my_attendance,
 	"punch": attendance.punch,
+	# compensatory approvals (HR/manager only)
+	"my_compensatory_proposals": portal.my_compensatory_proposals,
+	"approve_compensatory_proposal": portal.approve_compensatory_proposal,
+	"reject_compensatory_proposal": portal.reject_compensatory_proposal,
 	# performance
 	"my_performance": performance.my_performance,
 	"save_self_appraisal": performance.save_self_appraisal,

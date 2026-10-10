@@ -192,6 +192,11 @@ doc_events = {
 			"sharm_dreams_group.hr.children.validate_employee",
 		],
 	},
+	"Job Applicant": {
+		"before_insert": [
+			"sharm_dreams_group.hr.job_opening.process_screening_answers",
+		],
+	},
 }
 
 # ------------------------------------------------------------------------------
@@ -247,6 +252,15 @@ add_to_apps_screen = [
 #   *after* total_deduction, which reproduces the spreadsheet treatment where
 #   loans do not reduce taxable income.  No custom arithmetic required.
 
+
+# ------------------------------------------------------------------------------
+# Scheduler
+# ------------------------------------------------------------------------------
+scheduler_events = {
+	"daily": [
+		"sharm_dreams_group.portal.compensatory.process_daily_compensatory_earnings"
+	]
+}
 
 def boot_session(bootinfo):
 	"""Tell the desk, once per page load, whether this user may see penalties.

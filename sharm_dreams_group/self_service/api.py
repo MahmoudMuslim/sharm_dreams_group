@@ -16,9 +16,11 @@ Two Frappe-isms make the bare paths here wrong, and both are load-bearing:
 * `request_leave` runs the insert as the employee's own user.  HRMS's
   `validate_balance_leaves` rejects guests outright, so a self-service page request would fail
   with a message the employee cannot act on.
-* `punch` writes `Employee Checkin` directly.  HRMS has no geofencing of its own,
-  so `self_service.geo` is the only thing standing between a punch from the car park and
-  a punch at the office.
+* `punch` writes `Employee Checkin` directly, and `self_service.geo` checks the
+  coordinates against the employee's work location.  HRMS's own check only fires
+  when `allow_geolocation_tracking` is on, which this app leaves off so every other
+  punch channel keeps working; this is what stands between a punch from the car park
+  and a punch at the office.
 """
 
 from datetime import datetime
@@ -271,8 +273,8 @@ def punch(token, log_type, latitude=None, longitude=None):
 	"""Record an Employee Checkin (IN / OUT) from the self-service page.
 
 	When geofencing is enforced the browser coordinates must fall inside the
-	radius of the employee's company Employee Self Service Location. Coordinates are always stored
-	on the checkin for audit, whatever the outcome.
+	radius of the `Shift Location` on the employee's current shift assignment.
+	Coordinates are always stored on the checkin for audit, whatever the outcome.
 	"""
 	log_type = (log_type or "").upper()
 	if log_type not in ALLOWED_LOG_TYPES:

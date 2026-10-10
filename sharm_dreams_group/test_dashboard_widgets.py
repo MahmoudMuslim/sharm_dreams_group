@@ -625,11 +625,26 @@ class TestUpstreamPatches(FrappeTestCase):
 		apply()
 		verify()
 		bench_apps = os.path.join(frappe.utils.get_bench_path(), "apps")
+		installed = set(frappe.get_installed_apps())
+		checked = 0
 		for relative, edits in PATCHES.items():
+			app = relative.split("/")[0]
+			if app not in installed:
+				# The ledger is app-wide but a bench is not: `lending` is patched and
+				# is not installed here, so its file legitimately does not exist. Skipping
+				# a whole app rather than opening the file is what `apply` and `verify`
+				# already do, and it keeps the assertion meaningful for the apps that
+				# *are* here - opening it unconditionally raised `FileNotFoundError` and
+				# took the rest of the ledger down with it.
+				continue
 			with open(os.path.join(bench_apps, relative)) as handle:
 				text = handle.read()
 			for _, after in edits:
 				self.assertIn(after, text, f"{relative}: patch edit missing")
+			checked += 1
+		# Guard against the loop passing because `installed` was empty rather than
+		# because every patched edit was found.
+		self.assertTrue(checked, "no patched file was checked at all")
 
 	def test_the_unblocked_reports_all_run_without_a_company(self):
 		from sharm_dreams_group.dashboard_widgets import _runs

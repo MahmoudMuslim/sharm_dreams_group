@@ -481,6 +481,20 @@ def assign_holiday_list(_data: dict | None = None) -> int:
 	return len(rows)
 
 
+def punch_zone_for_branch(branch: str | None) -> str | None:
+	"""The `Shift Location` named after a branch, when one exists.
+
+	`Shift Location` is HRMS's work-location doctype and its `location_name` *is* the
+	document name (`autoname: field:location_name`), and the branches on this site's
+	Employee records match the `Shift Location` names exactly.  Only an existing zone
+	is returned: an employee based at a site HR has not fenced is left unlinked - and
+	told so at the punch - rather than pointed at the wrong place.
+	"""
+	if not branch:
+		return None
+	return branch if frappe.db.exists("Shift Location", branch) else None
+
+
 def assign_shifts_by_gender(_data: dict | None = None) -> dict:
 	"""Give every active employee the shift their gender maps to, and submit it.
 
@@ -504,12 +518,12 @@ def assign_shifts_by_gender(_data: dict | None = None) -> dict:
 
 	for gender, shift_type in mapping.items():
 		employees = frappe.db.sql(
-			"SELECT name, company FROM `tabEmployee` "
+			"SELECT name, company, branch FROM `tabEmployee` "
 			"WHERE status = 'Active' AND gender = %s "
 			"AND company IS NOT NULL AND company <> '' ORDER BY name",
 			(gender,),
 		)
-		for employee, company in employees:
+		for employee, company, branch in employees:
 			existing = frappe.db.get_all(
 				"Shift Assignment",
 				filters={
@@ -533,6 +547,9 @@ def assign_shifts_by_gender(_data: dict | None = None) -> dict:
 					"employee": employee,
 					"company": company,
 					"shift_type": shift_type,
+					# The work location, so the punch has a fence to check against.
+					# HR can change it per assignment; this only fills the blank.
+					"shift_location": punch_zone_for_branch(branch),
 					"start_date": SHIFT_ASSIGNMENT_FROM,
 					"end_date": SHIFT_ASSIGNMENT_TO,
 					"status": "Active",
@@ -553,6 +570,43 @@ def assign_shifts_by_gender(_data: dict | None = None) -> dict:
 			f"  {len(report['skipped_no_gender'])} active employee(s) have no gender "
 			f"recorded and were given no shift: {report['skipped_no_gender']}"
 		)
+	return report
+
+
+def assign_work_locations(_data: dict | None = None) -> dict:
+	"""Point existing shift assignments at the punch zone for the employee's branch.
+
+	`assign_shifts_by_gender` fills the location on the assignments it creates, but
+	the 180 already on file predate the work-location model and carry none. The field
+	is set at the database level on purpose: the location is reference data the punch
+	reads, not a term of the assignment, and cancelling and resubmitting 180 rows to
+	attach it would churn their names and audit trail for nothing. HR's later edits
+	are kept - this only ever replaces an empty or different link, never re-derives one
+	that is already right.
+	"""
+	report = {"linked": 0, "kept": 0, "no_branch": 0, "no_zone": 0}
+	rows = frappe.db.sql(
+		"SELECT name, branch FROM `tabEmployee` WHERE status = 'Active' ORDER BY name",
+		as_dict=True,
+	)
+	for emp in rows:
+		zone = punch_zone_for_branch(emp.branch)
+		if not zone:
+			report["no_branch" if not emp.branch else "no_zone"] += 1
+			continue
+		assignments = frappe.get_all(
+			"Shift Assignment",
+			filters={"employee": emp.name, "docstatus": 1, "status": "Active"},
+			pluck="name",
+		)
+		for name in assignments:
+			if frappe.db.get_value("Shift Assignment", name, "shift_location") == zone:
+				report["kept"] += 1
+				continue
+			frappe.db.set_value(
+				"Shift Assignment", name, "shift_location", zone, update_modified=False
+			)
+			report["linked"] += 1
 	return report
 
 
@@ -1086,6 +1140,7 @@ def _seed(reset: bool) -> None:
 		("approval categories", seed_approval_categories),
 		("holiday list", assign_holiday_list),
 		("shifts", assign_shifts_by_gender),
+		("work locations", assign_work_locations),
 		("performance setup", seed_performance_setup),
 		("coupon bands", seed_coupon_bands),
 		("coupons granted", seed_coupons_granted),

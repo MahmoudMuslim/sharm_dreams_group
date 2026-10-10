@@ -190,13 +190,27 @@ class TestWorkspace(FrappeTestCase):
 		self.assertEqual(first["name"], "Sharm Dreams Group")
 
 	def test_every_owned_doctype_is_reachable(self):
-		"""The guard: a new doctype must get a link, or this fails."""
+		"""The guard: a new doctype must get a link, or this fails.
+
+		`SUPERSEDED_DOCTYPES` is subtracted deliberately, and the subtraction is
+		pinned here: the guard's whole job is catching a doctype that quietly stops
+		being reachable, so an exclusion list that grows without anyone noticing is
+		the exact failure it exists to prevent. Listing one is a decision, not a
+		default.
+		"""
 		owned = ws._expected_doctypes()
 		reachable = ws.reachable_doctypes()
 		self.assertEqual(
-			sorted(owned - reachable),
+			sorted(owned - reachable - ws.SUPERSEDED_DOCTYPES),
 			[],
 			"doctypes with no shortcut on the workspace; add them to CARDS",
+		)
+		# Every exclusion must be a doctype this app really owns - a stale name here
+		# would silently disable the guard for it and for nothing.
+		self.assertEqual(
+			sorted(ws.SUPERSEDED_DOCTYPES - owned),
+			[],
+			"SUPERSEDED_DOCTYPES names a doctype this app does not own",
 		)
 
 	def test_reachability_is_read_from_rendered_content(self):

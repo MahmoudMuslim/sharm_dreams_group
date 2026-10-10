@@ -146,6 +146,191 @@ class TestPortalBalances(FrappeTestCase):
 		self.assertEqual(flt(None, 1.0) or 1.0, 1.0)
 
 
+class TestHolidays(FrappeTestCase):
+	"""The days-off screen, which is a calendar rather than a balance.
+
+	The split between a weekly rest day and a named public holiday is the whole point
+	of the screen: both are days off, and only one is worth planning a trip around.
+	Reporting 115 "holidays" because Fridays are on the calendar would say nothing.
+	"""
+
+	def setUp(self):
+		self.emp = frappe.db.get_value(
+			"Employee",
+			{"status": "Active", "sdg_national_id": ("is", "set"),
+			 "employee_number": ("is", "set")},
+			"name",
+		)
+		if not self.emp:
+			self.skipTest("no sign-in-able employee")
+		self.token = portal.sign_in(
+			frappe.db.get_value("Employee", self.emp, "sdg_national_id"),
+			frappe.db.get_value("Employee", self.emp, "employee_number"),
+		)["token"]
+
+	def test_it_refuses_a_bogus_token(self):
+		with self.assertRaises(frappe.exceptions.ValidationError):
+			portal.my_holidays("not-a-real-token")
+
+	def test_the_list_is_the_one_covering_today(self):
+		out = portal.my_holidays(self.token)
+		if not out["list"]:
+			self.skipTest("no Holiday List covers today on this site")
+		self.assertTrue(
+			frappe.db.get_value(
+				"Holiday List", out["list"], ["from_date", "to_date"], as_dict=True
+			),
+			"the named list does not exist",
+		)
+
+	def test_nothing_upcoming_is_in_the_past(self):
+		"""A holiday the employee has already worked is history, not a day ahead."""
+		out = portal.my_holidays(self.token)
+		for day in out["days"]:
+			with self.subTest(day["date"]):
+				self.assertGreaterEqual(day["days_until"], 0)
+
+	def test_upcoming_days_are_in_date_order(self):
+		out = portal.my_holidays(self.token)
+		dates = [d["date"] for d in out["days"]]
+		self.assertEqual(dates, sorted(dates))
+
+	def test_public_and_weekly_are_counted_apart(self):
+		"""The totals must not lump the weekend in with the holidays."""
+		out = portal.my_holidays(self.token)
+		self.assertGreater(out["weekly_count"], 0, "this group works a weekly rest day")
+		self.assertGreater(out["public_count"], 0, "a holiday list with no public holiday?")
+		self.assertNotEqual(out["public_count"], out["weekly_count"])
+
+	def test_every_day_is_labelled_one_way_or_the_other(self):
+		out = portal.my_holidays(self.token)
+		for day in out["days"][:40]:
+			with self.subTest(day["date"]):
+				self.assertIn(day["kind"], ("public", "weekly"))
+
+	def test_a_site_with_no_calendar_says_so_rather_than_raising(self):
+		"""No list covering today is a data gap, not a crash."""
+		self.assertIsNone(portal.holiday_list_for(self.emp, "1990-01-01"))
+
+
+class TestLeaveTerms(FrappeTestCase):
+	"""The rules shown beside a balance, read off the Leave Type and never restated.
+
+	A limit left at its default is reported as absent rather than as zero: "no limit on
+	consecutive days" and "you may take 0 consecutive days" are different claims and only
+	the first is true. These pin that, because the zero case is the one that produces a
+	confidently wrong sentence on a wall tablet.
+	"""
+
+	def test_a_type_with_no_rules_reports_none_rather_than_zero(self):
+		terms = portal.leave_terms(
+			frappe._dict(
+				{
+					"max_continuous_days_allowed": 0,
+					"max_leaves_allowed": 0,
+					"applicable_after": 0,
+					"allow_encashment": 0,
+					"sdg_vacation_day_multiplier": 1.0,
+					"is_lwp": 0,
+				}
+			)
+		)
+		self.assertEqual(terms["terms"], [])
+		self.assertIsNone(terms["continuous_days"])
+
+	def test_a_continuous_limit_is_stated_in_days(self):
+		"""Casual Leave carries `max_continuous_days_allowed = 3` on this site."""
+		casual = frappe.db.get_value("Leave Type", {"max_continuous_days_allowed": (">", 0)}, "name")
+		if not casual:
+			self.skipTest("no leave type with a continuous-days limit")
+		terms = portal.leave_terms(
+			frappe.db.get_value(
+				"Leave Type", casual,
+				["max_continuous_days_allowed", "max_leaves_allowed", "applicable_after",
+				 "allow_encashment", "sdg_vacation_day_multiplier", "is_lwp"],
+				as_dict=True,
+			)
+		)
+		self.assertEqual(terms["continuous_days"], 3)
+		self.assertTrue(any("3 consecutive days" in t for t in terms["terms"]), terms["terms"])
+
+	def test_leave_without_pay_is_reported_as_unpaid(self):
+		"""`is_lwp` decides it outright; a paid flag left on a LWP type would lie."""
+		terms = portal.leave_terms(
+			frappe._dict(
+				{
+					"max_continuous_days_allowed": 0, "max_leaves_allowed": 0,
+					"applicable_after": 0, "allow_encashment": 0,
+					"sdg_vacation_day_multiplier": 1.0, "is_lwp": 1,
+					"sdg_is_paid": 1, "is_ppl": 1,
+				}
+			)
+		)
+		self.assertTrue(terms["lwp"])
+		self.assertFalse(terms["paid"])
+
+	def test_a_missing_leave_type_reports_nothing(self):
+		self.assertEqual(portal.leave_terms(None), {})
+
+
+class TestBalanceDetail(FrappeTestCase):
+	"""The figures beside a balance, which have to agree with each other."""
+
+	def setUp(self):
+		self.emp = frappe.db.get_value(
+			"Employee",
+			{"status": "Active", "sdg_national_id": ("is", "set"),
+			 "employee_number": ("is", "set")},
+			"name",
+		)
+		if not self.emp:
+			self.skipTest("no sign-in-able employee")
+		self.token = portal.sign_in(
+			frappe.db.get_value("Employee", self.emp, "sdg_national_id"),
+			frappe.db.get_value("Employee", self.emp, "employee_number"),
+		)["token"]
+
+	def test_approved_and_pending_sum_to_the_used_total(self):
+		"""The split must not become a second, disagreeing figure.
+
+		`used` is what the balance is computed from; if the halves did not add up to
+		it, the screen would show a total and a breakdown that cannot both be true.
+		"""
+		out = portal.my_balances(self.token)
+		self.assertTrue(out["balances"], "no balance rows to check")
+		for row in out["balances"]:
+			with self.subTest(row["label"]):
+				self.assertAlmostEqual(row["approved"] + row["pending"], row["used"], places=2)
+
+	def test_the_page_totals_are_the_sum_of_the_rows(self):
+		out = portal.my_balances(self.token)
+		for field in ("total_allocated", "total_used", "total_remaining", "total_pending"):
+			with self.subTest(field):
+				self.assertAlmostEqual(
+					out[field], round(sum(r[field[6:]] for r in out["balances"]), 2), places=2
+				)
+
+	def test_pending_never_counts_as_approved(self):
+		"""The whole point of the split, on the one employee who has a pending request."""
+		out = portal.my_balances(self.token)
+		pending_rows = [r for r in out["balances"] if r["pending"] > 0]
+		for row in pending_rows:
+			with self.subTest(row["label"]):
+				self.assertTrue(row["requests"], "pending days with no request behind them")
+
+	def test_each_row_carries_the_rules_and_the_requests_behind_it(self):
+		out = portal.my_balances(self.token)
+		for row in out["balances"]:
+			with self.subTest(row["label"]):
+				# An allocated type must say its validity window; a type spent against
+				# without a grant has none, and saying so honestly is the point.
+				if row["allocated"] > 0:
+					self.assertTrue(row["from_date"] and row["to_date"])
+				self.assertIn("terms", row)
+				self.assertIsInstance(row["requests"], list)
+				self.assertLessEqual(row["pending"], row["used"] + 0.001)
+
+
 class TestCarryForwardTerms(FrappeTestCase):
 	"""The cap and the expiry, which are policy and must not be restated anywhere."""
 

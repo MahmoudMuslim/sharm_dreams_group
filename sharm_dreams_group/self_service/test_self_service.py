@@ -377,6 +377,19 @@ class SelfServiceTestCase(FrappeTestCase):
 			):
 				_quiet_delete("Employee Checkin", row)
 
+			# A submitted `Shift Assignment` is what a geofence test hangs its punch zone
+			# off, and HRMS refuses to delete an Employee one still points at, so they go
+			# first and in that order: cancel, then delete.
+			for row in frappe.get_all(
+				"Shift Assignment",
+				filters={"employee": ("in", employees)},
+				pluck="name",
+				limit_page_length=0,
+			):
+				if frappe.db.get_value("Shift Assignment", row, "docstatus") == 1:
+					frappe.get_doc("Shift Assignment", row).cancel()
+				_quiet_delete("Shift Assignment", row)
+
 			# One fixture employee may be another's manager.
 			frappe.db.set_value("Employee", {"reports_to": ("in", employees)}, "reports_to", None)
 			for name in employees:
@@ -419,18 +432,18 @@ class SelfServiceTestCase(FrappeTestCase):
 	def _purge_zones(cls) -> None:
 		"""Delete only the punch zones this suite created.
 
-		Scoped by name rather than emptying the table: a `Employee Self Service Location` is the
-		real punch zone for a real site, and a test run has no business deleting it.
-		Zones are autonamed by `employee_self_service_location_name`, so the name *is* the document
-		name and the prefix is all that is needed to tell ours from the site's.
+		Scoped by name rather than emptying the table: a `Shift Location` is the real
+		punch zone for a real work site, and a test run has no business deleting it. It
+		is autonamed by `location_name`, so the name *is* the document name and the
+		prefix is all that is needed to tell ours from the site's.
 		"""
 		for row in frappe.get_all(
-			"Employee Self Service Location",
+			"Shift Location",
 			filters={"name": ["like", f"{FIXTURE_PREFIX}%"]},
 			pluck="name",
 			limit_page_length=0,
 		):
-			_quiet_delete("Employee Self Service Location", row)
+			_quiet_delete("Shift Location", row)
 
 	def make_employee(self, code, **extra):
 		"""Create a self-service page-signable Employee inside the fixture namespace.
@@ -480,8 +493,8 @@ class SelfServiceTestCase(FrappeTestCase):
 		`get_global_default` reads the *current user's* User Defaults, and the test
 		session is Administrator - who has none - so it returns "". Global Defaults
 		is the site-wide fallback, and any Company at all is the last resort: the
-		self-service only needs a company to satisfy `Employee Self Service Location.company`, so which one
-		it is does not matter.
+		self-service only needs a company to hang the fixture Employee (and the shift
+		assignment a punch zone is attached to) off, so which one it is does not matter.
 		"""
 		return (
 			frappe.defaults.get_global_default("company")
@@ -1069,41 +1082,160 @@ class TestApprovalWorkflow(SelfServiceTestCase):
 
 
 class TestAttendance(SelfServiceTestCase):
+	"""Punching works, so these turn enforcement *off* first.
+
+	`geo_punch_enforce` is a site-wide setting and this site now has it on with real
+	zones, which would refuse a punch from a fixture employee that has no shift
+	assignment and therefore no work location. These tests are about the punch, not
+	about the fence - `TestGeofence` covers the fence, and turns enforcement back on
+	for itself. Pinned here rather than assumed, so a suite run against a site with
+	enforcement on tests the same thing it does with it off.
+	"""
+
 	def setUp(self):
 		purge("Employee Checkin")
 		purge("Employee Self Service Session")
+		previous = frappe.db.get_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce"
+		)
+		frappe.db.set_single_value("Employee Self Service Settings", "geo_punch_enforce", 0)
+		self.addCleanup(self._restore_enforcement, previous)
 		self.emp = self.make_employee("KATT-1")
 		self.token = self.signed_in("KATT-1")
 
+	def _restore_enforcement(self, previous):
+		"""Put `geo_punch_enforce` back, durably.
+
+		The commit matters: `TestGeofence` commits while restoring, and cleanups run
+		last-in-first-out, so an uncommitted restore here is discarded by the rollback
+		`FrappeTestCase` runs afterwards - which is how running the suite silently left
+		geofencing off on a site that had it on.
+		"""
+		frappe.db.set_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce", previous or 0
+		)
+		frappe.db.commit()
+
+	def _inside_zone(self):
+		"""A point inside a configured punch zone, read from the data.
+
+		Read rather than hard-coded so these follow whatever centres HR has entered.
+		"""
+		zone = self._zone()
+		return zone.latitude, zone.longitude
+
+	def _zone(self):
+		"""A `Shift Location` with a real centre and radius, created for this test.
+
+		`Shift Location` is HRMS's own work-location doctype, autonamed by
+		`location_name`, so the name carries the fixture prefix and `_purge_zones`
+		removes it at the class boundary. The centre is copied from whatever zone the
+		site already has rather than invented, so a test that punches "inside the zone"
+		is inside a zone that exists.
+		"""
+		existing = frappe.db.get_value(
+			"Shift Location",
+			{"checkin_radius": (">", 0)},
+			["name", "latitude", "longitude"],
+			as_dict=True,
+		)
+		if not existing:
+			self.skipTest("no punch zone has a radius, so no point is inside one")
+		name = f"{FIXTURE_PREFIX}{self._testMethodName}-Zone"
+		if frappe.db.exists("Shift Location", name):
+			return frappe.db.get_value(
+				"Shift Location", name, ["name", "latitude", "longitude"], as_dict=True
+			)
+		return frappe.get_doc(
+			{
+				"doctype": "Shift Location",
+				"location_name": name,
+				"latitude": existing.latitude,
+				"longitude": existing.longitude,
+				"checkin_radius": 500,
+			}
+		).insert(ignore_permissions=True)
+
+	def _assign_zone(self, zone):
+		"""A submitted, active shift assignment covering today, pointing at `zone`."""
+		for name in frappe.get_all(
+			"Shift Assignment",
+			filters={"employee": self.emp.name},
+			pluck="name",
+			limit_page_length=0,
+		):
+			if frappe.db.get_value("Shift Assignment", name, "docstatus") == 1:
+				frappe.get_doc("Shift Assignment", name).cancel()
+			_quiet_delete("Shift Assignment", name)
+		doc = frappe.get_doc(
+			{
+				"doctype": "Shift Assignment",
+				"employee": self.emp.name,
+				"company": self.emp.company,
+				"shift_type": frappe.get_all("Shift Type", pluck="name", limit_page_length=1)[0],
+				"shift_location": zone.name,
+				"start_date": frappe.utils.today(),
+				"end_date": frappe.utils.today(),
+				"status": "Active",
+			}
+		).insert(ignore_permissions=True)
+		doc.submit()
+		return doc
+
 	def test_a_punch_records_the_checkin_and_the_geo_verdict(self):
-		# Enforcement is off by default and no zone is configured, so a punch with
-		# no coordinates passes - and is stamped with why it could not be judged.
-		result = api.punch(self.token, "IN")
+		"""Coordinates from the browser, judged against the employee's work location.
+
+		The fixture employee gets a shift assignment pointing at a real zone, because a
+		verdict of "Verified" is only reachable when the employee *has* a work location -
+		with none, `geo.get_zones` returns nothing and the verdict is "No zone
+		configured", which is a different statement about the same punch.
+		"""
+		zone = self._zone()
+		self._assign_zone(zone)
+		lat, lon = self._inside_zone()
+		result = api.punch(self.token, "IN", lat, lon)
 		self.assertTrue(result["ok"])
 		self.assertEqual(
 			frappe.db.get_value("Employee Checkin", result["checkin"], "sdg_self_service_geo_status"),
-			geo.STATUS_LABELS[geo.STATUS_UNAVAILABLE],
+			geo.STATUS_LABELS[geo.STATUS_OK],
 		)
 
+	def test_a_punch_with_no_location_is_refused(self):
+		"""HRMS's own tracking makes a location mandatory on every checkin.
+
+		`Employee Checkin.validate_distance_from_shift_location` throws
+		"Latitude and longitude values are required for checking in" before this app
+		gets a say, so a tablet that cannot get a fix cannot punch at all. That is the
+		native feature doing the refusing, and it is why every punch here carries
+		coordinates.
+		"""
+		with self.assertRaises(frappe.ValidationError) as caught:
+			api.punch(self.token, "IN")
+		self.assertIn("latitude", str(caught.exception).lower())
+
 	def test_the_log_type_is_normalised(self):
-		self.assertEqual(api.punch(self.token, "out")["log_type"], "OUT")
+		lat, lon = self._inside_zone()
+		self.assertEqual(api.punch(self.token, "out", lat, lon)["log_type"], "OUT")
 
 	def test_an_unknown_log_type_is_refused(self):
 		with self.assertRaises(frappe.ValidationError):
 			api.punch(self.token, "SIDEWAYS")
 
 	def test_the_profile_knows_the_employee_is_clocked_in(self):
-		api.punch(self.token, "IN")
+		lat, lon = self._inside_zone()
+		api.punch(self.token, "IN", lat, lon)
 		self.assertEqual(api.my_profile(self.token)["attendance_state"], "checked_in")
 
 	def test_a_pair_puts_the_employee_back_out(self):
-		api.punch(self.token, "IN")
-		api.punch(self.token, "OUT")
+		lat, lon = self._inside_zone()
+		api.punch(self.token, "IN", lat, lon)
+		api.punch(self.token, "OUT", lat, lon)
 		self.assertEqual(api.my_profile(self.token)["attendance_state"], "checked_out")
 
 	def test_a_stranger_token_punches_nothing(self):
+		lat, lon = self._inside_zone()
 		with self.assertRaises(frappe.ValidationError):
-			api.punch("not-a-token", "IN")
+			api.punch("not-a-token", "IN", lat, lon)
 		self.assertEqual(
 			frappe.db.count("Employee Checkin", {"employee": self.emp.name}), 0
 		)
@@ -1114,13 +1246,31 @@ class TestAttendance(SelfServiceTestCase):
 
 
 class TestGeofence(SelfServiceTestCase):
+	"""The fence is the employee's work location, taken from the shift assignment.
+
+	A zone is a `Shift Location` (HRMS's own work-location doctype: a centre and a
+	`checkin_radius` in metres), and what makes it apply to an employee is
+	`Shift Assignment.shift_location` on the assignment covering the day. Nothing here
+	is anchored to the company any more - the group runs many sites inside a handful of
+	companies, so a per-company circle would either span the country or refuse
+	everybody.
+	"""
+
 	def setUp(self):
 		self._purge_zones()
 		self.company = self._any_company()
 		self.emp = self.make_employee("KGEO-1", company=self.company)
+		# Restored, not forced to 0. This used to hand back a hard-coded `0`, which was
+		# invisible while the setting defaulted to off and silently switched a site that
+		# had turned enforcement *on* back off after a test run - so a demo or a live
+		# site stopped geofencing because someone ran the suite.
+		previous = frappe.db.get_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce"
+		)
 		self._enforce(1)
-		self.addCleanup(lambda: self._enforce(0))
-		self._zone("Zone")
+		self.addCleanup(lambda: self._enforce(previous or 0))
+		self.zone = self._zone("Zone")
+		self._assign_zone(self.zone)
 
 	def test_inside_the_radius_passes(self):
 		ok, status, message = geo.check_punch(self.emp.name, 30.0444, 31.2357)
@@ -1131,7 +1281,17 @@ class TestGeofence(SelfServiceTestCase):
 		ok, status, message = geo.check_punch(self.emp.name, 0.0, 0.0)
 		self.assertFalse(ok)
 		self.assertEqual(status, geo.STATUS_OUTSIDE)
-		self.assertIn(self.zone_name, message)
+		self.assertIn(self.zone.location_name, message)
+
+	def test_the_radius_is_read_in_metres(self):
+		"""`checkin_radius` is metres; a 1 m fence must refuse a point 2 m away.
+
+		Read as kilometres the same row would have been a 1000x too generous circle, so
+		this pins the unit rather than the arithmetic.
+		"""
+		self._assign_zone(self._zone("Tiny", radius_m=1))
+		lat = 30.0444 + (2 / 111_320)
+		self.assertFalse(geo.check_punch(self.emp.name, lat, 31.2357)[0])
 
 	def test_no_coordinates_is_refused_while_enforced(self):
 		ok, status, _message = geo.check_punch(self.emp.name, None, None)
@@ -1146,12 +1306,38 @@ class TestGeofence(SelfServiceTestCase):
 		# not enforced.
 		self.assertEqual(status, geo.STATUS_OUTSIDE)
 
-	def test_a_company_with_no_zone_is_refused_while_enforced(self):
-		self._purge_zones()
+	def test_an_employee_with_no_work_location_is_refused_while_enforced(self):
+		self._assign_zone(None)
 		ok, status, message = geo.check_punch(self.emp.name, 30.0444, 31.2357)
 		self.assertFalse(ok)
 		self.assertEqual(status, geo.STATUS_NO_FENCE)
-		self.assertIn("No punch location", message)
+		self.assertIn("No work location", message)
+
+	def test_a_zone_with_no_radius_is_not_a_zone_yet(self):
+		"""HR has created the row but not the fence; it must not refuse everyone.
+
+		`checkin_radius` of zero is skipped rather than treated as a zero-metre circle,
+		same as HRMS's own validator. Without this, half-built configuration locks every
+		employee out of punching.
+		"""
+		self._assign_zone(self._zone("NoRadius", radius_m=0))
+		ok, status, _message = geo.check_punch(self.emp.name, 30.0444, 31.2357)
+		self.assertFalse(ok)
+		self.assertEqual(status, geo.STATUS_NO_FENCE)
+
+	def test_an_assignment_that_has_ended_releases_the_zone(self):
+		"""The fence is the location *for that day*, not a permanent property.
+
+		A month at one site and then a transfer should be expressible without editing
+		history, so an assignment outside its date range contributes no fence.
+		"""
+		assignment = self._assign_zone(self.zone)
+		frappe.db.set_value(
+			"Shift Assignment", assignment.name, "end_date", frappe.utils.add_to_date(None, years=-1)
+		)
+		ok, status, _message = geo.check_punch(self.emp.name, 30.0444, 31.2357)
+		self.assertFalse(ok)
+		self.assertEqual(status, geo.STATUS_NO_FENCE)
 
 	def test_haversine(self):
 		self.assertAlmostEqual(
@@ -1165,37 +1351,68 @@ class TestGeofence(SelfServiceTestCase):
 	def test_a_missing_point_is_unreachable(self):
 		self.assertEqual(geo.haversine_km(30.0, None, 31.0, 32.0), float("inf"))
 
-	def test_only_one_zone_per_company(self):
-		with self.assertRaises(frappe.ValidationError):
-			self._zone("Second")
-
-	def test_a_zone_needs_a_positive_radius(self):
-		self._purge_zones()
-		with self.assertRaises(frappe.ValidationError):
-			self._zone("ZeroRadius", radius=0)
-
-	@property
-	def zone_name(self):
-		"""The name of this test's punch zone, inside the fixture namespace."""
-		return f"{FIXTURE_PREFIX}{self._testMethodName}-Zone"
-
-	def _zone(self, label, radius=0.5):
+	def _zone(self, label, radius_m=500):
 		"""Create a punch zone named for this test, so cleanup can find it.
 
-		A zone is autonamed by `employee_self_service_location_name`, so the name *is* the
-		document name - which is why it has to carry the fixture prefix rather than
-		a bare label.
+		A `Shift Location` is autonamed by `location_name`, so the name *is* the
+		document name - which is why it has to carry the fixture prefix rather than a
+		bare label.
 		"""
 		return frappe.get_doc(
 			{
-				"doctype": "Employee Self Service Location",
-				"employee_self_service_location_name": f"{FIXTURE_PREFIX}{self._testMethodName}-{label}",
-				"company": self.company,
+				"doctype": "Shift Location",
+				"location_name": f"{FIXTURE_PREFIX}{self._testMethodName}-{label}",
 				"latitude": 30.0444,
 				"longitude": 31.2357,
-				"radius_km": radius,
+				"checkin_radius": radius_m,
 			}
 		).insert(ignore_permissions=True)
+
+	def _assign_zone(self, zone):
+		"""A submitted, active shift assignment covering today, pointing at `zone`.
+
+		Any assignment this made earlier is cancelled and removed first. HRMS refuses a
+		second active assignment covering the same dates
+		(`allow_multiple_shift_assignments` is 0 on this site), so a test that re-points
+		the zone has to retire the old row rather than add one.
+		"""
+		self._clear_assignments()
+		doc = frappe.get_doc(
+			{
+				"doctype": "Shift Assignment",
+				"employee": self.emp.name,
+				"company": self.company,
+				"shift_type": self._any_shift_type(),
+				"shift_location": zone.location_name if zone else None,
+				"start_date": frappe.utils.today(),
+				"end_date": frappe.utils.today(),
+				"status": "Active",
+			}
+		).insert(ignore_permissions=True)
+		doc.submit()
+		return doc
+
+	def _clear_assignments(self):
+		for name in frappe.get_all(
+			"Shift Assignment",
+			filters={"employee": self.emp.name},
+			pluck="name",
+			limit_page_length=0,
+		):
+			if frappe.db.get_value("Shift Assignment", name, "docstatus") == 1:
+				frappe.get_doc("Shift Assignment", name).cancel()
+			_quiet_delete("Shift Assignment", name)
+
+	@staticmethod
+	def _any_shift_type():
+		"""An existing `Shift Type`, because `Shift Assignment.shift_type` is required.
+
+		Which ones exist is site data - the same reasoning as `_any_gender`.
+		"""
+		existing = frappe.get_all("Shift Type", pluck="name", limit_page_length=1)
+		if not existing:
+			raise frappe.ValidationError("The geofence tests need at least one Shift Type.")
+		return existing[0]
 
 	def _enforce(self, value):
 		frappe.db.set_single_value("Employee Self Service Settings", "geo_punch_enforce", value)

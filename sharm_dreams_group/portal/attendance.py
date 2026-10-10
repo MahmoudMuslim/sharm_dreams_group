@@ -3,11 +3,17 @@
 
 """Attendance: the employee's own shifts, and tapping to record today's hours.
 
-Tap-to-check-in with no location and no biometrics. That is not a simplification, it is
-what was asked for: the previous implementation recorded WebAuthn credentials and GPS
-coordinates, and both are being retired. `HR Settings.allow_geolocation_tracking` is
-off on this site, which also means HRMS's own `validate_distance_from_shift_location`
-returns immediately rather than demanding coordinates the tablet would not have.
+Tap-to-check-in, geofenced. The browser sends its coordinates and `self_service.geo`
+verifies them against the `Shift Location` on the employee's current shift assignment -
+the same work-location zone HRMS's own check reads - before the checkin is written.
+Whether a punch outside the zone is refused or merely flagged is `geo_punch_enforce` in
+Employee Self Service Settings. The coordinates and the verdict are recorded on the
+checkin either way, so a punch that was refused can still be audited.
+
+`HR Settings.allow_geolocation_tracking` is off on this site, so HRMS's
+`validate_distance_from_shift_location` returns immediately and the check happens here
+instead - which is what lets the verdict be stored and a sentence returned rather than a
+generic validation error. WebAuthn is retired - the punch is a single tap.
 
 Three facts about this site's HRMS shape the whole module.
 
@@ -52,6 +58,7 @@ from frappe import _
 from frappe.utils import add_to_date, flt, get_datetime, getdate, now_datetime, today
 
 from sharm_dreams_group.portal.portal import resolve_session
+from sharm_dreams_group.self_service.geo import check_punch, status_label
 
 __all__ = [
 	"my_attendance",
@@ -75,6 +82,22 @@ PUNCH_DEVICE = "employee-portal"
 # same timestamp", which is both true and useless at a door. Five seconds is long enough
 # to absorb a double-tap and short enough that nobody thinks their IN went missing.
 PUNCH_DEBOUNCE_SECONDS = 5
+
+
+def _to_float(value):
+	"""A coordinate the browser sent, or None.
+
+	The tablet posts JSON numbers, but a form-encoded fallback arrives as strings and a
+	`null` arrives as None, so this is the one place that decides what counts as a
+	usable coordinate. Anything unparseable is None rather than a guess: a coordinate
+	that is not a number is not a location.
+	"""
+	if value is None or value == "":
+		return None
+	try:
+		return float(value)
+	except (TypeError, ValueError):
+		return None
 
 
 @frappe.whitelist()
@@ -226,7 +249,8 @@ def _today_logs(employee: str) -> list:
 			"employee": employee,
 			"time": ["between", (f"{today()} 00:00:00", f"{today()} 23:59:59")],
 		},
-		fields=["name", "time", "log_type", "shift", "offshift", "attendance"],
+		fields=["name", "time", "log_type", "shift", "offshift", "attendance",
+		        "sdg_self_service_geo_status"],
 		order_by="time asc",
 		limit_page_length=0,
 	)
@@ -297,6 +321,7 @@ def my_attendance(token: str) -> dict:
 					"time": str(row["time"]) if row["time"] else None,
 					"shift": row["shift"],
 					"offshift": bool(row["offshift"]),
+					"geo_status": row.get("sdg_self_service_geo_status") or "",
 				}
 				for row in logged
 			],
@@ -311,13 +336,18 @@ def my_attendance(token: str) -> dict:
 
 
 @frappe.whitelist()
-def punch(token: str) -> dict:
+def punch(token: str, latitude: float | None = None, longitude: float | None = None) -> dict:
 	"""Record one tap: an IN if this is the first of the day, otherwise an OUT.
 
 	Returns what the day now looks like, so the tablet can say it plainly rather than
 	making the employee come back to check. A refusal is a refusal with a sentence, not
 	a silent no-op - this is the one action on the portal that a person stands in front
 	of at the start of a shift.
+
+	The browser's coordinates are checked against the employee's company geofence
+	before anything is written. When enforcement is on and the point falls outside,
+	this refuses with the fence's own sentence; when it is off, the punch is recorded
+	and the verdict is stored on the checkin so the location history is still complete.
 	"""
 	emp = resolve_session(token)
 	today_date = today()
@@ -376,6 +406,16 @@ def punch(token: str) -> dict:
 			"debounced": True,
 		}
 
+	# Where the tap happened. `check_punch` refuses only when enforcement is on and
+	# the point is unusable or outside; with enforcement off it always passes and
+	# carries the verdict in `geo_status`, so the checkin records where the punch came
+	# from whether or not it was allowed.
+	latitude = _to_float(latitude)
+	longitude = _to_float(longitude)
+	geo_ok, geo_status, geo_message = check_punch(emp.name, latitude, longitude)
+	if not geo_ok:
+		frappe.throw(geo_message)
+
 	from hrms.hr.doctype.employee_checkin.employee_checkin import (
 		add_log_based_on_employee_field,
 		calculate_time_difference,
@@ -395,6 +435,21 @@ def punch(token: str) -> dict:
 			timestamp=moment,
 			employee_fieldname="name",
 			device_id=PUNCH_DEVICE,
+			latitude=latitude,
+			longitude=longitude,
+		)
+		# HRMS stores the coordinates but knows nothing about this app's zones, so the
+		# verdict is written beside them. Done after insert because
+		# `add_log_based_on_employee_field` takes no such argument - it is HRMS's own
+		# helper, and the two fields are custom ones this app owns.
+		frappe.db.set_value(
+			"Employee Checkin",
+			checkin.name,
+			{
+				"sdg_self_service_geo_status": status_label(geo_status),
+				"sdg_self_service_geo_message": geo_message,
+			},
+			update_modified=False,
 		)
 		# No `log_type`: both shift types here alternate IN/OUT themselves, and sending
 		# one would override what HRMS decided.
@@ -465,4 +520,7 @@ def punch(token: str) -> dict:
 		"attendance": attendance.name if attendance else None,
 		"complete": bool(attendance),
 		"next": "out" if not logs_today else "none",
+		# The zone verdict, so the caller can say "location verified" rather than
+		# leaving the employee to assume a tap from anywhere was accepted.
+		"geo_status": geo_status,
 	}

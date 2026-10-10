@@ -168,6 +168,16 @@ def after_migrate() -> None:
 	set_default_workspace()
 	apply_desk_entry_points()
 
+	# After the sync above, because HRMS's own copy of this script comes back with
+	# it: `frappe.model.sync.sync_all` imports every JSON under an app's module
+	# folders, and `hrms/hr/web_form/job_application/job_application.json` is one of
+	# them. That copy calls a method a guest may not call, on a page that is
+	# deliberately public, so it is ours to put back rather than to patch once.
+	from sharm_dreams_group.hr.job_opening import apply_job_application_client_script
+
+	if apply_job_application_client_script() == "changed":
+		print("job application web form: guest-safe client script applied")
+
 	from sharm_dreams_group.dashboard_widgets import remove_company_filters
 	from sharm_dreams_group.upstream_patches import apply as apply_upstream_patches
 
@@ -1558,15 +1568,16 @@ def create_self_service_defaults() -> None:
 	"""Seed `Employee Self Service Settings` and the leave-type day multipliers.
 
 	Geofence enforcement starts **off**, and that is the one default here that is a
-	judgement rather than a copy of source data.  It cannot start on: a punch zone
-	is a centre point and a radius, `Company` has no latitude or longitude field,
-	and no coordinate for any of the thirteen group companies exists in the master
-	workbook or the seed data.  Seeding a zone would mean inventing a number, and
+	judgement rather than a copy of source data.  It cannot start on: a punch zone is
+	a centre point and a radius, HR has created one `Shift Location` per branch, but
+	none of them carries coordinates yet, and no coordinate for any site exists in the
+	master workbook or the seed data.  Seeding one would mean inventing a number, and
 	enforcement on with a wrong centre refuses every punch at the real office.
 
 	So the self-service page installs usable - coordinates are recorded on every checkin
-	whatever the outcome - and reports what is left to do.  HR adds a `Self Service
-	Location` per site and turns `geo_punch_enforce` on, after which
+	whatever the outcome - and reports what is left to do.  HR gives each `Shift
+	Location` a centre and a radius, `assign_work_locations` points the shift
+	assignments at them, and `geo_punch_enforce` is turned on, after which
 	`self_service.geo.is_enforced` takes over.  Note the asymmetry, which is deliberate:
 	that helper fails *closed* to enforced when the setting cannot be read at all,
 	so an unreachable database refuses punches, but an explicitly-off setting is an
@@ -1607,16 +1618,17 @@ def create_self_service_defaults() -> None:
 		seeded += 1
 
 	if frappe.db.get_single_value("Employee Self Service Settings", "geo_punch_enforce"):
-		zones = frappe.db.count("Employee Self Service Location", {"active": 1})
+		zones = frappe.db.count("Shift Location", {"checkin_radius": (">", 0)})
 		print(
-			f"self-service: geofencing is ON with {zones} active punch zone(s) - "
-			"a company with no zone cannot be punched from"
+			f"self-service: geofencing is ON with {zones} usable punch zone(s) - an "
+			"employee with no work location, or one whose location has no radius, "
+			"cannot punch"
 		)
 	else:
 		print(
-			"self-service: geofencing is off (no per-company coordinates exist to seed a "
-			"punch zone from). Punches are recorded with their coordinates but not "
-			"checked - add a Employee Self Service Location per site, then turn on "
+			"self-service: geofencing is off. Punches are recorded with their "
+			"coordinates but not checked - give each Shift Location a centre and a "
+			"radius, confirm the shift assignments point at one, then turn on "
 			"'Enforce Punch Location' in Employee Self Service Settings"
 		)
 	print(f"self-service leave multipliers: {seeded} set")
@@ -4041,7 +4053,6 @@ HRMS_PANEL_GROUPS = (
 				"Self Services Employees",
 				(
 					"Employee Self Service Settings",
-					"Employee Self Service Location",
 					"Employee Self Service Biometric Credential",
 					"Employee Self Service Approval Category",
 					"Employee Self Service Approval Request",

@@ -42,6 +42,18 @@ class AttendanceTestCase(FrappeTestCase):
 		assign_shifts_by_gender()
 		frappe.db.commit()
 
+		# Geofencing off for every subclass except the one about geofencing. These tests
+		# punch with no coordinates, which is the tablet's behaviour when the browser gives
+		# no fix - allowed while enforcement is off, refused when it is on. Pinned here
+		# rather than assumed, because `geo_punch_enforce` is a site-wide setting and this
+		# site has it on with real zones: a suite run against a live site would otherwise
+		# fail every punch test, and `TestGeofencedPunch` turns it on for itself.
+		previous_enforce = frappe.db.get_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce"
+		)
+		frappe.db.set_single_value("Employee Self Service Settings", "geo_punch_enforce", 0)
+		self.addCleanup(self._restore_enforcement, previous_enforce)
+
 		# Any check-in already on the site for today is cleared first, whatever made it.
 		# A punch only works while the day has fewer than two logs, so one leftover row
 		# from an earlier run or an earlier test makes the first tap refuse - and the
@@ -82,6 +94,20 @@ class AttendanceTestCase(FrappeTestCase):
 		self._log_ids: list[str] = []
 		self._attendance_ids: list[str] = []
 
+	def _restore_enforcement(self, previous):
+		"""Put `geo_punch_enforce` back, durably.
+
+		The commit is the point. `TestGeofencedPunch`'s own cleanup commits while
+		restoring, and cleanups run last-in-first-out, so a plain `set_single_value`
+		here would be undone by the rollback `FrappeTestCase` runs after it - leaving
+		enforcement off on the site, which is how a test run turned geofencing off for
+		real. Committed so the restore survives that rollback.
+		"""
+		frappe.db.set_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce", previous or 0
+		)
+		frappe.db.commit()
+
 	def tearDown(self):
 		# `test_an_employee_with_no_shift_today_is_refused` shortens this employee's
 		# assignment so today falls outside it. Unattended that leaks: unittest sorts
@@ -113,7 +139,7 @@ class AttendanceTestCase(FrappeTestCase):
 			self._attendance_ids.append(result["attendance"])
 		return result
 
-	def _tap(self, gap_seconds: int = 0) -> dict:
+	def _tap(self, gap_seconds: int = 0, latitude=None, longitude=None) -> dict:
 		"""One punch, with the previous tap pushed `gap_seconds` into the past.
 
 		`punch` stamps `now_datetime()` itself and swallows any tap within
@@ -126,7 +152,15 @@ class AttendanceTestCase(FrappeTestCase):
 		`self._tap(300)` is an IN and an OUT five minutes apart, and reading it any other
 		way (`self._tap(300)` then `self._tap()`) leaves the first row at `now`, where
 		the second punch also lands, and the debounce eats it again.
+
+		Coordinates default to a point inside the configured zone rather than to none.
+		HRMS's own `allow_geolocation_tracking` is on, so `Employee Checkin.validate`
+		refuses a checkin with no coordinates at all - these tests are about the punch,
+		and the fence is `TestGeofencedPunch`'s subject, which passes coordinates
+		explicitly.
 		"""
+		if latitude is None and longitude is None:
+			latitude, longitude = self.inside_zone()
 		if self._log_ids:
 			frappe.db.set_value(
 				"Employee Checkin",
@@ -135,7 +169,24 @@ class AttendanceTestCase(FrappeTestCase):
 				frappe.utils.now_datetime() - timedelta(seconds=gap_seconds),
 				update_modified=False,
 			)
-		return self._tidy(attendance.punch(self.token))
+		return self._tidy(attendance.punch(self.token, latitude, longitude))
+
+	def inside_zone(self):
+		"""A point inside some configured punch zone, read from the data.
+
+		Read rather than hard-coded so the tests follow whatever centres HR has
+		entered; a literal here would pass on this site today and quietly stop
+		testing the same thing the moment a real radius replaces the demo one.
+		"""
+		zone = frappe.db.get_value(
+			"Shift Location",
+			{"checkin_radius": (">", 0)},
+			["latitude", "longitude"],
+			as_dict=True,
+		)
+		if not zone:
+			self.skipTest("no punch zone has a radius, so no point is inside one")
+		return (zone.latitude, zone.longitude)
 
 	def test_the_debounce_is_five_seconds(self):
 		"""Pinned because it is a judgement call made once.
@@ -244,7 +295,7 @@ class TestPunch(AttendanceTestCase):
 		`mark_attendance_and_link_log` needs a pair, and inventing a finish time for an
 		employee who has not left would put hours on their record that never happened.
 		"""
-		result = self._tidy(attendance.punch(self.token))
+		result = self._tidy(attendance.punch(self.token, *self.inside_zone()))
 		self.assertEqual(result["kind"], "IN")
 		self.assertEqual(result["next"], "out")
 		self.assertFalse(result["complete"])
@@ -263,7 +314,7 @@ class TestPunch(AttendanceTestCase):
 		so this asserts the *consistency* that must hold either way, and
 		`TestPunchWindowAgainstHRMS` pins the in-window case against fixed timestamps.
 		"""
-		result = self._tidy(attendance.punch(self.token))
+		result = self._tidy(attendance.punch(self.token, *self.inside_zone()))
 		checkin = frappe.get_doc("Employee Checkin", result["recorded"])
 		self.assertEqual(result["offshift"], bool(checkin.offshift))
 		if checkin.offshift:
@@ -291,9 +342,11 @@ class TestPunch(AttendanceTestCase):
 		self._tap()
 		self._tap(gap_seconds=300)
 		# Well clear of the debounce, so this is a genuine third tap rather than a
-		# double-tap being collapsed.
+		# double-tap being collapsed. Punched from inside the zone: HRMS refuses a
+		# checkin with no coordinates, and a refusal for the wrong reason would leave
+		# this test passing without ever reaching the three-log check.
 		with self.assertRaises(frappe.exceptions.ValidationError):
-			attendance.punch(self.token)
+			attendance.punch(self.token, *self.inside_zone())
 		self.assertEqual(
 			frappe.db.count("Employee Checkin", {"employee": self.employee}),
 			2,
@@ -366,9 +419,9 @@ class TestPunchPairing(AttendanceTestCase):
 		employee would be told they had "already recorded" a tap theyet -
 		and would have no way to record the real OUT afterwards.
 		"""
-		first = self._tidy(attendance.punch(self.token))
+		first = self._tidy(attendance.punch(self.token, *self.inside_zone()))
 		self.assertEqual(first["kind"], "IN")
-		second = self._tidy(attendance.punch(self.token))
+		second = self._tidy(attendance.punch(self.token, *self.inside_zone()))
 		self.assertTrue(second.get("debounced"))
 		self.assertEqual(second["recorded"], first["recorded"])
 		# And the day is still open, so the real OUT can still be recorded.
@@ -384,22 +437,39 @@ class TestPunchPairing(AttendanceTestCase):
 			"2026-01-31",
 		)
 		frappe.db.commit()
+		# Inside the zone, so the refusal is about the missing shift rather than about
+		# a missing location - the two raise the same exception type.
 		with self.assertRaises(frappe.exceptions.ValidationError):
-			attendance.punch(self.token)
+			attendance.punch(self.token, *self.inside_zone())
 
 	def test_a_bogus_token_cannot_punch(self):
 		with self.assertRaises(frappe.exceptions.ValidationError):
 			attendance.punch("not-a-real-token")
 
 	def test_one_employees_punch_does_not_become_anothers_attendance(self):
+		today_date = frappe.utils.today()
+		# Measured before and after, not asserted as an absolute zero. Scoping to today
+		# was not enough: the portal is in real use, so a colleague's genuine attendance
+		# for today exists on the site and this test would fail on it - it was reading
+		# other people's work as if this test had created it. What is actually being
+		# claimed is that *these* punches changed nothing for anyone else.
+		other_before = frappe.db.count(
+			"Attendance",
+			{"employee": ("!=", self.employee), "attendance_date": today_date},
+		)
 		self._tap()
 		self._tap(gap_seconds=300)
-		mine = frappe.db.count("Attendance", {"employee": self.employee})
-		other = frappe.db.count(
-			"Attendance", {"employee": ("!=", self.employee)}
+		mine = frappe.db.count(
+			"Attendance", {"employee": self.employee, "attendance_date": today_date}
+		)
+		other_after = frappe.db.count(
+			"Attendance",
+			{"employee": ("!=", self.employee), "attendance_date": today_date},
 		)
 		self.assertEqual(mine, 1)
-		self.assertEqual(other, 0, "a punch created attendance for somebody else")
+		self.assertEqual(
+			other_after, other_before, "a punch created attendance for somebody else"
+		)
 
 
 class TestPunchWindowAgainstHRMS(AttendanceTestCase):
@@ -418,11 +488,17 @@ class TestPunchWindowAgainstHRMS(AttendanceTestCase):
 			add_log_based_on_employee_field,
 		)
 
+		lat, lon = self.inside_zone()
 		doc = add_log_based_on_employee_field(
 			employee_field_value=self.employee,
 			timestamp=frappe.utils.get_datetime(f"{frappe.utils.today()} {clock_time}"),
 			employee_fieldname="name",
 			device_id=attendance.PUNCH_DEVICE,
+			# HRMS's own `allow_geolocation_tracking` refuses a checkin with no
+			# coordinates, and these tests are about the punch *window* - so the
+			# location is carried to get past that gate, not asserted on.
+			latitude=lat,
+			longitude=lon,
 		)
 		self._log_ids.append(doc.name)
 		return {
@@ -586,6 +662,118 @@ class TestMyAttendance(AttendanceTestCase):
 		out = attendance.my_attendance(self.token)
 		self.assertEqual(out["today"]["punches"], [])
 		self.assertEqual(out["days"], [])
+
+
+class TestGeofencedPunch(AttendanceTestCase):
+	"""The punch is geofenced when `geo_punch_enforce` is on.
+
+	The zone is HR's to configure and enforcement is HR's to switch on, so both are
+	manipulated here and restored afterwards - a leaked zone or a leaked "enforce"
+	would refuse the punches of every other test on the site.
+	"""
+
+	# A point in Sharm El Sheikh, and the Gulf of Guinea as somewhere unambiguously
+	# outside a 1 km radius whatever the curvature is doing.
+	ZONE_LAT = 27.9158
+	ZONE_LON = 34.3300
+	ZONE_RADIUS_KM = 1
+
+	def setUp(self):
+		super().setUp()
+		self.company = frappe.db.get_value("Employee", self.employee, "company")
+		self._previous_enforce = frappe.db.get_single_value(
+			"Employee Self Service Settings", "geo_punch_enforce"
+		)
+		self._created_location = None
+		# Link the employee's current shift assignment to a test zone, restoring it later.
+		self._assignment = frappe.get_all(
+			"Shift Assignment",
+			filters={"employee": self.employee, "docstatus": 1, "status": "Active"},
+			pluck="name",
+			limit_page_length=1,
+		)[0]
+		self._old_location = frappe.db.get_value("Shift Assignment", self._assignment, "shift_location")
+		self._created_location = frappe.db.get_value("Shift Location", "Portal Geo Test Zone")
+		if not self._created_location:
+			doc = frappe.get_doc(
+				{
+					"doctype": "Shift Location",
+					"location_name": "Portal Geo Test Zone",
+					"checkin_radius": int(self.ZONE_RADIUS_KM * 1000),
+					"latitude": self.ZONE_LAT,
+					"longitude": self.ZONE_LON,
+				}
+			).insert(ignore_permissions=True)
+			self._created_location = doc.name
+		else:
+			frappe.db.set_value(
+				"Shift Location",
+				self._created_location,
+				{
+					"latitude": self.ZONE_LAT,
+					"longitude": self.ZONE_LON,
+					"checkin_radius": int(self.ZONE_RADIUS_KM * 1000),
+				},
+				update_modified=False,
+			)
+		frappe.db.set_value(
+			"Shift Assignment", self._assignment, "shift_location", self._created_location, update_modified=False
+		)
+		frappe.db.set_single_value("Employee Self Service Settings", "geo_punch_enforce", 1)
+		frappe.db.commit()
+		self.addCleanup(self._restore_geo)
+
+	def _restore_geo(self):
+		# Enforcement and the assignment's link are the only two things this class
+		# writes onto shared rows, and both are put back: a leaked "enforce" would
+		# refuse the punches of every other test on the site, and a leaked link would
+		# leave a real employee pointing at a fixture zone.
+		frappe.db.set_single_value(
+			"Employee Self Service Settings",
+			"geo_punch_enforce",
+			self._previous_enforce or 0,
+		)
+		frappe.db.set_value(
+			"Shift Assignment",
+			self._assignment,
+			"shift_location",
+			self._old_location,
+			update_modified=False,
+		)
+		if frappe.db.exists("Shift Location", self._created_location):
+			frappe.delete_doc(
+				"Shift Location", self._created_location, force=True, ignore_permissions=True
+			)
+		frappe.db.commit()
+
+	def test_a_punch_inside_the_zone_is_recorded_and_marked_verified(self):
+		result = self._tap(latitude=self.ZONE_LAT, longitude=self.ZONE_LON)
+		self.assertEqual(result["geo_status"], "ok")
+		checkin = frappe.get_doc("Employee Checkin", result["recorded"])
+		self.assertAlmostEqual(checkin.latitude, self.ZONE_LAT, places=5)
+		self.assertAlmostEqual(checkin.longitude, self.ZONE_LON, places=5)
+		self.assertEqual(checkin.sdg_self_service_geo_status, "Verified")
+
+	def test_a_punch_outside_the_zone_is_refused_and_writes_nothing(self):
+		before = frappe.db.count("Employee Checkin", {"employee": self.employee})
+		with self.assertRaises(frappe.exceptions.ValidationError):
+			attendance.punch(self.token, 0.0, 0.0)
+		self.assertEqual(
+			frappe.db.count("Employee Checkin", {"employee": self.employee}),
+			before,
+			"an out-of-zone punch still wrote a checkin",
+		)
+
+	def test_a_punch_without_coordinates_is_refused_when_enforced(self):
+		"""A tablet that could not get a fix is not allowed to punch when enforced."""
+		with self.assertRaises(frappe.exceptions.ValidationError):
+			attendance.punch(self.token)
+
+	def test_the_zone_verdict_reaches_the_attendance_screen(self):
+		self._tap(latitude=self.ZONE_LAT, longitude=self.ZONE_LON)
+		punches = attendance.my_attendance(self.token)["today"]["punches"]
+		self.assertEqual(len(punches), 1)
+		self.assertEqual(punches[0]["geo_status"], "Verified")
 
 
 class TestAttendanceWiring(FrappeTestCase):

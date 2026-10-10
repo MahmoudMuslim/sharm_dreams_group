@@ -21,6 +21,7 @@
  */
 
 .ep-root {
+	/* Light theme (default) */
 	--ep-bg: #f4f6f8;
 	--ep-card: #ffffff;
 	--ep-ink: #1f2933;
@@ -33,6 +34,18 @@
 	--ep-bad: #b91c1c;
 	--ep-gap: 1rem;
 
+	/* Dark theme overrides (applied via .ep-root.dark) */
+	--ep-bg-dark: #0f172a;
+	--ep-card-dark: #1e293b;
+	--ep-ink-dark: #f1f5f9;
+	--ep-muted-dark: #94a3b8;
+	--ep-line-dark: #334155;
+	--ep-accent-dark: #3b82f6;
+	--ep-accent-ink-dark: #ffffff;
+	--ep-good-dark: #10b981;
+	--ep-warn-dark: #f59e0b;
+	--ep-bad-dark: #ef4444;
+
 	position: fixed;
 	inset: 0;
 	display: flex;
@@ -44,6 +57,20 @@
 	line-height: 1.45;
 	overflow: hidden;
 	-webkit-text-size-adjust: 100%;
+}
+
+/* Dark theme */
+.ep-root.dark {
+	--ep-bg: var(--ep-bg-dark);
+	--ep-card: var(--ep-card-dark);
+	--ep-ink: var(--ep-ink-dark);
+	--ep-muted: var(--ep-muted-dark);
+	--ep-line: var(--ep-line-dark);
+	--ep-accent: var(--ep-accent-dark);
+	--ep-accent-ink: var(--ep-accent-ink-dark);
+	--ep-good: var(--ep-good-dark);
+	--ep-warn: var(--ep-warn-dark);
+	--ep-bad: var(--ep-bad-dark);
 }
 
 /* ------------------------------------------------------------------ header */
@@ -59,11 +86,59 @@
 }
 
 .ep-brand-name { font-weight: 700; font-size: 1.05rem; }
-.ep-head-right { display: flex; align-items: center; gap: 0.5rem; }
-.ep-lang-wrap { position: relative; }
-
+.ep-head-right { display: flex; align-items: center; gap: 0.75rem; }
+.ep-user-info {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.35rem 0.6rem;
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+}
+.ep-user-avatar {
+	width: 2.2rem;
+	height: 2.2rem;
+	border-radius: 50%;
+	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
+	color: var(--ep-accent-ink);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 0.85rem;
+	flex-shrink: 0;
+}
+.ep-user-meta { display: flex; flex-direction: column; min-width: 0; }
+.ep-user-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-user-role { font-size: 0.75rem; color: var(--ep-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-lang-btn,
-.ep-signout {
+.ep-signout,
+.ep-theme-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.7rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	background: var(--ep-card);
+	color: var(--ep-ink);
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.ep-theme-btn {
+	width: 2.4rem;
+	height: 2.4rem;
+	padding: 0;
+}
+
+.ep-theme-btn:hover { background: var(--ep-line); }
+
+.ep-lang-btn.active { border-color: var(--ep-accent); color: var(--ep-accent); }
+
+.ep-btn-secondary {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
@@ -75,8 +150,25 @@
 	font-size: 0.9rem;
 	cursor: pointer;
 }
+.ep-btn-secondary:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
 
-.ep-lang-btn.active { border-color: var(--ep-accent); color: var(--ep-accent); }
+.ep-divider {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0.75rem 0;
+	color: var(--ep-muted);
+	font-size: 0.8rem;
+}
+.ep-divider::before,
+.ep-divider::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--ep-line);
+}
+.ep-divider span { padding: 0 0.5rem; white-space: nowrap; }
+
 /* An author `display` beats the user-agent's `[hidden] { display: none }` - the
    classes above set `display` on both buttons, so without this the Sign out button
    is on screen before anyone has signed in. */
@@ -120,7 +212,7 @@
 	cursor: pointer;
 }
 
-.ep-lang-item:hover { background: #eef2f7; }
+.ep-lang-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
 .ep-lang-item.active { color: var(--ep-accent); font-weight: 600; }
 
 /* -------------------------------------------------------------------- main */
@@ -171,7 +263,6 @@
 .ep-tile {
 	display: flex;
 	align-items: center;
-	gap: 0.7rem;
 	padding: 0.9rem;
 	border: 1px solid var(--ep-line);
 	border-radius: 0.8rem;
@@ -184,7 +275,6 @@
 }
 
 .ep-tile:hover { border-color: var(--ep-accent); }
-.ep-tile-icon { color: var(--ep-accent); font-size: 1.1rem; }
 
 /* ------------------------------------------------------------------ inputs */
 .ep-label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; }
@@ -221,6 +311,24 @@
 }
 
 .ep-btn:disabled { opacity: 0.6; cursor: default; }
+
+.ep-checkbox-field {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.ep-checkbox-field input[type="checkbox"] {
+	width: 1.1rem;
+	height: 1.1rem;
+	accent-color: var(--ep-accent);
+	cursor: pointer;
+}
+.ep-checkbox-label {
+	font-size: 0.9rem;
+	color: var(--ep-ink);
+	cursor: pointer;
+	user-select: none;
+}
 .ep-btn-ghost { background: transparent; color: var(--ep-accent); border: 1px solid var(--ep-line); }
 
 .ep-back {
@@ -261,12 +369,132 @@
 	position: relative;
 	height: 0.5rem;
 	border-radius: 0.25rem;
-	background: #e5eaf0;
+	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
 	overflow: hidden;
 	margin-top: 0.45rem;
 }
 
 .ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 0.25rem; }
+
+/* The requests behind a balance, so the figure can be reconciled against something
+   the employee did rather than taken on trust. Indented off the balance above it. */
+.ep-reqs { margin-top: 0.5rem; padding-left: 0.6rem; border-left: 2px solid var(--ep-line); }
+
+.ep-req {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.2rem 0;
+	font-size: 0.82rem;
+	color: var(--ep-muted);
+}
+
+.ep-req-dates { font-variant-numeric: tabular-nums; }
+.ep-req > span:nth-child(2) { margin-inline-end: auto; }
+
+/* ---------------------------------------------------------- notifications */
+/* Outstanding items, shown only when there are some. Each row opens the screen the
+   item belongs to, so the badge is a shortcut rather than a signpost. */
+.ep-attn {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	width: 100%;
+	padding: 0.6rem 0.25rem;
+	border: 0;
+	border-top: 1px solid var(--ep-line);
+	background: none;
+	text-align: start;
+	cursor: pointer;
+	color: inherit;
+	font: inherit;
+}
+
+.ep-attn:first-of-type { border-top: 0; }
+.ep-attn:hover { background: var(--ep-line); border-radius: 0.35rem; }
+
+.ep-attn-icon {
+	flex: none;
+	width: 1.9rem;
+	height: 1.9rem;
+	line-height: 1.9rem;
+	text-align: center;
+	border-radius: 50%;
+	font-size: 0.85rem;
+}
+
+.ep-attn-icon--warn { background: color-mix(in srgb, var(--ep-warn) 18%, transparent); color: var(--ep-warn); }
+.ep-attn-icon--bad { background: color-mix(in srgb, var(--ep-bad) 18%, transparent); color: var(--ep-bad); }
+.ep-attn-icon--good { background: color-mix(in srgb, var(--ep-accent) 18%, transparent); color: var(--ep-accent); }
+
+.ep-attn-text { display: flex; flex-direction: column; min-width: 0; }
+.ep-attn-head { font-size: 0.92rem; font-weight: 600; }
+.ep-attn-detail { color: var(--ep-muted); font-size: 0.82rem; }
+
+/* --------------------------------------------------------------- details */
+/* Two lists on one screen: what HR holds (read-only) and the few fields the employee
+   keeps up to date themselves. The boundary is the point, so it is drawn. */
+.ep-details { border-top: 1px solid var(--ep-line); }
+
+.ep-detail-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid var(--ep-line);
+	font-size: 0.92rem;
+}
+
+.ep-detail-label { color: var(--ep-muted); }
+.ep-detail-empty { color: var(--ep-muted); font-style: italic; }
+
+.ep-field {
+	display: block;
+	padding: 0.6rem 0;
+	border-bottom: 1px solid var(--ep-line);
+	font-size: 0.9rem;
+}
+
+.ep-field > span { display: block; color: var(--ep-muted); margin-bottom: 0.25rem; }
+.ep-field em { font-style: normal; opacity: 0.8; }
+
+.ep-field input,
+.ep-field select,
+.ep-field textarea {
+	width: 100%;
+	padding: 0.5rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.4rem;
+	background: var(--ep-card);
+	color: var(--ep-ink);
+	font: inherit;
+}
+
+.ep-field textarea { resize: vertical; }
+#detailsSave { margin-top: 0.9rem; width: 100%; }
+
+/* --------------------------------------------------------------- holidays */
+/* The next named holiday, called out above the list: an employee planning a trip
+   cares about that one far more than the next Friday. */
+.ep-holiday-next {
+	padding: 0.75rem;
+	margin-bottom: 0.75rem;
+	border-radius: 0.5rem;
+	background: color-mix(in srgb, var(--ep-accent) 10%, transparent);
+	border: 1px solid var(--ep-line);
+}
+
+.ep-holidays { border-top: 1px solid var(--ep-line); }
+
+.ep-holiday {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.6rem 0;
+	border-bottom: 1px solid var(--ep-line);
+}
+
+.ep-holiday:last-child { border-bottom: 0; }
 
 /* ----------------------------------------------------------------- status */
 .ep-badge {
@@ -275,14 +503,14 @@
 	border-radius: 999px;
 	font-size: 0.78rem;
 	font-weight: 600;
-	background: #eef2f7;
+	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
 	color: var(--ep-muted);
 }
 
-.ep-badge--good { background: #dcfce7; color: var(--ep-good); }
-.ep-badge--info { background: #dbeafe; color: var(--ep-accent); }
-.ep-badge--warn { background: #fef3c7; color: var(--ep-warn); }
-.ep-badge--bad { background: #fee2e2; color: var(--ep-bad); }
+.ep-badge--good { background: color-mix(in srgb, var(--ep-good) 15%, transparent); color: var(--ep-good); }
+.ep-badge--info { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); }
+.ep-badge--warn { background: color-mix(in srgb, var(--ep-warn) 15%, transparent); color: var(--ep-warn); }
+.ep-badge--bad { background: color-mix(in srgb, var(--ep-bad) 15%, transparent); color: var(--ep-bad); }
 
 .ep-alert {
 	display: flex;
@@ -294,8 +522,8 @@
 	font-size: 0.95rem;
 }
 
-.ep-alert--bad { background: #fee2e2; color: var(--ep-bad); }
-.ep-alert--info { background: #dbeafe; color: var(--ep-accent); }
+.ep-alert--bad { background: color-mix(in srgb, var(--ep-bad) 12%, transparent); color: var(--ep-bad); }
+.ep-alert--info { background: color-mix(in srgb, var(--ep-accent) 12%, transparent); color: var(--ep-accent); }
 
 .ep-empty { text-align: center; padding: 2rem 1rem; color: var(--ep-muted); }
 .ep-empty-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }

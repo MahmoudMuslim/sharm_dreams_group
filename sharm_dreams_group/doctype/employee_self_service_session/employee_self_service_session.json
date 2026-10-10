@@ -1,0 +1,66 @@
+{
+	"actions": [],
+	"allow_rename": 0,
+	"autoname": "field:access_token",
+	"creation": "2026-10-07 14:00:00.000000",
+	"doctype": "DocType",
+	"editable_grid": 0,
+	"engine": "InnoDB",
+	"field_order": [
+		"employee",
+		"access_token",
+		"expiry"
+	],
+	"fields": [
+		{
+			"fieldname": "employee",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"label": "Employee",
+			"options": "Employee",
+			"reqd": 1
+		},
+		{
+			"fieldname": "access_token",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "Access Token",
+			"reqd": 1
+		},
+		{
+			"fieldname": "expiry",
+			"fieldtype": "Datetime",
+			"in_list_view": 1,
+			"label": "Expiry",
+			"reqd": 1
+		}
+	],
+	"index_web_pages_for_search": 0,
+	"istable": 0,
+	"max_attachments": 0,
+	"module": "Sharm Dreams Group",
+	"name": "Employee Self Service Session",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"role": "System Manager",
+			"select": 1,
+			"share": 1,
+			"write": 1
+		}
+	],
+	"quick_entry": 0,
+	"sort_field": "modified",
+	"sort_order": "DESC",
+	"states": [],
+	"title_field": "employee",
+	"track_changes": 1,
+	"track_seen": 1,
+	"track_views": 1
+}

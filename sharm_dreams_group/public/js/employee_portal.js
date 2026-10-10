@@ -183,6 +183,8 @@
 				return renderPanel(
 					"my_performance", "performance", renderPerformance, bindPerformance
 				);
+			case "compensatory_approvals":
+				return renderCompensatoryApprovals();
 			// No "payslip" screen: a slip is always opened through `openPayslip`, which
 			// needs the slip's name. Routing it through `renderPanel` would post
 			// `my_payslip` with no `name` and come back refused.
@@ -1519,6 +1521,121 @@
 			(sub ? '<div style="font-size:.9rem">' + esc(sub) + "</div>" : "") +
 			"</div>"
 		);
+	}
+
+	// ---------------------------------------------------------- compensatory approvals
+	function renderCompensatoryApprovals() {
+		host.innerHTML =
+			'<div class="ep-fade">' +
+			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
+			alertHtml() +
+			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			"</div>";
+		document.getElementById("panelBack").addEventListener("click", function () {
+			show("dashboard");
+		});
+		call({ action: "my_compensatory_proposals", token: state.token })
+			.then(function (d) {
+				document.getElementById("panelBody").innerHTML = compensatoryProposalsHtml(d);
+				bindCompensatoryActions();
+			})
+			.catch(function (err) {
+				if (expired(err && err.message)) return;
+				document.getElementById("panelBody").innerHTML = emptyBlock(
+					"fa-exclamation-triangle",
+					"Cannot read proposals",
+					(err && err.message) || ""
+				);
+			});
+	}
+
+	function compensatoryProposalsHtml(d) {
+		var rows = d.proposals || [];
+		if (!rows.length) {
+			return emptyBlock("fa-check-circle", "No pending proposals", "All compensatory leave requests are up to date.");
+		}
+		var html =
+			'<p class="ep-card-title">Compensatory Approvals</p>' +
+			'<p style="margin:-.2rem 0 .8rem;color:var(--ep-muted);font-size:.9rem">' +
+			esc(rows.length) +
+			" proposal" +
+			(rows.length === 1 ? "" : "s") +
+			" awaiting review</p>";
+		rows.forEach(function (p) {
+			var created = longDate(p.creation);
+			html +=
+				'<div class="ep-balance">' +
+				'<div class="ep-row" style="border:0;padding:0">' +
+				'<div class="ep-row-main"><div class="ep-row-title">' +
+				esc(p.employee_name || p.employee) +
+				"</div>" +
+				'<div class="ep-row-meta">' +
+				esc(p.company || "") +
+				(p.department ? " &middot; " + esc(p.department) : "") +
+				" &middot; " +
+				esc(created) +
+				" &middot; " +
+				esc(p.leave_type || "Leave In Lieu") +
+				" &middot; " +
+				esc(p.new_leaves_allocated) +
+				" days" +
+				"</div></div>" +
+				'<div class="ep-row-value"><span class="ep-badge ep-badge--warn">' +
+				"Pending" +
+				"</span></div></div>" +
+				'<div class="ep-reqs">' +
+				esc(p.description || "") +
+				"</div>" +
+				'<div class="ep-actions" style="margin-top:.75rem;display:flex;gap:.5rem">' +
+				'<button type="button" class="ep-btn ep-btn--good" data-action="approve" data-name="' +
+				esc(p.name) +
+				'"><i class="fa fa-check"></i> Approve</button>' +
+				'<button type="button" class="ep-btn ep-btn-ghost" data-action="reject" data-name="' +
+				esc(p.name) +
+				'"><i class="fa fa-times"></i> Reject</button>' +
+				"</div></div>";
+		});
+		return html;
+	}
+
+	function bindCompensatoryActions() {
+		document.querySelectorAll("[data-action=approve]").forEach(function (btn) {
+			btn.addEventListener("click", function () {
+				var name = btn.dataset.name;
+				if (!confirm("Approve this Leave In Lieu proposal?")) return;
+				btn.disabled = true;
+				btn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Approving...';
+				call({ action: "approve_compensatory_proposal", token: state.token, name: name })
+					.then(function () {
+						renderCompensatoryApprovals();
+					})
+					.catch(function (err) {
+						if (expired(err && err.message)) return;
+						btn.disabled = false;
+						btn.innerHTML = '<i class="fa fa-check"></i> Approve';
+						announce(err && err.message ? err.message : "Could not approve.");
+					});
+			});
+		});
+		document.querySelectorAll("[data-action=reject]").forEach(function (btn) {
+			btn.addEventListener("click", function () {
+				var name = btn.dataset.name;
+				var reason = prompt("Reason for rejection (optional):");
+				if (reason === null) return; // user cancelled
+				btn.disabled = true;
+				btn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Rejecting...';
+				call({ action: "reject_compensatory_proposal", token: state.token, name: name, reason: reason || "" })
+					.then(function () {
+						renderCompensatoryApprovals();
+					})
+					.catch(function (err) {
+						if (expired(err && err.message)) return;
+						btn.disabled = false;
+						btn.innerHTML = '<i class="fa fa-times"></i> Reject';
+						announce(err && err.message ? err.message : "Could not reject.");
+					});
+			});
+		});
 	}
 
 	// -------------------------------------------------------------- chrome

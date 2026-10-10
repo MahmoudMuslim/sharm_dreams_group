@@ -20,19 +20,29 @@ from frappe.utils import now_datetime
 # A shift, plus slack: a wall tablet is signed in once and then used all day.
 SESSION_TTL_HOURS = 8
 
+# The opt-in alternative, for a device that asked to be remembered. Long enough to
+# be worth a checkbox, and only ever chosen by the person signing in.
+REMEMBER_ME_TTL_DAYS = 30
+
 
 class EmployeeSelfServiceSession(Document):
 	pass
 
 
-def create_session(employee):
-	"""Mint a short-lived self-service token for an employee."""
+def create_session(employee, ttl_hours=None):
+	"""Mint a self-service token for an employee.
+
+	`ttl_hours` defaults to a shift (`SESSION_TTL_HOURS`). The portal passes a longer
+	one when the employee ticked "remember me", so the checkbox changes the row's own
+	`expiry` - which is what `resolve_session` reads - rather than a second copy of the
+	rule kept off to one side.
+	"""
 	session = frappe.get_doc(
 		{
 			"doctype": "Employee Self Service Session",
 			"employee": employee,
 			"access_token": secrets.token_urlsafe(32),
-			"expiry": now_datetime() + timedelta(hours=SESSION_TTL_HOURS),
+			"expiry": now_datetime() + timedelta(hours=ttl_hours or SESSION_TTL_HOURS),
 		}
 	)
 	session.insert(ignore_permissions=True)

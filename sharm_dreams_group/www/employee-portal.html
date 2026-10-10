@@ -13,7 +13,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 	<title>Employee Portal</title>
-	<link rel="icon" href="/assets/frappe/images/favicon.png" />
+	<link rel="icon" href="/assets/sharm_dreams_group/images/logo.png" />
 	<!-- Bumped to v=3. The `?v=` is the only thing that stops a wall tablet serving a
 	     stale stylesheet, and v=2 shipped a file whose first line began with `#` - an ID
 	     selector, not a comment - which silently discarded the rule defining every
@@ -30,7 +30,7 @@
 	     would need renaming under FA5. -->
 	<link rel="stylesheet"
 		href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css?v=4.7.0" />
-	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=5" />
+	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=17" />
 </head>
 <body>
 	<div class="ep-root" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
@@ -39,6 +39,13 @@
 				<span class="ep-brand-name">Employee Portal</span>
 			</div>
 			<div class="ep-head-right">
+				<div class="ep-user-info" id="userInfo" hidden>
+					<div class="ep-user-avatar" id="userAvatar"></div>
+					<div class="ep-user-meta">
+						<span class="ep-user-name" id="userName"></span>
+						<span class="ep-user-role" id="userRole"></span>
+					</div>
+				</div>
 				<div class="ep-lang-wrap" id="langWrap">
 					<button type="button" class="ep-lang-btn{% if portal_lang == 'en' %} active{% endif %}" id="langBtn"
 						aria-haspopup="true" aria-expanded="false">
@@ -56,6 +63,9 @@
 						{% endfor %}
 					</div>
 				</div>
+				<button type="button" class="ep-theme-btn" id="themeBtn" aria-label="Toggle theme">
+					<i class="fa fa-sun-o" id="themeIcon"></i>
+				</button>
 				<button type="button" class="ep-signout" id="signOutBtn" hidden>
 					<i class="fa fa-sign-out"></i> <span>Sign out</span>
 				</button>
@@ -79,6 +89,6 @@
 			csrf: {{ portal_csrf | tojson }}
 		};
 	</script>
-	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=11"></script>
+	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=33"></script>
 </body>
 </html>
