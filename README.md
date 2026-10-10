@@ -536,8 +536,51 @@ with the `ESS-TEST-` prefix, which is what lets cleanup be both safe (it cannot
 touch a real employee) and self-healing (it clears its own residue from an earlier
 run).
 
+## Dashboard permissions
+
+The workforce, HRM, and Account dashboards are accessible to users with any of
+the following roles:
+
+- System Manager / Administrator
+- HR Manager, HR User
+- SDG Payroll Manager, SDG Payroll User
+- Employee
+- Employee Self Service
+- Accounts Manager, Accounts User
+- Payroll User (standard HRMS role)
+
+Previously only the first three groups were allowed. The change lets regular
+employees and standard ERPNext/HRMS roles view the dashboards while keeping
+penalty data restricted to its own permission system.
+
+## AI recruitment — removed
+
+The `ai_recruitment` module (ATS CV scoring, auto-generated screening
+questions, automated assessment evaluation) has been removed. Recruitment now
+uses only the manual screening questions defined on each Job Opening
+(`application_questions` child table). The hook
+`sharm_dreams_group.hr.ai_recruitment.evaluate_applicant_on_insert` was
+removed from `hooks.py` and the module file was deleted.
+
+If custom fields created by the AI module exist on `Job Applicant`
+(`ats_score`, `ats_match_summary`, `ai_assessment_results`) or `Job Opening`
+(`ai_screening_criteria`, `ai_hr_assignment`, `ai_technical_assessment`),
+they should be cleaned up with:
+
+```bash
+bench --site <site> execute "
+import frappe
+for dt in ['Job Applicant', 'Job Opening']:
+    for fieldname in ['ai_screening_criteria', 'ai_hr_assignment', 'ai_technical_assessment',
+                      'ats_score', 'ats_match_summary', 'ai_assessment_results']:
+        cf = frappe.get_value('Custom Field', {'dt': dt, 'fieldname': fieldname}, 'name')
+        if cf:
+            frappe.delete_doc('Custom Field', cf, force=True)
+            print(f'Deleted {dt}.{fieldname}')
+frappe.db.commit()
+"
+```
+
 ## License
 
 AGPL-3.0
-# sharm_dreams_group
-# sharm_dreams_group
