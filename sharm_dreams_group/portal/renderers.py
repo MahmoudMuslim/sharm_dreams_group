@@ -20,6 +20,8 @@ import inspect
 import re
 
 import frappe
+from werkzeug.wrappers import Response
+
 from frappe import _
 from frappe.utils.response import build_response
 
@@ -30,10 +32,30 @@ from sharm_dreams_group.portal import (
 	performance,
 	portal,
 )
-from sharm_dreams_group.self_service import webauthn
+from sharm_dreams_group.www.employee_portal import (
+	API_ROUTE,
+	LANG_COOKIE,
+	PORTAL_LANGUAGES,
+	SETLANG_ROUTE,
+	SW_ROUTE,
+)
 
-PAGE_ROUTE = "employee-portal"
-API_ROUTE = f"{PAGE_ROUTE}-api"
+# The codes the switcher will accept, from the same table the page renders its menu
+# from - one list, so a language added to the page is settable without a second edit.
+PORTAL_LANGS = {item["code"] for item in PORTAL_LANGUAGES}
+
+# The file behind the worker route. Read from disk on each request rather than
+# imported: a worker that must not break when the bundle changes should not depend
+# on one.
+def _service_worker_source():
+	"""The worker's source, or None when the file is not there."""
+	try:
+		with open(
+			frappe.get_app_path("sharm_dreams_group", "public", "sw.js"), encoding="utf-8"
+		) as handle:
+			return handle.read()
+	except OSError:
+		return None
 
 # Frappe's own parameters, which are not action arguments.
 RESERVED_KEYS = ("action", "csrf_token", "cmd")
@@ -46,10 +68,6 @@ ACTIONS = {
 	# details
 	"my_details": portal.my_details,
 	"update_my_details": portal.update_my_details,
-	# documents
-	"my_documents": portal.my_documents,
-	# announcements
-	"my_announcements": portal.my_announcements,
 	# directory
 	"my_colleagues": portal.my_colleagues,
 	# org chart
@@ -62,45 +80,8 @@ ACTIONS = {
 	"activity_types": portal.activity_types,
 	"my_overtime": portal.my_overtime,
 	"submit_overtime": portal.submit_overtime,
-	# shift swaps
-	"my_shift_swaps": portal.my_shift_swaps,
-	"request_shift_swap": portal.request_shift_swap,
-	"approve_shift_swap": portal.approve_shift_swap,
-	"reject_shift_swap": portal.reject_shift_swap,
-	# benefits
-	"my_benefits": portal.my_benefits,
-	# learning
-	"my_learning": portal.my_learning,
 	# assets
 	"my_assets": portal.my_assets,
-	"request_asset": portal.request_asset,
-	"asset_categories": portal.asset_categories,
-	# travel
-	"my_travel": portal.my_travel,
-	"request_travel": portal.request_travel,
-	"travel_modes": portal.travel_modes,
-	# loans
-	"my_loans": portal.my_loans,
-	"request_loan": portal.request_loan,
-	"loan_types": portal.loan_types,
-	# wellness
-	"my_wellness": portal.my_wellness,
-	# recognition
-	"my_recognition": portal.my_recognition,
-	"send_recognition": portal.send_recognition,
-	"recognition_types": portal.recognition_types,
-	# support
-	"my_support": portal.my_support,
-	# biometric sign-in
-	#
-	# The self-service page's tested two-step WebAuthn flow, reused as-is rather than
-	# reimplemented beside it. `webauthn_login` decides between first-time enrolment
-	# (attest) and an existing device (assert) once National ID and Employee Number
-	# match, and `webauthn_verify` is the only thing that mints a session. Shared on
-	# purpose: the credentials and pre-auth rows are the same DocTypes the self-service
-	# page uses, so a device enrolled on one page signs in on the other.
-	"webauthn_login": webauthn.webauthn_login,
-	"webauthn_verify": webauthn.webauthn_verify,
 	# balances and time off
 	"my_balances": portal.my_balances,
 	"leave_types": portal.leave_types,
@@ -117,10 +98,6 @@ ACTIONS = {
 	"my_shifts": attendance.my_shifts,
 	"my_attendance": attendance.my_attendance,
 	"punch": attendance.punch,
-	# compensatory approvals (HR/manager only)
-	"my_compensatory_proposals": portal.my_compensatory_proposals,
-	"approve_compensatory_proposal": portal.approve_compensatory_proposal,
-	"reject_compensatory_proposal": portal.reject_compensatory_proposal,
 	# performance
 	"my_performance": performance.my_performance,
 	"save_self_appraisal": performance.save_self_appraisal,
@@ -161,16 +138,39 @@ def _typed_args(handler, args: dict):
 		return dict(args)
 
 	coerced = {}
+	# A handler that ends in `**fields` is asking for whatever the caller sent, so
+	# "unexpected argument" cannot be decided from the signature alone for those - the
+	# handler decides it, by refusing the names it does not want.
+	sink = next(
+		(
+			param.name
+			for param in signature.parameters.values()
+			if param.kind is inspect.Parameter.VAR_KEYWORD
+		),
+		None,
+	)
 	for key, value in args.items():
 		param = signature.parameters.get(key)
 		if param is None:
-			# Not a parameter of this action, refused rather than passed on, so a
-			# caller cannot smuggle an extra argument past the signature.
-			return {"error": _("Unexpected argument: {0}").format(key)}
+			if sink is None:
+				# Not a parameter of this action, refused rather than passed on, so a
+				# caller cannot smuggle an extra argument past the signature.
+				return {"error": _("Unexpected argument: {0}").format(key)}
+			coerced[key] = "" if value is None else value if isinstance(value, str) else str(value)
+			continue
 		annotation = str(param.annotation)
 		if annotation.startswith("bool"):
 			coerced[key] = bool(value)
-		elif annotation.startswith("int") or annotation.startswith("float"):
+		elif annotation.startswith("int"):
+			# Not `float`: a month number that comes through as `10.0` reaches
+			# `calendar.monthrange` and dies there as
+			# "Unknown format code 'd' for object of type 'float'", which is a 400 the
+			# employee sees for a screen that was working the day before.
+			try:
+				coerced[key] = int(value)
+			except (TypeError, ValueError):
+				return {"error": _("{0} must be a whole number").format(key)}
+		elif annotation.startswith("float"):
 			try:
 				coerced[key] = float(value)
 			except (TypeError, ValueError):
@@ -271,7 +271,7 @@ class PortalLangRenderer:
 		self.path = endpoint or (request.path if request else "")
 
 	def can_render(self):
-		return bool(self.path) and self.path.endswith(f"{PAGE_ROUTE}/setlang")
+		return bool(self.path) and self.path.endswith(SETLANG_ROUTE.lstrip("/"))
 
 	def render(self):
 		frappe.local.response["type"] = "json"
@@ -285,23 +285,70 @@ class PortalLangRenderer:
 
 		payload = frappe.request.get_json(silent=True) or frappe.form_dict
 		lang = payload.get("lang")
-		if not lang:
-			return self._respond(_("Language not specified."), 400)
-
-		# Set the language cookie
-		frappe.local.response["set_cookie"] = {
-			"key": "employee_portal_lang",
-			"value": lang,
-			"max_age": 365 * 24 * 60 * 60,
-			"httponly": True,
-			"secure": frappe.conf.get("force_ssl", False),
-			"samesite": "Lax",
-		}
+		if lang not in PORTAL_LANGS:
+			# Refused rather than stored: the cookie is read back into a template, and
+			# a language that has no rows is a page full of missing translations.
+			return self._respond(_("Unknown language: {0}").format(lang), 400)
 
 		frappe.local.response["message"] = {"ok": True, "lang": lang}
-		return build_response("json")
+		response = build_response("json")
+		# `frappe.local.response["set_cookie"]` looks like the hook for this and is
+		# read by nothing: the cookie has to be set on the `Response` that actually
+		# goes back, or the next page render never sees the choice.
+		response.set_cookie(
+			LANG_COOKIE,
+			lang,
+			max_age=365 * 24 * 60 * 60,
+			path="/",
+			httponly=True,
+			samesite="Lax",
+			secure=bool(frappe.conf.get("force_ssl", False)),
+		)
+		return response
 
 	def _respond(self, error, status_code):
 		frappe.local.response["http_status_code"] = status_code
 		frappe.local.response["message"] = {"error": error}
 		return build_response("json")
+
+class PortalServiceWorkerRenderer:
+	"""`/employee-portal-sw.js` - the portal's service worker, at the site root.
+
+	A worker can only control the directory it is served from and below, so the copy
+	under `/assets/sharm_dreams_group/` could never intercept the portal page's own
+	requests: the offline cache would have been a comment wearing a filename. Serving
+	it from a root-level route is what makes its scope `/`.
+
+	Read from the app on disk rather than bundled, because esbuild is not in this
+	app's build for `public/sw.js` and a worker that must not break when the bundle
+	changes should not depend on one.
+	"""
+
+	def __init__(self, endpoint=None, http_status_code=None):
+		request = getattr(frappe.local, "request", None)
+		self.endpoint = endpoint
+		self.http_status_code = http_status_code
+		self.path = endpoint or (request.path if request else "")
+
+	def can_render(self):
+		return bool(self.path) and self.path.strip("/") == SW_ROUTE
+
+	def render(self):
+		script = _service_worker_source()
+		if script is None:
+			# A missing file answers 404 rather than registering an empty worker: a
+			# worker that installs with no code would hold the scope open and cache
+			# nothing, which reads to the next developer as an offline bug rather
+			# than as a missing file.
+			return Response(_("Service worker not found"), status=404)
+		return Response(
+			script,
+			mimetype="text/javascript",
+			headers={
+				# Never cached: the browser compares the script byte for byte to
+				# decide whether there is an update, and a CDN in front of this
+				# response would hold the old worker on every tablet forever.
+				"Cache-Control": "no-cache, no-store, must-revalidate",
+				"Service-Worker-Allowed": "/",
+			},
+		)

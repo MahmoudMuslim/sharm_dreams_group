@@ -1,0 +1,79 @@
+{
+ "app": "sharm_dreams_group",
+ "creation": "2026-10-13 12:23:22.225974",
+ "docstatus": 0,
+ "doctype": "Dock",
+ "idx": 0,
+ "items": [
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "organization",
+   "link_to": "Sharm Dreams Group",
+   "link_type": "Sidebar",
+   "title": "Sharm Dreams Group"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "users",
+   "link_to": "Sharm People",
+   "link_type": "Sidebar",
+   "title": "Sharm People"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "wallet",
+   "link_to": "Sharm Payroll",
+   "link_type": "Sidebar",
+   "title": "Sharm Payroll"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "clock",
+   "link_to": "Sharm Time & Attendance",
+   "link_type": "Sidebar",
+   "title": "Sharm Time & Attendance"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "trending-up",
+   "link_to": "Sharm Performance",
+   "link_type": "Sidebar",
+   "title": "Sharm Performance"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "arrow-right-left",
+   "link_to": "Sharm Lifecycle",
+   "link_type": "Sidebar",
+   "title": "Sharm Lifecycle"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "settings",
+   "link_to": "Sharm Setup",
+   "link_type": "Sidebar",
+   "title": "Sharm Setup"
+  },
+  {
+   "added": 0,
+   "hidden": 0,
+   "icon": "file-chart-column",
+   "link_to": "Sharm Reports",
+   "link_type": "Sidebar",
+   "title": "Sharm Reports"
+  }
+ ],
+ "modified": "2026-10-13 13:44:22.599975",
+ "modified_by": "Administrator",
+ "name": "sharm_dreams_group",
+ "owner": "Administrator",
+ "standard": 1,
+ "user": ""
+}

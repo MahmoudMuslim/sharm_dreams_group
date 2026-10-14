@@ -58,40 +58,26 @@ from sharm_dreams_group.sharm_dreams_group.doctype.employee_self_service_session
 
 __all__ = [
 	"SESSION_TTL_HOURS",
+	"activity_types",
 	"approve_balance",
-	"approve_compensatory_proposal",
-	"approve_shift_swap",
+	"cancel_leave",
 	"days_by_code",
-	"my_announcements",
+	"leave_types",
 	"my_assets",
 	"my_balances",
-	"my_benefits",
 	"my_colleagues",
-	"my_compensatory_proposals",
 	"my_details",
-	"my_documents",
 	"my_holidays",
+	"my_leave_calendar",
 	"my_leaves",
-	"my_learning",
-	"my_loans",
 	"my_org_chart",
 	"my_overtime",
 	"my_payslip",
 	"my_payslips",
 	"my_profile",
-	"my_recognition",
-	"my_shift_swaps",
-	"my_support",
 	"my_timesheets",
-	"my_travel",
-	"my_wellness",
-	"reject_compensatory_proposal",
-	"reject_shift_swap",
-	"request_asset",
+	"payslip_pdf",
 	"request_leave",
-	"request_loan",
-	"request_shift_swap",
-	"request_travel",
 	"resolve_session",
 	"sign_in",
 	"sign_out",
@@ -288,6 +274,7 @@ def my_profile(token: str) -> dict:
 		"designation": emp.designation,
 		"department": emp.department,
 		"company": emp.company,
+		"employee_number": emp.employee_number,
 		"date_of_joining": emp.date_of_joining,
 		"image": emp.image,
 		"national_id": bool(emp.sdg_national_id),
@@ -1218,178 +1205,24 @@ def my_payslip(token: str, name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# compensatory approvals (for Leave In Lieu proposals)
+# directory
 # ---------------------------------------------------------------------------
 
 
-def _is_leave_approver(emp) -> bool:
-	"""Whether the employee's user has the Leave Approver role."""
-	if not emp.user_id:
-		return False
-	return "Leave Approver" in frappe.get_roles(emp.user_id)
-
-
 @frappe.whitelist()
-def my_compensatory_proposals(token: str) -> dict:
-	"""List pending Leave In Lieu proposals awaiting this approver's decision.
+def my_colleagues(token: str) -> dict:
+	"""The whole directory, in one read.
 
-	Only employees with the Leave Approver role can see this.
-	"""
-	emp = resolve_session(token)
-
-	if not _is_leave_approver(emp):
-		frappe.throw(_("You are not authorized to approve compensatory leave."))
-
-	# Find all Draft Leave Allocations for Leave In Lieu that need approval
-	# These are the proposals created by the compensatory scheduler
-	proposals = frappe.get_all(
-		"Leave Allocation",
-		filters={
-			"leave_type": "Leave In Lieu",
-			"docstatus": 0,  # Draft
-		},
-		fields=[
-			"name", "employee", "employee_name", "leave_type",
-			"from_date", "to_date", "new_leaves_allocated", "description",
-			"creation", "modified"
-		],
-		order_by="creation desc",
-		limit_page_length=50,
-	)
-
-	# Enrich with employee details
-	for p in proposals:
-		emp_doc = frappe.get_doc("Employee", p.employee)
-		p.employee_name = emp_doc.employee_name
-		p.company = emp_doc.company
-		p.department = emp_doc.department
-
-	return {"proposals": proposals}
-
-
-@frappe.whitelist()
-def approve_compensatory_proposal(token: str, name: str) -> dict:
-	"""Approve a Leave In Lieu proposal by submitting the Draft Leave Allocation."""
-	emp = resolve_session(token)
-
-	if not _is_leave_approver(emp):
-		frappe.throw(_("You are not authorized to approve compensatory leave."))
-
-	if not name or not frappe.db.exists("Leave Allocation", name):
-		frappe.throw(_("Proposal not found."))
-
-	doc = frappe.get_doc("Leave Allocation", name)
-	if doc.leave_type != "Leave In Lieu" or doc.docstatus != 0:
-		frappe.throw(_("This is not a pending Leave In Lieu proposal."))
-
-	previous = frappe.session.user
-	frappe.set_user(emp.user_id or "Administrator")
-	try:
-		doc.submit()
-		frappe.db.commit()
-	finally:
-		frappe.set_user(previous)
-
-	return {"ok": True, "message": _("Proposal approved and Leave Allocation submitted.")}
-
-
-@frappe.whitelist()
-def reject_compensatory_proposal(token: str, name: str, reason: str | None = None) -> dict:
-	"""Reject a Leave In Lieu proposal by cancelling the Draft Leave Allocation."""
-	emp = resolve_session(token)
-
-	if not _is_leave_approver(emp):
-		frappe.throw(_("You are not authorized to reject compensatory leave."))
-
-	if not name or not frappe.db.exists("Leave Allocation", name):
-		frappe.throw(_("Proposal not found."))
-
-	doc = frappe.get_doc("Leave Allocation", name)
-	if doc.leave_type != "Leave In Lieu" or doc.docstatus != 0:
-		frappe.throw(_("This is not a pending Leave In Lieu proposal."))
-
-	previous = frappe.session.user
-	frappe.set_user(emp.user_id or "Administrator")
-	try:
-		doc.cancel()
-		if reason:
-			doc.description = f"{doc.description or ''}\n\nRejected: {reason}"
-			doc.save(ignore_permissions=True)
-		frappe.db.commit()
-	finally:
-		frappe.set_user(previous)
-
-	return {"ok": True, "message": _("Proposal rejected.")}
-
-
-@frappe.whitelist()
-def my_documents(token: str) -> dict:
-	"""This employee's document checklist from the Employee File Index.
-
-	Reads the `sdg_file_index` child table on the Employee record. Each row has:
-	- document_item: the document name (e.g., "HRA", "ID", "Medical 111")
-	- status: "Held", "Missing", or "Not Applicable"
-	- notes: any additional context from HR
-	"""
-	emp = resolve_session(token)
-	employee = frappe.get_doc("Employee", emp.name)
-	file_index = employee.get("sdg_file_index") or []
-
-	rows = []
-	for item in file_index:
-		rows.append({
-			"document": item.document_item,
-			"status": item.status or "Not Recorded",
-			"notes": item.notes or "",
-		})
-
-	# Summary counts
-	held = sum(1 for r in rows if r["status"] == "Held")
-	missing = sum(1 for r in rows if r["status"] == "Missing")
-	na = sum(1 for r in rows if r["status"] == "Not Applicable")
-	not_recorded = sum(1 for r in rows if r["status"] == "Not Recorded")
-
-	return {
-		"employee": emp.name,
-		"documents": rows,
-		"summary": {
-			"held": held,
-			"missing": missing,
-			"not_applicable": na,
-			"not_recorded": not_recorded,
-			"total": len(rows),
-		},
-	}
-
-
-@frappe.whitelist()
-def my_announcements(token: str) -> dict:
-	"""Active announcements for this employee."""
-	emp = resolve_session(token)
-	from sharm_dreams_group.sharm_dreams_group.doctype.sdg_announcement.sdg_announcement import get_announcements_for_employee
-	
-	announcements = get_announcements_for_employee(emp.name)
-	
-	return {
-		"employee": emp.name,
-		"announcements": announcements,
-		"count": len(announcements),
-	}
-
-
-@frappe.whitelist()
-def my_colleagues(token: str, search: str | None = None, department: str | None = None) -> dict:
-	"""Colleague directory for this employee.
-
-	Returns active employees in the same company (or all companies), with optional
-	search by name/employee_number/designation and department filter.
+	Every active employee of the company, plus the list of departments they are spread
+	over. There is deliberately no `search` or `department` argument: the client filters
+	what it already has, so typing a name costs nothing and still works offline. A
+	server-side search would also have been the wrong shape here - a directory of a few
+	hundred rows is not worth a query per keystroke on a device sharing one connection.
 	"""
 	emp = resolve_session(token)
 	employee = frappe.get_doc("Employee", emp.name)
 
 	filters = {"status": "Active", "company": employee.company}
-	if department:
-		filters["department"] = department
 
 	fields = [
 		"name", "employee_name", "employee_number", "designation",
@@ -1397,63 +1230,30 @@ def my_colleagues(token: str, search: str | None = None, department: str | None 
 		"company_email", "reports_to", "date_of_joining"
 	]
 
-	# Build or condition for search across multiple fields
-	if search:
-		search_term = f"%{search}%"
-		employees = frappe.get_all(
-			"Employee",
-			filters=[
-				["status", "=", "Active"],
-				["company", "=", employee.company],
-				["employee_name", "like", search_term],
-			],
-			or_filters=[
-				["employee_number", "like", search_term],
-				["designation", "like", search_term],
-				["department", "like", search_term],
-			],
-			fields=fields,
-			order_by="employee_name asc",
-			limit_page_length=100,
-		)
-	else:
-		if department:
-			employees = frappe.get_all(
-				"Employee",
-				filters=filters,
-				fields=fields,
-				order_by="employee_name asc",
-				limit_page_length=100,
-			)
-		else:
-			employees = frappe.get_all(
-				"Employee",
-				filters=filters,
-				fields=fields,
-				order_by="employee_name asc",
-				limit_page_length=100,
-			)
-
-	# Get departments for filter dropdown
-	departments = frappe.get_all(
+	employees = frappe.get_all(
 		"Employee",
-		filters={"status": "Active", "company": employee.company},
-		pluck="department",
-		distinct=True,
+		filters=filters,
+		fields=fields,
+		order_by="employee_name asc",
+		limit_page_length=500,
 	)
-	departments = sorted([d for d in departments if d])
 
-	# Build manager map for org chart
-	manager_map = {}
-	for e in employees:
-		if e.reports_to:
-			manager_map.setdefault(e.reports_to, []).append(e.name)
+	departments = sorted(
+		{d for d in (e.department for e in employees) if d}
+	)
+
+	# Resolved here rather than looked up per card on the device: the names are already
+	# in this same result set, so "who does this person report to" needs no second read.
+	by_name = {e.name: e.employee_name for e in employees}
+	for row in employees:
+		row["manager_name"] = by_name.get(row.reports_to) or ""
+		row["is_me"] = row.name == emp.name
+		del row["reports_to"]
 
 	return {
 		"employee": emp.name,
 		"colleagues": employees,
 		"departments": departments,
-		"manager_map": manager_map,
 		"total": len(employees),
 	}
 
@@ -1579,37 +1379,98 @@ def submit_timesheet(token: str, start_date: str, end_date: str, hours: float, a
 
 @frappe.whitelist()
 def my_overtime(token: str) -> dict:
-	"""This employee's overtime requests."""
+	"""This employee's overtime slips.
+
+	HRMS no longer has an `Overtime Request` doctype; the real document is the
+	`Overtime Slip`, which HR folds into the payroll entry. The portal reads the
+	employee's slips and reports their state from the slip's own fields.
+	"""
 	emp = resolve_session(token)
-	overtime = frappe.get_all(
-		"Overtime Request",
+	rows = frappe.get_all(
+		"Overtime Slip",
 		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "date", "hours", "status", "description", "creation"],
-		order_by="date desc",
+		fields=[
+			"name", "posting_date", "start_date", "end_date", "company",
+			"total_overtime_duration", "salary_slip", "docstatus"
+		],
+		order_by="posting_date desc",
 		limit_page_length=50,
 	)
+	overtime = []
+	for row in rows:
+		status = "In Payroll" if row.salary_slip else ("Submitted" if row.docstatus == 1 else "Draft")
+		span = (
+			str(row.start_date)
+			if str(row.start_date) == str(row.end_date)
+			else f"{row.start_date} to {row.end_date}"
+		)
+		overtime.append({
+			"name": row.name,
+			"date": row.posting_date,
+			"hours": row.total_overtime_duration,
+			"status": status,
+			"description": row.company,
+			"period": span,
+		})
 	return {"employee": emp.name, "overtime": overtime}
 
 
 @frappe.whitelist()
 def submit_overtime(token: str, date: str, hours: float, reason: str) -> dict:
-	"""Submit an overtime request for the signed-in employee."""
+	"""Hand in an overtime slip for the signed-in employee.
+
+	Creates an `Overtime Slip` (the real HRMS document) in draft, for HR to pick up
+	with the payroll entry. The detail row's overtime type is the first one that
+	allows the requested hours, so the slip stays valid when it is processed.
+	`reason` is accepted for the form but the slip has no free-text field to carry it.
+	"""
 	emp = resolve_session(token)
-	ot = frappe.get_doc({
-		"doctype": "Overtime Request",
+	hours = flt(hours)
+	if hours <= 0:
+		frappe.throw(_("Overtime hours must be greater than zero."))
+	if not date:
+		frappe.throw(_("Select a date."))
+
+	overtime_type = None
+	for ot in frappe.get_all(
+		"Overtime Type",
+		fields=["name", "maximum_overtime_hours_allowed"],
+		order_by="name asc",
+		limit_page_length=100,
+	):
+		max_hours = flt(ot.maximum_overtime_hours_allowed)
+		if not max_hours or hours <= max_hours:
+			overtime_type = ot.name
+			break
+	if not overtime_type:
+		frappe.throw(_("No Overtime Type is configured yet. Ask HR to add one, then submit again."))
+	if frappe.db.exists("Overtime Slip", {"employee": emp.name, "docstatus": ["<", 2], "start_date": ["<=", date], "end_date": [">=", date]}):
+		frappe.throw(_("An overtime slip already covers this date."))
+
+	slip = frappe.get_doc({
+		"doctype": "Overtime Slip",
 		"employee": emp.name,
-		"date": date,
-		"hours": flt(hours),
-		"description": reason,
-		"status": "Draft",
+		"employee_name": emp.employee_name,
+		"company": emp.company,
+		"posting_date": date,
+		"start_date": date,
+		"end_date": date,
+		"overtime_details": [{
+			"doctype": "Overtime Details",
+			"date": date,
+			"overtime_type": overtime_type,
+			"overtime_duration": hours,
+			"standard_working_hours": 8.0,
+		}],
+		"total_overtime_duration": hours,
 	})
 	previous = frappe.session.user
 	frappe.set_user(emp.user_id or "Administrator")
 	try:
-		ot.insert(ignore_permissions=True)
+		slip.insert(ignore_permissions=True)
 	finally:
 		frappe.set_user(previous)
-	return {"name": ot.name, "status": ot.status, "hours": ot.hours}
+	return {"name": slip.name, "status": "Draft", "hours": slip.total_overtime_duration}
 
 
 @frappe.whitelist()
@@ -1669,809 +1530,54 @@ def my_leave_calendar(token: str, month: int | None = None, year: int | None = N
 
 @frappe.whitelist()
 def activity_types(token: str) -> dict:
-	"""Activity types available for timesheet logging."""
+	"""Activity types available for timesheet logging.
+
+	`disabled`, not `is_active`, and `activity_type` rather than a display copy of it:
+	those are the only two fields the base doctype has, and asking for a third is the
+	`Unknown column` error the desk does not show but the portal's 400 does.
+	"""
 	emp = resolve_session(token)
 	types = frappe.get_all(
 		"Activity Type",
-		filters={"is_active": 1},
-		fields=["name", "activity_type_name"],
-		order_by="activity_type_name asc",
+		filters={"disabled": 0},
+		fields=["name", "activity_type"],
+		order_by="activity_type asc",
 		limit_page_length=100,
 	)
 	return {"activity_types": types}
 
 
 @frappe.whitelist()
-def my_support(token: str) -> dict:
-	"""Help & Support content for the employee portal.
+def my_assets(token: str) -> dict:
+	"""This employee's assigned assets & equipment.
 
-	Returns HR contacts, FAQ entries, and policy document links.
-	Content is managed in the desk via SDG Support Topic doctype.
+	Read-only, and only fields the base `Asset` actually carries: custodianship, the
+	category, where it is, when it was bought, and the insurance window. Requesting
+	equipment or booking maintenance is desk work, not a tablet screen.
 	"""
 	emp = resolve_session(token)
-	employee = frappe.get_doc("Employee", emp.name)
 
-	# Get HR contacts for this employee's company
-	hr_contacts = frappe.get_all(
-		"Employee",
-		filters={
-			"status": "Active",
-			"company": employee.company,
-			"designation": ["like", "%HR%"],
-		},
-		fields=["employee_name", "designation", "company_email", "cell_number", "image", "department"],
-		order_by="employee_name asc",
-		limit_page_length=10,
-	)
-
-	# Fallback: any employee with HR role
-	if not hr_contacts:
-		hr_users = frappe.get_all(
-			"Has Role",
-			filters={"role": "HR Manager", "parenttype": "User"},
-			pluck="parent",
-		)
-		if hr_users:
-			hr_emps = frappe.get_all(
-				"Employee",
-				filters={"user_id": ["in", hr_users], "status": "Active", "company": employee.company},
-				fields=["employee_name", "designation", "company_email", "cell_number", "image", "department"],
-				order_by="employee_name asc",
-				limit_page_length=10,
-			)
-			hr_contacts = hr_emps
-
-	# Get FAQ entries (SDG Support Topic with category FAQ)
-	faqs = frappe.get_all(
-		"SDG Support Topic",
-		filters={"category": "FAQ", "is_published": 1},
-		fields=["title", "content", "category", "sort_order"],
-		order_by="sort_order asc, title asc",
-		limit_page_length=50,
-	)
-
-	# Get policy links (SDG Support Topic with category Policy)
-	policies = frappe.get_all(
-		"SDG Support Topic",
-		filters={"category": "Policy", "is_published": 1},
-		fields=["title", "content", "category", "sort_order", "attachment"],
-		order_by="sort_order asc, title asc",
-		limit_page_length=50,
-	)
-
-	# Get general help topics
-	help_topics = frappe.get_all(
-		"SDG Support Topic",
-		filters={"category": "Help", "is_published": 1},
-		fields=["title", "content", "category", "sort_order"],
-		order_by="sort_order asc, title asc",
-		limit_page_length=50,
-	)
-
-	return {
-		"employee": emp.name,
-		"company": employee.company,
-		"hr_contacts": hr_contacts,
-		"faqs": faqs,
-		"policies": policies,
-		"help_topics": help_topics,
-	}
-
-
-@frappe.whitelist()
-def my_shift_swaps(token: str) -> dict:
-	"""This employee's shift swap requests (sent and received)."""
-	emp = resolve_session(token)
-	
-	# Sent requests
-	sent = frappe.get_all(
-		"Shift Swap Request",
-		filters={"requester": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "requester", "requester_name", "recipient", "recipient_name", 
-		        "shift_date", "requester_shift", "recipient_shift", "reason", "status", "creation"],
-		order_by="creation desc",
-		limit_page_length=50,
-	)
-	
-	# Received requests
-	received = frappe.get_all(
-		"Shift Swap Request",
-		filters={"recipient": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "requester", "requester_name", "recipient", "recipient_name",
-		        "shift_date", "requester_shift", "recipient_shift", "reason", "status", "creation"],
-		order_by="creation desc",
-		limit_page_length=50,
-	)
-	
-	return {
-		"employee": emp.name,
-		"sent": sent,
-		"received": received,
-		"pending_received": [r for r in received if r.status == "Pending"],
-		"pending_sent": [r for r in sent if r.status == "Pending"],
-	}
-
-
-@frappe.whitelist()
-def request_shift_swap(token: str, recipient: str, shift_date: str, requester_shift: str, recipient_shift: str, reason: str | None = None) -> dict:
-	"""Request a shift swap with a colleague."""
-	emp = resolve_session(token)
-	
-	if not recipient:
-		frappe.throw(_("Select a colleague to swap with."))
-	if not shift_date:
-		frappe.throw(_("Shift date is required."))
-	if not requester_shift:
-		frappe.throw(_("Your shift is required."))
-	if not recipient_shift:
-		frappe.throw(_("Colleague's shift is required."))
-	
-	# Verify both employees have shifts on that date
-	for e_name, shift_name in [(emp.name, requester_shift), (recipient, recipient_shift)]:
-		if not frappe.db.exists("Shift Assignment", {
-			"employee": e_name,
-			"shift_type": shift_name,
-			"start_date": ["<=", shift_date],
-			"docstatus": 1,
-		}):
-			frappe.throw(_("Shift assignment not found for {0} on {1}").format(
-				e_name == emp.name and "you" or "the colleague", shift_date))
-	
-	# Check for existing pending request
-	existing = frappe.db.exists("Shift Swap Request", {
-		"requester": emp.name,
-		"recipient": recipient,
-		"shift_date": shift_date,
-		"status": "Pending",
-		"docstatus": ["<", 2],
-	})
-	if existing:
-		frappe.throw(_("A pending swap request already exists for this date."))
-	
-	swap = frappe.get_doc({
-		"doctype": "Shift Swap Request",
-		"requester": emp.name,
-		"requester_name": emp.employee_name,
-		"recipient": recipient,
-		"recipient_name": frappe.db.get_value("Employee", recipient, "employee_name"),
-		"shift_date": shift_date,
-		"requester_shift": requester_shift,
-		"recipient_shift": recipient_shift,
-		"reason": reason,
-		"status": "Pending",
-	})
-	swap.insert(ignore_permissions=True)
-	
-	return {"name": swap.name, "status": swap.status}
-
-
-@frappe.whitelist()
-def approve_shift_swap(token: str, name: str) -> dict:
-	"""Approve a shift swap request (recipient or manager)."""
-	emp = resolve_session(token)
-	swap = frappe.get_doc("Shift Swap Request", name)
-	
-	if swap.recipient != emp.name and not _is_leave_approver(emp):
-		frappe.throw(_("Only the recipient or a manager can approve this swap."))
-	if swap.status != "Pending":
-		frappe.throw(_("This request is no longer pending."))
-	
-	swap.status = "Approved"
-	swap.save(ignore_permissions=True)
-	frappe.db.commit()
-	
-	# TODO: Actually swap the shift assignments in Shift Assignment
-	# This would require creating new Shift Assignment records or updating existing ones
-	
-	return {"ok": True, "message": _("Shift swap approved.")}
-
-
-@frappe.whitelist()
-def reject_shift_swap(token: str, name: str, reason: str | None = None) -> dict:
-	"""Reject a shift swap request."""
-	emp = resolve_session(token)
-	swap = frappe.get_doc("Shift Swap Request", name)
-	
-	if swap.recipient != emp.name and not _is_leave_approver(emp):
-		frappe.throw(_("Only the recipient or a manager can reject this swap."))
-	if swap.status != "Pending":
-		frappe.throw(_("This request is no longer pending."))
-	
-	swap.status = "Rejected"
-	if reason:
-		swap.reason = (swap.reason or "") + "\n\nRejection reason: " + reason
-	swap.save(ignore_permissions=True)
-	frappe.db.commit()
-	
-	return {"ok": True, "message": _("Shift swap rejected.")}
-
-
-def _is_leave_approver(emp) -> bool:
-	"""Whether the employee's user has the Leave Approver role."""
-	if not emp.user_id:
-		return False
-	return "Leave Approver" in frappe.get_roles(emp.user_id)
-
-
-@frappe.whitelist()
-def my_benefits(token: str) -> dict:
-	"""This employee's benefits & insurance information."""
-	emp = resolve_session(token)
-	employee = frappe.get_doc("Employee", emp.name)
-	
-	# Get insurance enrollments
-	enrollments = frappe.get_all(
-		"Employee Insurance Enrollment",
-		filters={"employee": emp.name, "docstatus": 1},
-		fields=[
-			"name", "insurance_scheme", "insurance_company", "plan_name",
-			"coverage_type", "sum_insured", "premium_amount", "premium_frequency",
-			"employee_contribution", "employer_contribution", "start_date", "end_date",
-			"status", "policy_number", "card_number", "network_providers"
-		],
-		order_by="start_date desc",
-		limit_page_length=20,
-	)
-	
-	# Get dependents covered
-	dependents = frappe.get_all(
-		"Employee Insurance Dependent",
-		filters={"parent": ["in", [e.name for e in enrollments]]},
-		fields=["parent", "dependent_name", "relation", "date_of_birth", "gender", "is_active"],
-		limit_page_length=50,
-	)
-	
-	# Group dependents by enrollment
-	deps_by_enrollment = {}
-	for d in dependents:
-		deps_by_enrollment.setdefault(d.parent, []).append(d)
-	
-	# Get recent claims
-	claims = frappe.get_all(
-		"Employee Insurance Claim",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "insurance_enrollment", "claim_type", "claim_date",
-			"hospital_provider", "amount_claimed", "amount_approved", "status",
-			"description", "creation"
-		],
-		order_by="creation desc",
-		limit_page_length=20,
-	)
-	
-	# Get wellness programs
-	wellness = frappe.get_all(
-		"Employee Wellness Program",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "program_name", "start_date", "end_date", "status", "progress", "description"],
-		order_by="creation desc",
-		limit_page_length=10,
-	)
-	
-	# Format enrollments with dependents
-	for e in enrollments:
-		e.dependents = deps_by_enrollment.get(e.name, [])
-	
-	return {
-		"employee": emp.name,
-		"enrollments": enrollments,
-		"claims": claims,
-		"wellness": wellness,
-		"total_claims": len(claims),
-		"pending_claims": len([c for c in claims if c.status in ["Submitted", "Under Review"]]),
-		"approved_claims": len([c for c in claims if c.status == "Approved"]),
-	}
-
-
-@frappe.whitelist()
-def my_learning(token: str) -> dict:
-	"""This employee's learning & training records."""
-	emp = resolve_session(token)
-	
-	# Get course enrollments
-	enrollments = frappe.get_all(
-		"Employee Course Enrollment",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "course", "course_name", "training_provider", "start_date", "end_date",
-			"status", "progress", "completion_date", "certificate_number", "score",
-			"is_mandatory", "due_date", "hours"
-		],
-		order_by="creation desc",
-		limit_page_length=50,
-	)
-	
-	# Get certifications
-	certifications = frappe.get_all(
-		"Employee Certification",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "certification_name", "issuing_body", "issue_date", "expiry_date",
-			"credential_id", "credential_url", "status", "verification_status"
-		],
-		order_by="issue_date desc",
-		limit_page_length=50,
-	)
-	
-	# Get learning paths / programs
-	learning_paths = frappe.get_all(
-		"Employee Learning Path",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "learning_path", "learning_path_name", "start_date", "target_end_date",
-			"status", "progress", "completion_date"
-		],
-		order_by="creation desc",
-		limit_page_length=20,
-	)
-	
-	# Get completed courses for transcript
-	completed = [e for e in enrollments if e.status == "Completed"]
-	
-	return {
-		"employee": emp.name,
-		"enrollments": enrollments,
-		"certifications": certifications,
-		"learning_paths": learning_paths,
-		"completed_courses": completed,
-		"in_progress": len([e for e in enrollments if e.status == "In Progress"]),
-		"not_started": len([e for e in enrollments if e.status == "Not Started"]),
-		"completed_count": len(completed),
-		"overdue": len([e for e in enrollments if e.due_date and e.due_date < frappe.utils.today() and e.status != "Completed"]),
-		"expiring_certs": len([c for c in certifications if c.expiry_date and c.expiry_date < frappe.utils.add_days(frappe.utils.today(), 90) and c.status == "Active"]),
-	}
-
-
-@frappe.whitelist()
-def my_assets(token: str) -> dict:
-	"""This employee's assigned assets & equipment."""
-	emp = resolve_session(token)
-	
-	# Get assigned assets
 	assets = frappe.get_all(
 		"Asset",
 		filters={"custodian": emp.name, "docstatus": 1},
 		fields=[
-			"name", "asset_name", "asset_category", "item_code", "serial_no",
-			"purchase_date", "purchase_amount", "location", "status",
-			"condition", "warranty_expiry", "insurance_details", "barcode",
-			"assigned_date", "expected_return_date"
+			"name", "asset_name", "asset_category", "item_code", "location",
+			"status", "department", "purchase_date", "purchase_amount",
+			"policy_number", "insurer", "insurance_end_date",
 		],
-		order_by="assigned_date desc",
+		order_by="purchase_date desc",
 		limit_page_length=50,
 	)
-	
-	# Get asset maintenance requests
-	maintenance = frappe.get_all(
-		"Asset Maintenance",
-		filters={"asset": ["in", [a.name for a in assets]]},
-		fields=["name", "asset", "maintenance_type", "scheduled_date", "completed_date", "status", "description", "cost"],
-		order_by="scheduled_date desc",
-		limit_page_length=30,
-	)
-	
-	# Get asset requests by this employee
-	requests = frappe.get_all(
-		"Asset Request",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "asset_category", "item_name", "purpose", "priority", "status", "requested_date", "approved_date"],
-		order_by="requested_date desc",
-		limit_page_length=20,
-	)
-	
-	# Group maintenance by asset
-	maint_by_asset = {}
-	for m in maintenance:
-		maint_by_asset.setdefault(m.asset, []).append(m)
-	
-	for a in assets:
-		a.maintenance = maint_by_asset.get(a.name, [])
-	
+
+	soon = frappe.utils.add_days(frappe.utils.today(), 30)
+	# "In Use" is not an Asset status in the base doctype; a live asset is one that has
+	# been submitted and not written off.
+	live = ("Submitted", "Partly Depreciated", "Fully Depreciated")
+
 	return {
 		"employee": emp.name,
 		"assets": assets,
-		"requests": requests,
 		"total_assets": len(assets),
-		"active_assets": len([a for a in assets if a.status == "In Use"]),
-		"maintenance_due": len([a for a in assets if a.warranty_expiry and a.warranty_expiry < frappe.utils.add_days(frappe.utils.today(), 30)]),
+		"active_assets": len([a for a in assets if a.status in live]),
+		"insurance_due": len([a for a in assets if a.insurance_end_date and a.insurance_end_date < soon]),
 	}
-
-
-@frappe.whitelist()
-def request_asset(token: str, asset_category: str, item_name: str, purpose: str, priority: str = "Medium", expected_date: str | None = None) -> dict:
-	"""Request new asset/equipment assignment."""
-	emp = resolve_session(token)
-	
-	if not asset_category:
-		frappe.throw(_("Asset category is required."))
-	if not item_name:
-		frappe.throw(_("Item name/description is required."))
-	if not purpose:
-		frappe.throw(_("Purpose is required."))
-	
-	req = frappe.get_doc({
-		"doctype": "Asset Request",
-		"employee": emp.name,
-		"employee_name": emp.employee_name,
-		"asset_category": asset_category,
-		"item_name": item_name,
-		"purpose": purpose,
-		"priority": priority,
-		"expected_date": expected_date,
-		"status": "Pending",
-		"requested_date": frappe.utils.today(),
-	})
-	req.insert(ignore_permissions=True)
-	
-	return {"name": req.name, "status": req.status}
-
-
-@frappe.whitelist()
-def asset_categories(token: str) -> dict:
-	"""Asset categories available for requests."""
-	emp = resolve_session(token)
-	categories = frappe.get_all(
-		"Asset Category",
-		filters={"is_active": 1},
-		fields=["name", "category_name"],
-		order_by="category_name asc",
-		limit_page_length=50,
-	)
-	return {"asset_categories": categories}
-
-
-@frappe.whitelist()
-def my_travel(token: str) -> dict:
-	"""This employee's travel requests."""
-	emp = resolve_session(token)
-	
-	travel = frappe.get_all(
-		"Travel Request",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "purpose", "departure_date", "return_date",
-			"destination", "mode_of_travel", "estimated_cost",
-			"actual_cost", "status", "advance_amount", "approval_status",
-			"description", "creation"
-		],
-		order_by="departure_date desc",
-		limit_page_length=50,
-	)
-	
-	return {
-		"employee": emp.name,
-		"travel": travel,
-		"pending": len([t for t in travel if t.status in ["Draft", "Pending"]]),
-		"approved": len([t for t in travel if t.approval_status == "Approved"]),
-		"completed": len([t for t in travel if t.status == "Completed"]),
-	}
-
-
-@frappe.whitelist()
-def request_travel(token: str, purpose: str, departure_date: str, return_date: str, destination: str, mode_of_travel: str, estimated_cost: float, advance_amount: float = 0, description: str | None = None) -> dict:
-	"""Submit a travel request."""
-	emp = resolve_session(token)
-	
-	if not purpose:
-		frappe.throw(_("Purpose is required."))
-	if not departure_date:
-		frappe.throw(_("Departure date is required."))
-	if not return_date:
-		frappe.throw(_("Return date is required."))
-	if not destination:
-		frappe.throw(_("Destination is required."))
-	if not mode_of_travel:
-		frappe.throw(_("Mode of travel is required."))
-	if getdate(departure_date) > getdate(return_date):
-		frappe.throw(_("Departure date cannot be after return date."))
-	
-	tr = frappe.get_doc({
-		"doctype": "Travel Request",
-		"employee": emp.name,
-		"employee_name": emp.employee_name,
-		"purpose": purpose,
-		"departure_date": departure_date,
-		"return_date": return_date,
-		"destination": destination,
-		"mode_of_travel": mode_of_travel,
-		"estimated_cost": flt(estimated_cost),
-		"advance_amount": flt(advance_amount),
-		"description": description,
-		"status": "Draft",
-		"approval_status": "Pending",
-	})
-	tr.insert(ignore_permissions=True)
-	
-	return {"name": tr.name, "status": tr.status, "approval_status": tr.approval_status}
-
-
-@frappe.whitelist()
-def travel_modes(token: str) -> dict:
-	"""Available travel modes."""
-	emp = resolve_session(token)
-	modes = frappe.get_all(
-		"Mode of Travel",
-		filters={"is_active": 1},
-		fields=["name", "mode_name"],
-		order_by="mode_name asc",
-		limit_page_length=20,
-	)
-	return {"travel_modes": modes}
-
-
-@frappe.whitelist()
-def my_loans(token: str) -> dict:
-	"""This employee's salary advances / loans."""
-	emp = resolve_session(token)
-	
-	loans = frappe.get_all(
-		"Salary Advance",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "advance_amount", "paid_amount", "balance_amount",
-			"status", "purpose", "posting_date", "repay_through_salary",
-			"repay_months", "deduction_per_month", "creation"
-		],
-		order_by="posting_date desc",
-		limit_page_length=50,
-	)
-	
-	# Also get Employee Loan (if different doctype)
-	emp_loans = frappe.get_all(
-		"Employee Loan",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "loan_type", "loan_amount", "total_paid_amount",
-			"total_amount_paid", "balance_amount", "status", "interest_rate",
-			"repayment_method", "repayment_periods", "repayment_amount",
-			"posting_date", "creation"
-		],
-		order_by="posting_date desc",
-		limit_page_length=50,
-	)
-	
-	return {
-		"employee": emp.name,
-		"salary_advances": loans,
-		"employee_loans": emp_loans,
-		"total_advances": len(loans),
-		"total_loans": len(emp_loans),
-		"pending_advances": len([l for l in loans if l.status in ["Pending", "Submitted"]]),
-		"active_loans": len([l for l in emp_loans if l.status in ["Disbursed", "Partially Paid"]]),
-		"total_outstanding": sum(flt(l.balance_amount) for l in loans) + sum(flt(l.balance_amount) for l in emp_loans),
-	}
-
-
-@frappe.whitelist()
-def request_loan(token: str, loan_type: str, amount: float, purpose: str, repayment_months: int = 12, interest_rate: float = 0) -> dict:
-	"""Request a salary advance or employee loan."""
-	emp = resolve_session(token)
-	
-	if not loan_type:
-		frappe.throw(_("Select loan type."))
-	if not amount or flt(amount) <= 0:
-		frappe.throw(_("Amount must be greater than zero."))
-	if not purpose:
-		frappe.throw(_("Purpose is required."))
-	
-	if loan_type == "Salary Advance":
-		# Quick salary advance - repaid through salary
-		adv = frappe.get_doc({
-			"doctype": "Salary Advance",
-			"employee": emp.name,
-			"employee_name": emp.employee_name,
-			"advance_amount": flt(amount),
-			"purpose": purpose,
-			"posting_date": frappe.utils.today(),
-			"repay_through_salary": 1,
-			"repay_months": repayment_months,
-		})
-		adv.insert(ignore_permissions=True)
-		return {"name": adv.name, "status": adv.status, "type": "Salary Advance"}
-	else:
-		# Employee Loan with interest
-		loan = frappe.get_doc({
-			"doctype": "Employee Loan",
-			"employee": emp.name,
-			"employee_name": emp.employee_name,
-			"loan_type": loan_type,
-			"loan_amount": flt(amount),
-			"purpose": purpose,
-			"interest_rate": flt(interest_rate),
-			"repayment_periods": repayment_months,
-			"posting_date": frappe.utils.today(),
-			"status": "Pending",
-		})
-		loan.insert(ignore_permissions=True)
-		return {"name": loan.name, "status": loan.status, "type": "Employee Loan"}
-
-
-@frappe.whitelist()
-def loan_types(token: str) -> dict:
-	"""Available loan types."""
-	emp = resolve_session(token)
-	types = frappe.get_all(
-		"Loan Type",
-		filters={"is_active": 1},
-		fields=["name", "loan_type_name", "interest_rate", "max_amount", "max_repayment_periods", "requires_guarantor"],
-		order_by="loan_type_name asc",
-		limit_page_length=20,
-	)
-	return {"loan_types": types}
-
-
-@frappe.whitelist()
-def my_wellness(token: str) -> dict:
-	"""This employee's wellness & safety information."""
-	emp = resolve_session(token)
-	
-	# Get safety incidents reported by this employee
-	incidents = frappe.get_all(
-		"Safety Incident",
-		filters={"reported_by": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "incident_type", "incident_date", "location", "description",
-			"severity", "status", "root_cause", "corrective_action", "creation"
-		],
-		order_by="incident_date desc",
-		limit_page_length=50,
-	)
-	
-	# Get wellness program enrollments
-	wellness = frappe.get_all(
-		"Employee Wellness Program",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "program_name", "start_date", "end_date", "status",
-			"progress", "description", "activities"
-		],
-		order_by="creation desc",
-		limit_page_length=20,
-	)
-	
-	# Get health checkups
-	checkups = frappe.get_all(
-		"Employee Health Checkup",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "checkup_type", "checkup_date", "provider", "status",
-			"results_summary", "next_due_date", "attachments"
-		],
-		order_by="checkup_date desc",
-		limit_page_length=20,
-	)
-	
-	# Get safety observations (near misses)
-	observations = frappe.get_all(
-		"Safety Observation",
-		filters={"reported_by": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "observation_type", "observation_date", "location", "description", "severity", "status"],
-		order_by="observation_date desc",
-		limit_page_length=30,
-	)
-	
-	return {
-		"employee": emp.name,
-		"incidents": incidents,
-		"wellness_programs": wellness,
-		"health_checkups": checkups,
-		"safety_observations": observations,
-		"total_incidents": len(incidents),
-		"open_incidents": len([i for i in incidents if i.status in ["Open", "Under Investigation"]]),
-		"completed_programs": len([w for w in wellness if w.status == "Completed"]),
-		"upcoming_checkups": len([c for c in checkups if c.next_due_date and c.next_due_date >= frappe.utils.today()]),
-	}
-
-
-@frappe.whitelist()
-def my_recognition(token: str) -> dict:
-	"""This employee's recognition & rewards."""
-	emp = resolve_session(token)
-	
-	# Received recognitions
-	received = frappe.get_all(
-		"Employee Recognition",
-		filters={"recipient": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "sender", "sender_name", "recipient", "recipient_name",
-			"recognition_type", "message", "points", "badge", "status",
-			"recognition_date", "creation"
-		],
-		order_by="recognition_date desc",
-		limit_page_length=50,
-	)
-	
-	# Sent recognitions
-	sent = frappe.get_all(
-		"Employee Recognition",
-		filters={"sender": emp.name, "docstatus": ["<", 2]},
-		fields=[
-			"name", "sender", "sender_name", "recipient", "recipient_name",
-			"recognition_type", "message", "points", "badge", "status",
-			"recognition_date", "creation"
-		],
-		order_by="recognition_date desc",
-		limit_page_length=50,
-	)
-	
-	# Badges earned
-	badges = frappe.get_all(
-		"Employee Badge",
-		filters={"employee": emp.name, "docstatus": ["<", 2]},
-		fields=["name", "badge_name", "badge_type", "earned_date", "description", "icon", "color"],
-		order_by="earned_date desc",
-		limit_page_length=30,
-	)
-	
-	# Points balance
-	points_earned = sum(flt(r.points) for r in received)
-	points_spent = sum(flt(s.points) for s in sent if s.status == "Redeemed")
-	
-	return {
-		"employee": emp.name,
-		"received": received,
-		"sent": sent,
-		"badges": badges,
-		"points_balance": points_earned - points_spent,
-		"points_earned": points_earned,
-		"points_spent": points_spent,
-		"total_received": len(received),
-		"total_sent": len(sent),
-	}
-
-
-@frappe.whitelist()
-def send_recognition(token: str, recipient: str, recognition_type: str, message: str, points: int = 0, badge: str | None = None) -> dict:
-	"""Send a recognition to a colleague."""
-	emp = resolve_session(token)
-	
-	if not recipient:
-		frappe.throw(_("Select a recipient."))
-	if not message:
-		frappe.throw(_("Message is required."))
-	if recipient == emp.name:
-		frappe.throw(_("You cannot recognize yourself."))
-	
-	rec = frappe.get_doc({
-		"doctype": "Employee Recognition",
-		"sender": emp.name,
-		"sender_name": emp.employee_name,
-		"recipient": recipient,
-		"recipient_name": frappe.db.get_value("Employee", recipient, "employee_name"),
-		"recognition_type": recognition_type,
-		"message": message,
-		"points": cint(points),
-		"badge": badge,
-		"status": "Delivered",
-		"recognition_date": frappe.utils.today(),
-	})
-	rec.insert(ignore_permissions=True)
-	
-	# Award badge if specified
-	if badge:
-		badge_doc = frappe.get_doc({
-			"doctype": "Employee Badge",
-			"employee": recipient,
-			"employee_name": frappe.db.get_value("Employee", recipient, "employee_name"),
-			"badge_name": badge,
-			"badge_type": "Peer Recognition",
-			"earned_date": frappe.utils.today(),
-			"description": f"Earned from {emp.employee_name}: {message}",
-		})
-		badge_doc.insert(ignore_permissions=True)
-	
-	return {"name": rec.name, "status": rec.status}
-
-
-@frappe.whitelist()
-def recognition_types(token: str) -> dict:
-	"""Available recognition types."""
-	emp = resolve_session(token)
-	types = frappe.get_all(
-		"Recognition Type",
-		filters={"is_active": 1},
-		fields=["name", "type_name", "default_points", "icon", "color"],
-		order_by="type_name asc",
-		limit_page_length=20,
-	)
-	return {"recognition_types": types}

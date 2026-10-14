@@ -16,22 +16,37 @@
 	<link rel="icon" href="/assets/sharm_dreams_group/images/logo.png" />
 	<link rel="manifest" href="/assets/sharm_dreams_group/manifest.json" />
 	<meta name="theme-color" content="#2563eb" />
+	{# The standards-track name first, the Apple one beside it: `apple-mobile-web-app-capable`
+	   is what iOS still reads, `mobile-web-app-capable` is what Chrome asks for. #}
+	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 	<meta name="apple-mobile-web-app-title" content="Employee Portal" />
 	<link rel="apple-touch-icon" href="/assets/sharm_dreams_group/images/logo.png" />
-	<!-- Bumped to v=4 for PWA support -->
 	<link rel="stylesheet"
 		href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css?v=4.7.0" />
-	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=18" />
+	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=27" />
 </head>
 <body>
-	<div class="ep-root" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
+	<div class="ep-root ep-locked" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
 		<header class="ep-head">
 			<div class="ep-brand">
+				{# Only shown where the sidebar is a drawer rather than a column, so it is
+				   inert markup on a wide screen rather than a button that does nothing. #}
+				<button type="button" class="ep-nav-toggle" id="epNavToggle"
+					aria-label="Screens" aria-expanded="false" aria-controls="epSidebar">
+					<i class="fa fa-bars"></i>
+				</button>
 				<span class="ep-brand-name">Employee Portal</span>
 			</div>
 			<div class="ep-head-right">
+				{# Shown only when the browser fires `beforeinstallprompt` and only for as
+				   long as the prompt is still unanswered: the event is prevented here, and
+				   answered by this exact tap, which is what the earlier timed banner failed
+				   to do and why the console complained. #}
+				<button type="button" class="ep-install" id="epInstallBtn" hidden>
+					<i class="fa fa-download"></i><span>Install</span>
+				</button>
 				<div class="ep-user-info" id="userInfo" hidden>
 					<div class="ep-user-avatar" id="userAvatar"></div>
 					<div class="ep-user-meta">
@@ -59,15 +74,39 @@
 				<button type="button" class="ep-theme-btn" id="themeBtn" aria-label="Toggle theme">
 					<i class="fa fa-sun-o" id="themeIcon"></i>
 				</button>
-				<button type="button" class="ep-signout" id="signOutBtn" hidden>
+				<button type="button" class="ep-signout" id="signOutBtn" data-signout hidden>
 					<i class="fa fa-sign-out"></i> <span>Sign out</span>
 				</button>
 			</div>
 		</header>
 
-		<main class="ep-main">
-			<div class="ep-host" id="screenHost"></div>
-		</main>
+		{# The three-part layout. Both columns are filled by the client from one table of
+		   sections, so the navigation and the screens it names cannot drift apart the way
+		   a hand-written second copy of the list would. #}
+		<div class="ep-shell">
+			<nav class="ep-dock" id="epDock" aria-label="Sections"></nav>
+
+			<aside class="ep-sidebar" id="epSidebar" aria-label="Screens">
+				<p class="ep-sidebar-title" id="epSidebarTitle"></p>
+				<div class="ep-nav" id="epNav" role="list"></div>
+				{# Signing out from the foot of the list, as well as from the header: on a
+				   tablet the header is small, half-off the top of the mount, and the last
+				   thing in reach after reading a list is the bottom of that list. #}
+				<div class="ep-sidebar-foot">
+					<button type="button" class="ep-nav-item ep-signout-item" data-signout hidden>
+						<i class="fa fa-sign-out"></i><span>Sign out</span>
+					</button>
+				</div>
+			</aside>
+
+			{# Closes the drawer on the widths where it is one; `display: none` elsewhere,
+			   so it never sits invisibly over the body swallowing taps. #}
+			<button type="button" class="ep-nav-scrim" id="epNavScrim" aria-label="Close screens"></button>
+
+			<main class="ep-main">
+				<div class="ep-host" id="screenHost"></div>
+			</main>
+		</div>
 
 		{# Announced on every screen change. The page swaps whole screens, so without
 		   this nothing would move focus or be read out on a wall tablet. #}
@@ -77,104 +116,65 @@
 		<div id="epOfflineBanner" class="ep-offline-banner" hidden role="alert" aria-live="assertive">
 			<i class="fa fa-wifi"></i>
 			<span>You are offline. Showing cached data.</span>
-			<button type="button" class="ep-offline-dismiss" aria-label="Dismiss">&times;</button>
+			<button type="button" id="epOfflineDismiss" class="ep-offline-dismiss" aria-label="Dismiss">&times;</button>
 		</div>
 
-		{# Install prompt #}
-		<div id="epInstallBanner" class="ep-install-banner" hidden role="dialog" aria-labelledby="installTitle">
-			<div class="ep-install-content">
-				<i class="fa fa-mobile"></i>
-				<div>
-					<strong id="installTitle">Install Employee Portal</strong>
-					<span>Add to home screen for offline access</span>
-				</div>
-			</div>
-			<div class="ep-install-actions">
-				<button type="button" class="ep-btn ep-btn-ghost" id="installCancel">Later</button>
-				<button type="button" class="ep-btn" id="installConfirm">Install</button>
-			</div>
-		</div>
+		{# The install entry is the button in the header, and the iOS route is a line on
+		   the login card; there is no banner, because a banner that appears on a timer
+		   and then never answers the prevented event is exactly the warning this page
+		   used to log. #}
 	</div>
 
 	<script>
 		window.EMPLOYEE_PORTAL = {
 			api: {{ portal_api | tojson }},
 			lang: {{ portal_lang | tojson }},
-			langCookie: {{ portal_lang_cookie | tojson }},
+			langApi: {{ portal_lang_api | tojson }},
+			sw: {{ portal_sw | tojson }},
 			csrf: {{ portal_csrf | tojson }}
 		};
 	</script>
-	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=34"></script>
+	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=42"></script>
 	<script>
-		// Service Worker registration
-		if ('serviceWorker' in navigator) {
-			window.addEventListener('load', function() {
-				navigator.serviceWorker.register('/assets/sharm_dreams_group/sw.js')
-					.then(function(reg) {
-						console.log('SW registered:', reg.scope);
-						// Check for updates periodically
-						setInterval(function() { reg.update(); }, 60 * 60 * 1000);
-					})
-					.catch(function(err) {
-						console.log('SW registration failed:', err);
-					});
-			});
-		}
+		// The pieces of chrome around the app: the worker, the offline banner, and the
+		// install entry point. Each is looked up before it is used - a banner that is
+		// not in this render of the page must not take the whole script down with it,
+		// which is exactly how `addEventListener` on a null element ends up in the
+		// console and leaves the language menu dead further down the file.
+		(function () {
+			var CFG = window.EMPLOYEE_PORTAL || {};
 
-		// Online/offline detection
-		window.addEventListener('online', function() {
-			document.getElementById('epOfflineBanner').hidden = true;
-			document.body.classList.remove('ep-offline');
-		});
-		window.addEventListener('offline', function() {
-			document.getElementById('epOfflineBanner').hidden = false;
-			document.body.classList.add('ep-offline');
-		});
-		// Initial state
-		if (!navigator.onLine) {
-			document.getElementById('epOfflineBanner').hidden = false;
-			document.body.classList.add('ep-offline');
-		}
-
-		// Install prompt handling
-		let deferredPrompt;
-		window.addEventListener('beforeinstallprompt', function(e) {
-			e.preventDefault();
-			deferredPrompt = e;
-			// Show install banner after 10 seconds if not dismissed
-			setTimeout(function() {
-				if (deferredPrompt && !localStorage.getItem('epInstallDismissed')) {
-					document.getElementById('epInstallBanner').hidden = false;
-				}
-			}, 10000);
-		});
-		document.getElementById('installConfirm').addEventListener('click', function() {
-			if (deferredPrompt) {
-				deferredPrompt.prompt();
-				deferredPrompt.userChoice.then(function(choice) {
-					if (choice.outcome === 'accepted') {
-						localStorage.setItem('epInstallAccepted', 'true');
-					}
-					deferredPrompt = null;
-					document.getElementById('epInstallBanner').hidden = true;
+			if ("serviceWorker" in navigator) {
+				window.addEventListener("load", function () {
+					navigator.serviceWorker
+						// Registered at the site root, from the route that serves it
+						// there: a worker read out of `/assets/...` can only control
+						// `/assets/...`, and so could never intercept this page.
+						.register(CFG.sw || "/employee-portal-sw.js", { scope: "/" })
+						.catch(function (err) {
+							console.log("SW registration failed:", err);
+						});
 				});
 			}
-		});
-		document.getElementById('installCancel').addEventListener('click', function() {
-			localStorage.setItem('epInstallDismissed', 'true');
-			deferredPrompt = null;
-			document.getElementById('epInstallBanner').hidden = true;
-		});
-		document.getElementById('epOfflineDismiss').addEventListener('click', function() {
-			document.getElementById('epOfflineBanner').hidden = true;
-		});
 
-		// Notify SW of version
-		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.ready.then(function(reg) {
-				reg.active.postMessage('getVersion');
-			});
-		}
+			var banner = document.getElementById("epOfflineBanner");
+			var dismiss = document.getElementById("epOfflineDismiss");
+			var root = document.getElementById("epRoot");
+
+			function setOffline(offline) {
+				if (banner) banner.hidden = !offline;
+				if (root) root.classList.toggle("ep-offline", offline);
+			}
+
+			window.addEventListener("online", function () { setOffline(false); });
+			window.addEventListener("offline", function () { setOffline(true); });
+			if (dismiss) {
+				dismiss.addEventListener("click", function () {
+					if (banner) banner.hidden = true;
+				});
+			}
+			if (!navigator.onLine) setOffline(true);
+		})();
 	</script>
 </body>
 </html>

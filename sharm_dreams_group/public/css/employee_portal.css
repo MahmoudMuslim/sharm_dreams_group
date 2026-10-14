@@ -34,6 +34,14 @@
 	--ep-bad: #b91c1c;
 	--ep-gap: 1rem;
 
+	/* Shape and elevation, so "the same card" means the same radius and the same
+	   shadow in every screen rather than a value retyped per rule. */
+	--ep-r: 0.85rem;
+	--ep-r-sm: 0.55rem;
+	--ep-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.06);
+	--ep-shadow-lg: 0 12px 34px rgba(15, 23, 42, 0.14);
+	--ep-tint: color-mix(in srgb, var(--ep-muted) 10%, transparent);
+
 	/* Dark theme overrides (applied via .ep-root.dark) */
 	--ep-bg-dark: #0f172a;
 	--ep-card-dark: #1e293b;
@@ -45,6 +53,13 @@
 	--ep-good-dark: #10b981;
 	--ep-warn-dark: #f59e0b;
 	--ep-bad-dark: #ef4444;
+
+	/* Elevation on a dark ground reads as a lighter edge, not as a black shadow - the
+	   shadow a card casts on #0f172a is invisible, and what separates the two is a
+	   brighter border and a shadow with more presence. */
+	--ep-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.45);
+	--ep-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+	--ep-tint: color-mix(in srgb, var(--ep-muted) 16%, transparent);
 
 	position: fixed;
 	inset: 0;
@@ -85,7 +100,8 @@
 	flex: 0 0 auto;
 }
 
-.ep-brand-name { font-weight: 700; font-size: 1.05rem; }
+.ep-brand { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+.ep-brand-name { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
 .ep-head-right { display: flex; align-items: center; gap: 0.75rem; }
 .ep-user-info {
 	display: inline-flex;
@@ -110,6 +126,7 @@
 	flex-shrink: 0;
 }
 .ep-user-meta { display: flex; flex-direction: column; min-width: 0; }
+.ep-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .ep-user-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-user-role { font-size: 0.75rem; color: var(--ep-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-lang-btn,
@@ -175,6 +192,9 @@
 .ep-root [hidden] { display: none !important; }
 
 .ep-caret { font-size: 0.7em; }
+.ep-lang-flag { display: inline-flex; width: 1rem; justify-content: center; }
+
+.ep-lang-wrap { position: relative; }
 
 .ep-lang-dd {
 	position: absolute;
@@ -215,15 +235,246 @@
 .ep-lang-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
 .ep-lang-item.active { color: var(--ep-accent); font-weight: 600; }
 
-/* -------------------------------------------------------------------- main */
+/* -------------------------------------------------------------------- shell
+ *
+ * Three columns: an icon dock for the sections, the screens of the selected section
+ * beside it, and the body. `min-height: 0` is what makes this work - without it the
+ * flex item's height is its content's height, `.ep-main` never gets a scrollport, and
+ * a long list pushes the dock off the bottom of the fixed root.
+ */
+.ep-shell {
+	flex: 1 1 auto;
+	display: flex;
+	min-height: 0;
+	position: relative;
+	overflow: hidden;
+}
+
+.ep-dock {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.25rem;
+	width: 5rem;
+	padding: 0.75rem 0.5rem;
+	background: var(--ep-card);
+	border-inline-end: 1px solid var(--ep-line);
+	overflow-y: auto;
+	z-index: 30;
+}
+
+.ep-dock-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.25rem;
+	min-height: 3.5rem;
+	padding: 0.5rem 0.2rem;
+	border: 0;
+	border-radius: 0.7rem;
+	background: transparent;
+	color: var(--ep-muted);
+	font: inherit;
+	font-size: 0.68rem;
+	line-height: 1.15;
+	text-align: center;
+	cursor: pointer;
+}
+
+.ep-dock-item i { font-size: 1.2rem; }
+.ep-dock-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); color: var(--ep-ink); }
+.ep-dock-item[aria-current="page"] {
+	background: color-mix(in srgb, var(--ep-accent) 14%, transparent);
+	color: var(--ep-accent);
+	font-weight: 600;
+}
+
+.ep-dock-dot {
+	position: absolute;
+	inset-inline-end: 0.45rem;
+	top: 0.4rem;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	background: var(--ep-warn);
+	border: 1px solid var(--ep-card);
+}
+
+.ep-dock-item { position: relative; }
+
+.ep-sidebar {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	width: 15.5rem;
+	padding: 1rem 0.75rem 0.75rem;
+	background: color-mix(in srgb, var(--ep-card) 55%, var(--ep-bg));
+	border-inline-end: 1px solid var(--ep-line);
+	overflow-y: auto;
+	z-index: 30;
+}
+
+.ep-sidebar-title {
+	font-size: 0.72rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	margin: 0 0 0.6rem;
+	padding-inline-start: 0.5rem;
+}
+
+.ep-nav { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.ep-nav-item {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	width: 100%;
+	min-height: 2.9rem;
+	padding: 0.5rem 0.65rem;
+	border: 1px solid transparent;
+	border-radius: 0.65rem;
+	background: transparent;
+	color: var(--ep-ink);
+	font: inherit;
+	font-size: 0.95rem;
+	text-align: start;
+	cursor: pointer;
+}
+
+.ep-nav-item i:first-child { width: 1.2rem; text-align: center; color: var(--ep-muted); flex-shrink: 0; }
+.ep-nav-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-nav-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
+.ep-nav-item[aria-current="page"] {
+	background: var(--ep-card);
+	border-color: var(--ep-line);
+	color: var(--ep-accent);
+	font-weight: 600;
+}
+.ep-nav-item[aria-current="page"] i:first-child { color: var(--ep-accent); }
+
+/* The foot holds the way out, pinned to the end of the column however short the list
+   above it is. */
+.ep-sidebar-foot {
+	margin-top: auto;
+	padding-top: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+}
+
+.ep-signout-item { color: var(--ep-muted); }
+.ep-signout-item:hover {
+	background: color-mix(in srgb, var(--ep-bad) 10%, transparent);
+	color: var(--ep-bad);
+}
+.ep-signout-item:hover i { color: var(--ep-bad); }
+
+.ep-nav-count {	margin-inline-start: auto;
+	flex-shrink: 0;
+	min-width: 1.4rem;
+	padding: 0.1rem 0.4rem;
+	border-radius: 999px;
+	background: var(--ep-warn);
+	color: var(--ep-accent-ink);
+	font-size: 0.72rem;
+	font-weight: 700;
+	text-align: center;
+}
+
+.ep-nav-toggle,
+.ep-nav-scrim { display: none; }
+
+/* Signed out there is nowhere to navigate to, so the chrome is not shown - and the
+   sign-in card is centred in the space the two columns left behind. */
+.ep-root.ep-locked .ep-dock,
+.ep-root.ep-locked .ep-sidebar,
+.ep-root.ep-locked .ep-nav-toggle { display: none; }
+.ep-root.ep-locked .ep-host { max-width: 26rem; padding-block: 2rem; }
+
+/* Below the width where both columns fit, the sidebar becomes a drawer that opens
+   from the dock, and the header grows a hamburger. `display` rather than a transform
+   so the closed drawer is not in the tab order and nothing depends on reading
+   direction. */
+@media (max-width: 68rem) {
+	.ep-sidebar {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-start: 5rem;
+		display: none;
+		width: 16rem;
+		background: var(--ep-card);
+		box-shadow: 0 0 24px rgba(2, 6, 23, 0.18);
+	}
+	.ep-root.ep-nav-open .ep-sidebar { display: flex; }
+	.ep-root.ep-nav-open .ep-nav-scrim {
+		display: block;
+		position: absolute;
+		inset: 0;
+		background: rgba(2, 6, 23, 0.35);
+		border: 0;
+		z-index: 25;
+		cursor: pointer;
+	}
+	.ep-nav-toggle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.4rem;
+		height: 2.4rem;
+		border: 1px solid var(--ep-line);
+		border-radius: 0.5rem;
+		background: var(--ep-card);
+		color: var(--ep-ink);
+		cursor: pointer;
+	}
+}
+
+/* On a phone there is no room for a vertical rail either: the dock becomes a bottom
+   bar and the drawer slides out from the edge instead of from the dock. */
+@media (max-width: 40rem) {
+	.ep-shell { flex-direction: column; }
+	.ep-dock {
+		order: 2;
+		flex-direction: row;
+		align-items: stretch;
+		width: auto;
+		gap: 0.15rem;
+		padding: 0.35rem 0.5rem;
+		border-inline-end: 0;
+		border-top: 1px solid var(--ep-line);
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: none;
+	}
+	.ep-dock-item { flex: 1 0 auto; min-width: 3.4rem; min-height: 3rem; }
+	.ep-dock-label { display: none; }
+	.ep-dock-item i { font-size: 1.15rem; }
+	.ep-sidebar { inset-inline-start: 0; top: 0; }
+	.ep-main { padding: 1rem 0.9rem 1.25rem; }
+	/* The header has to hold a hamburger, the name and three controls in roughly
+	   375px. The role line and the word "Sign out" are the two things a person can do
+	   without - the avatar and the icons say the same in less room. */
+	.ep-user-meta { display: none; }
+	.ep-user-info { padding: 0.2rem; border: 0; background: transparent; }
+	.ep-signout span { display: none; }
+	.ep-signout { min-height: 2.75rem; padding: 0.5rem 0.7rem; }
+	.ep-head { padding: 0.6rem 0.8rem; }
+}
+
+/* ---------------------------------------------------------------- main body */
 .ep-main {
 	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 	padding: 1.25rem;
 }
 
-.ep-host { max-width: 46rem; margin: 0 auto; }
+.ep-host { max-width: 52rem; margin: 0 auto; }
 .ep-fade { animation: ep-fade 0.18s ease-out; }
 
 @keyframes ep-fade {
@@ -251,6 +502,20 @@
 	color: var(--ep-muted);
 	margin: 0 0 0.6rem;
 }
+
+.ep-card-sub { margin: -0.3rem 0 0.8rem; color: var(--ep-muted); font-size: 0.9rem; }
+
+/* A calendar, an org chart: content wider than the card it sits in, which must scroll
+   inside the card rather than push the page sideways off the screen. */
+.ep-card-scroll { overflow: auto; }
+
+.ep-toolbar-spacer { flex: 1 1 auto; }
+.ep-toolbar-stat { color: var(--ep-muted); font-size: 0.85rem; white-space: nowrap; }
+
+/* ------------------------------------------------------------------ login */
+.ep-login-title { margin: 0 0 0.3rem; font-size: 1.3rem; }
+.ep-login-sub { margin: 0 0 1.1rem; color: var(--ep-muted); font-size: 0.95rem; }
+.ep-login .ep-field { border-bottom: 0; padding: 0 0 0.9rem; }
 
 /* ------------------------------------------------------------------ tiles */
 .ep-tiles {
@@ -331,18 +596,48 @@
 }
 .ep-btn-ghost { background: transparent; color: var(--ep-accent); border: 1px solid var(--ep-line); }
 
+/* Each screen announces where it is: the section it belongs to and its own name. The
+   back control rides along for the widths where the sidebar is a drawer; once the
+   sidebar is a permanent column, tapping the list *is* going back. */
+.ep-screen-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+	margin-bottom: 1rem;
+}
+
+.ep-screen-heading { min-width: 0; }
+.ep-screen-actions {
+	margin-inline-start: auto;
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+}
+.ep-screen-actions .ep-btn { width: auto; min-height: 2.75rem; padding: 0.5rem 0.95rem; font-size: 0.92rem; }
+.ep-screen-title { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
+.ep-screen-sub { margin: 0; color: var(--ep-muted); font-size: 0.82rem; }
+
 .ep-back {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.4rem;
-	margin-bottom: 0.8rem;
-	padding: 0.4rem 0.6rem;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 2.5rem;
+	height: 2.5rem;
+	padding: 0;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: 50%;
 	background: var(--ep-card);
 	color: var(--ep-muted);
-	font-size: 0.9rem;
+	font-size: 0.95rem;
 	cursor: pointer;
+}
+
+.ep-back:hover { color: var(--ep-accent); border-color: var(--ep-accent); }
+
+@media (min-width: 68rem) {
+	.ep-back { display: none; }
 }
 
 /* ------------------------------------------------------------------- rows */
@@ -360,6 +655,18 @@
 .ep-row-title { font-weight: 600; }
 .ep-row-meta { color: var(--ep-muted); font-size: 0.85rem; margin-top: 0.15rem; }
 .ep-row-value { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.ep-row-withdraw {
+	flex-shrink: 0;
+	font: inherit;
+	font-size: 0.8rem;
+	padding: 0.35rem 0.7rem;
+	border-radius: 0.5rem;
+	border: 1px solid var(--ep-line);
+	background: transparent;
+	color: var(--ep-muted);
+	cursor: pointer;
+}
+.ep-row-withdraw[disabled] { opacity: 0.5; cursor: default; }
 
 /* --------------------------------------------------------------- balances */
 .ep-balance { padding: 0.75rem 0; border-bottom: 1px solid var(--ep-line); }
@@ -375,22 +682,6 @@
 }
 
 .ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 0.25rem; }
-
-/* The requests behind a balance, so the figure can be reconciled against something
-   the employee did rather than taken on trust. Indented off the balance above it. */
-.ep-reqs { margin-top: 0.5rem; padding-left: 0.6rem; border-left: 2px solid var(--ep-line); }
-
-.ep-req {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 0.2rem 0;
-	font-size: 0.82rem;
-	color: var(--ep-muted);
-}
-
-.ep-req-dates { font-variant-numeric: tabular-nums; }
-.ep-req > span:nth-child(2) { margin-inline-end: auto; }
 
 /* ---------------------------------------------------------- notifications */
 /* Outstanding items, shown only when there are some. Each row opens the screen the
@@ -453,50 +744,207 @@
 /* Tile badge */
 .ep-tile-badge {
 	flex-shrink: 0;
+	min-width: 1.5rem;
+	padding: 0.1rem 0.45rem;
+	border-radius: 999px;
+	background: var(--ep-warn);
+	color: var(--ep-accent-ink);
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-align: center;
+}
+.ep-tile-badge--bad { background: var(--ep-bad); }
+
+/* Tiles: the icon is a tinted disc, so the label and the icon read as one object. */
+.ep-tile-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.6rem;
+	height: 2.6rem;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--ep-accent) 12%, transparent);
+	color: var(--ep-accent);
+	font-size: 1.25rem;
 }
 
-/* Documents */
-.ep-doc-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-doc-summary .ep-badge { font-size: 0.85rem; padding: 0.35rem 0.6rem; display: inline-flex; align-items: center; gap: 0.35rem; }
-.ep-doc-summary .ep-badge i { font-size: 0.85rem; }
+.ep-tile-text { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; }
 
-/* Announcements */
-.ep-announcement:last-child { border-bottom: 0; }
-.ep-announcement strong { color: var(--ep-ink); }
+/* ------------------------------------------------------------------- hero */
+.ep-hero { display: flex; align-items: center; gap: 1rem; }
+.ep-hero-avatar {
+	width: 3.25rem;
+	height: 3.25rem;
+	border-radius: 50%;
+	overflow: hidden;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
+	color: var(--ep-accent-ink);
+	font-weight: 700;
+	font-size: 1.1rem;
+}
+.ep-hero-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ep-hero-text { min-width: 0; }
+.ep-hero-name { margin: 0; font-size: 1.3rem; font-weight: 700; }
+.ep-hero-sub { margin: 0.15rem 0 0; color: var(--ep-muted); font-size: 0.9rem; }
+.ep-hero-meta { margin-inline-start: auto; text-align: end; color: var(--ep-muted); font-size: 0.82rem; }
 
-/* Colleagues */
-.ep-colleagues-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
-.ep-colleagues-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+/* ---------------------------------------------------------------- sections */
+.ep-section-head {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin: 1.5rem 0 0.6rem;
+	padding-inline-start: 0.15rem;
+}
+.ep-section-head h2 {
+	margin: 0;
+	font-size: 0.75rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	font-weight: 600;
+}
+.ep-section-head span { color: var(--ep-muted); font-size: 0.78rem; }
+
+.ep-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: var(--ep-gap); }
+.ep-stat {
+	flex: 1 1 8rem;
+	background: var(--ep-card);
+	border: 1px solid var(--ep-line);
+	border-radius: 0.8rem;
+	padding: 0.7rem 0.85rem;
+}
+.ep-stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ep-stat-label { color: var(--ep-muted); font-size: 0.78rem; margin-top: 0.1rem; }
+
+/* --------------------------------------------------------------- directory
+ *
+ * The colleague directory is one list, filtered on the device. Everything already
+ * arrived in the single `my_colleagues` read, so the toolbar filters that array
+ * instead of asking the server again on every keystroke - on a tablet sharing one
+ * network at a time, a search that costs a request per letter is a search that
+ * feels broken halfway through a name.
+ */
+.ep-dir-toolbar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0.6rem;
+	align-items: end;
+	margin-bottom: 1rem;
+}
+
+@media (min-width: 34rem) {
+	.ep-dir-toolbar { grid-template-columns: minmax(0, 1fr) minmax(9rem, 12rem) auto; }
+}
+
+.ep-dir-toolbar .ep-field { margin-bottom: 0; padding: 0; border-bottom: 0; }
+.ep-dir-count { color: var(--ep-muted); font-size: 0.82rem; white-space: nowrap; padding-bottom: 0.55rem; }
+
+.ep-dir-group { margin-bottom: 1.35rem; }
+.ep-dir-group:last-child { margin-bottom: 0; }
+
+.ep-dir-group-title {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	margin: 0 0 0.5rem;
+	padding: 0.3rem 0.5rem;
+	background: color-mix(in srgb, var(--ep-bg) 88%, transparent);
+	backdrop-filter: blur(2px);
+	font-size: 0.74rem;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	font-weight: 600;
+}
+.ep-dir-group-title span { font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+.ep-colleagues-grid { display: grid; grid-template-columns: 1fr; gap: 0.7rem; }
 @media (min-width: 48rem) {
-	.ep-colleagues-grid { grid-template-columns: repeat(2, 1fr); }
+	.ep-colleagues-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (min-width: 72rem) {
-	.ep-colleagues-grid { grid-template-columns: repeat(3, 1fr); }
-}
-.ep-colleague-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-colleague-card .ep-row-meta { font-size: 0.8rem; margin-top: 0.15rem; }
-.ep-colleague-card .ep-row-meta i { width: 1rem; text-align: center; margin-right: 0.25rem; color: var(--ep-muted); }
 
-/* Support */
-.ep-support-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
-@media (min-width: 48rem) {
-	.ep-support-grid { grid-template-columns: repeat(2, 1fr); }
+.ep-colleague-card {
+	display: flex;
+	gap: 0.85rem;
+	align-items: flex-start;
+	padding: 0.9rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.85rem;
+	background: var(--ep-card);
+	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-@media (min-width: 72rem) {
-	.ep-support-grid { grid-template-columns: repeat(3, 1fr); }
+.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: color-mix(in srgb, var(--ep-accent) 45%, var(--ep-line)); }
+.ep-colleague-card--me { border-color: var(--ep-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ep-accent) 30%, transparent); }
+
+.ep-colleague-avatar {
+	width: 2.9rem;
+	height: 2.9rem;
+	border-radius: 50%;
+	overflow: hidden;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
+	color: var(--ep-accent-ink);
+	font-weight: 700;
+	font-size: 0.95rem;
+	letter-spacing: 0.02em;
 }
-.ep-support-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-support-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-faq-item summary::-webkit-details-marker,
-.ep-help-item summary::-webkit-details-marker { display: none; }
-.ep-faq-item summary,
-.ep-help-item summary { position: relative; }
-.ep-faq-item summary i,
-.ep-help-item summary i { position: absolute; right: 1rem; transition: transform 0.2s; }
-.ep-faq-item[open] summary i,
-.ep-help-item[open] summary i { transform: rotate(90deg); }
-.ep-policy-item a { font-size: 0.85rem; }
+.ep-colleague-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.ep-colleague-body { flex: 1 1 auto; min-width: 0; }
+.ep-colleague-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.98rem; }
+.ep-colleague-name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-colleague-desig { color: var(--ep-accent); font-size: 0.83rem; margin-top: 0.1rem; }
+.ep-colleague-desig:empty { display: none; }
+
+/* A record's facts, one per line: number, mobile, manager, date. Used by the
+   directory and the asset list alike, which is why it is not named after either. */
+.ep-meta { list-style: none; margin: 0.45rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.ep-meta li { display: flex; align-items: center; gap: 0.4rem; min-width: 0; color: var(--ep-muted); font-size: 0.8rem; }
+.ep-meta i { width: 0.95rem; text-align: center; flex-shrink: 0; }
+.ep-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-meta--warn, .ep-meta--warn i, .ep-meta--warn span { color: var(--ep-warn); }
+
+.ep-colleague-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.65rem; }
+.ep-dir-act {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-height: 2.3rem;
+	padding: 0.35rem 0.75rem;
+	border: 1px solid var(--ep-line);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--ep-muted);
+	font-size: 0.8rem;
+	text-decoration: none;
+	cursor: pointer;
+}
+.ep-dir-act:hover { border-color: var(--ep-accent); color: var(--ep-accent); background: color-mix(in srgb, var(--ep-accent) 8%, transparent); }
+
+.ep-you-badge {
+	flex-shrink: 0;
+	padding: 0.05rem 0.45rem;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--ep-accent) 15%, transparent);
+	color: var(--ep-accent);
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
 
 /* Org Chart */
 .ep-org-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
@@ -505,7 +953,7 @@
 .ep-org-node.ep-org-has-parent::before {
 	content: "";
 	position: absolute;
-	left: 2.5rem;
+	inset-inline-start: 2.5rem;
 	top: -0.5rem;
 	bottom: 0;
 	width: 2px;
@@ -526,7 +974,7 @@
 	z-index: 1;
 	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.ep-org-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: var(--ep-accent); }
+.ep-org-card:hover { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: var(--ep-accent); }
 .ep-org-card.ep-org-me { border-color: var(--ep-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
 .ep-org-me-badge {
 	background: var(--ep-accent);
@@ -535,7 +983,7 @@
 	font-weight: 700;
 	padding: 0.1rem 0.4rem;
 	border-radius: 999px;
-	margin-left: 0.5rem;
+	margin-inline-start: 0.5rem;
 }
 .ep-org-toggle {
 	background: none;
@@ -553,14 +1001,33 @@
 }
 .ep-org-toggle:hover { background: var(--ep-line); color: var(--ep-ink); }
 .ep-org-toggle-placeholder { width: 2rem; flex-shrink: 0; }
-.ep-org-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.ep-org-avatar {
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 50%;
+	overflow: hidden;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
+	color: var(--ep-accent-ink);
+	font-weight: 700;
+	font-size: 0.8rem;
+}
+.ep-org-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .ep-org-info { flex: 1; min-width: 0; }
 .ep-org-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-org-desig { color: var(--ep-muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-org-dept, .ep-org-empnum { color: var(--ep-muted); font-size: 0.75rem; margin-top: 0.15rem; }
-.ep-org-dept i, .ep-org-empnum i { width: 1rem; text-align: center; margin-right: 0.25rem; }
-.ep-org-children { display: block; margin-left: 3rem; padding-left: 1rem; border-left: 2px solid var(--ep-line); }
-.ep-org-node.ep-org-in-path > .ep-org-children { border-left-color: var(--ep-accent); }
+.ep-org-dept i, .ep-org-empnum i { width: 1rem; text-align: center; margin-inline-end: 0.25rem; }
+.ep-org-children {
+	display: block;
+	margin-inline-start: 3rem;
+	padding-inline-start: 1rem;
+	border-inline-start: 2px solid var(--ep-line);
+}
+.ep-org-node.ep-org-in-path > .ep-org-children { border-inline-start-color: var(--ep-accent); }
 .ep-org-flash { animation: ep-org-flash 2s ease; }
 @keyframes ep-org-flash {
 	0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
@@ -568,10 +1035,32 @@
 }
 
 /* Leave Calendar */
-.ep-cal-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.ep-cal-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.ep-cal-label { display: inline-flex; align-items: center; gap: 0.35rem; margin: 0; }
+.ep-cal-select { width: auto; min-width: 8rem; }
 .ep-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
-.ep-cal-day { min-height: 80px; padding: 0.25rem; display: flex; flex-direction: column; }
+.ep-cal-dow {
+	font-size: 0.7rem;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--ep-muted);
+	text-align: center;
+	padding-bottom: 0.25rem;
+}
+.ep-cal-day {
+	min-height: 5.5rem;
+	padding: 0.25rem;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--ep-line);
+	border-radius: 0.5rem;
+	background: var(--ep-card);
+	overflow: hidden;
+}
+.ep-cal-day.ep-cal-blank { border: 0; background: transparent; min-height: 0; padding: 0; }
 .ep-cal-day.ep-cal-weekend { background: color-mix(in srgb, var(--ep-muted) 8%, var(--ep-card)); }
+.ep-cal-day.ep-cal-has-leave { border-color: color-mix(in srgb, var(--ep-accent) 45%, var(--ep-line)); }
+.ep-cal-day.ep-cal-today { border-color: var(--ep-accent); }
 .ep-cal-day.ep-cal-today .ep-cal-date { background: var(--ep-accent); color: var(--ep-accent-ink); }
 .ep-cal-date { font-weight: 600; text-align: center; padding: 0.35rem 0.5rem; border-radius: 0.35rem 0.35rem 0 0; }
 .ep-cal-leave { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); border-radius: 0.25rem; padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -613,125 +1102,18 @@
 	to { transform: translateY(0); opacity: 1; }
 }
 
-.ep-install-banner {
-	position: fixed;
-	bottom: 1rem;
-	left: 1rem;
-	right: 1rem;
-	max-width: 400px;
-	margin: 0 auto;
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-	padding: 1rem;
-	background: var(--ep-card);
-	border: 1px solid var(--ep-line);
-	border-radius: 1rem;
-	box-shadow: 0 8px 32px rgba(15, 23, 42, 0.2);
-	z-index: 1000;
-	animation: ep-slide-up 0.4s ease;
-}
-.ep-install-content {
-	display: flex;
-	gap: 0.75rem;
-	align-items: flex-start;
-}
-.ep-install-content i { font-size: 2rem; color: var(--ep-accent); flex-shrink: 0; }
-.ep-install-content strong { display: block; font-size: 0.95rem; margin-bottom: 0.15rem; }
-.ep-install-content span { font-size: 0.85rem; color: var(--ep-muted); }
-.ep-install-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-.ep-install-actions .ep-btn { padding: 0.6rem 1.25rem; font-size: 0.9rem; }
-.ep-install-actions .ep-btn-ghost { padding: 0.6rem 1.25rem; font-size: 0.9rem; }
-@keyframes ep-slide-up {
-	from { transform: translateY(100%); opacity: 0; }
-	to { transform: translateY(0); opacity: 1; }
-}
-
-/* Shift Swaps */
-.ep-swap-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-swap-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-swap-pending { border-left: 4px solid var(--ep-warn); }
-.ep-swap-pending .ep-row-title { font-weight: 600; }
-
-/* Benefits */
-.ep-benefits-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-benefit-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-benefit-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-claim-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-claim-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-wellness-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-wellness-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* Learning */
-.ep-learning-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-learning-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-learning-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-cert-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-cert-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-lpath-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-lpath-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
 /* Assets */
-.ep-assets-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-asset-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-asset-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-asset-req { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-asset-req:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* Travel */
-.ep-travel-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-travel-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-travel-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* Loans */
-.ep-loans-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-loan-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-loan-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* Wellness */
-.ep-wellness-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-wellness-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-wellness-row:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* Recognition */
-.ep-recognition-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.ep-badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-.ep-badge-card { border: 1px solid var(--ep-line); border-radius: 0.8rem; padding: 1rem; background: var(--ep-card); text-align: center; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-badge-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-.ep-recognition-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.ep-recognition-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
-
-/* PWA: Install button in header (fallback) */
-.ep-install-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	padding: 0.45rem 0.7rem;
+.ep-asset-card {
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: 0.85rem;
+	padding: 1rem 1.1rem;
+	margin-bottom: 0.8rem;
 	background: var(--ep-card);
-	color: var(--ep-ink);
-	font-size: 0.9rem;
-	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.ep-install-btn:hover { background: var(--ep-line); }
-
-/* --------------------------------------------------------------- details */
-/* Two lists on one screen: what HR holds (read-only) and the few fields the employee
-   keeps up to date themselves. The boundary is the point, so it is drawn. */
-.ep-details { border-top: 1px solid var(--ep-line); }
-
-.ep-detail-row {
-	display: flex;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.5rem 0;
-	border-bottom: 1px solid var(--ep-line);
-	font-size: 0.92rem;
-}
-
-.ep-detail-label { color: var(--ep-muted); }
-.ep-detail-empty { color: var(--ep-muted); font-style: italic; }
+.ep-asset-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.ep-asset-name { font-weight: 600; font-size: 1.05rem; }
+.ep-asset-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
 
 .ep-field {
 	display: block;
@@ -756,30 +1138,6 @@
 }
 
 .ep-field textarea { resize: vertical; }
-#detailsSave { margin-top: 0.9rem; width: 100%; }
-
-/* --------------------------------------------------------------- holidays */
-/* The next named holiday, called out above the list: an employee planning a trip
-   cares about that one far more than the next Friday. */
-.ep-holiday-next {
-	padding: 0.75rem;
-	margin-bottom: 0.75rem;
-	border-radius: 0.5rem;
-	background: color-mix(in srgb, var(--ep-accent) 10%, transparent);
-	border: 1px solid var(--ep-line);
-}
-
-.ep-holidays { border-top: 1px solid var(--ep-line); }
-
-.ep-holiday {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 0.6rem 0;
-	border-bottom: 1px solid var(--ep-line);
-}
-
-.ep-holiday:last-child { border-bottom: 0; }
 
 /* ----------------------------------------------------------------- status */
 .ep-badge {
@@ -915,6 +1273,7 @@
 .ep-back,
 .ep-lang-btn,
 .ep-signout { min-height: 3rem; padding: 0.6rem 0.9rem; }
+.ep-back { width: 3rem; height: 3rem; padding: 0; }
 
 /* Rows are tapped to open a payslip or a claim, so they need the same floor even
  * though they read as list items rather than buttons. */
@@ -936,3 +1295,382 @@
 .ep-btn,
 .ep-star,
 .ep-row { transition: transform 80ms ease, background-color 80ms ease; }
+
+/* ------------------------------------------------------------------ polish
+ *
+ * One pass over the shared primitives, at the end of the file so it is the last
+ * word without any rule above needing to be re-read. Nothing here changes a size a
+ * finger depends on: it changes how the surfaces look - elevation, edges, the
+ * states a control has while it is being used.
+ */
+
+/* The outline a keyboard or a remote gives a focused control. Declared once for the
+   whole page rather than per component, because a control that inherits the browser
+   default is nearly invisible against these cards. */
+.ep-root :focus-visible {
+	outline: 2px solid var(--ep-accent);
+	outline-offset: 2px;
+	border-radius: var(--ep-r-sm);
+}
+
+/* Scrollbars are part of the layout on a wall tablet: the default one is wide,
+   grey and sits over the content of the dock and the sidebar. */
+.ep-main,
+.ep-sidebar,
+.ep-dock {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--ep-muted) 40%, transparent) transparent;
+}
+
+.ep-main::-webkit-scrollbar,
+.ep-sidebar::-webkit-scrollbar,
+.ep-dock::-webkit-scrollbar { width: 0.45rem; height: 0.45rem; }
+.ep-main::-webkit-scrollbar-thumb,
+.ep-sidebar::-webkit-scrollbar-thumb,
+.ep-dock::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--ep-muted) 35%, transparent);
+	border-radius: 999px;
+}
+
+/* ------------------------------------------------------------ surfaces */
+.ep-card {
+	border-radius: var(--ep-r);
+	box-shadow: var(--ep-shadow);
+}
+
+.ep-tile,
+.ep-colleague-card,
+.ep-asset-card,
+.ep-stat {
+	border-radius: var(--ep-r);
+	box-shadow: var(--ep-shadow);
+}
+
+.ep-tile { transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 80ms ease; }
+.ep-tile:hover {
+	box-shadow: var(--ep-shadow-lg);
+	border-color: color-mix(in srgb, var(--ep-accent) 40%, var(--ep-line));
+	background: color-mix(in srgb, var(--ep-accent) 4%, var(--ep-card));
+}
+
+.ep-head {
+	border-bottom: 1px solid var(--ep-line);
+	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03), 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.ep-dock { border-inline-end: 1px solid var(--ep-line); }
+.ep-sidebar { border-inline-end: 1px solid var(--ep-line); }
+
+/* A selected entry is marked twice - a tint and a bar at the reading edge - because
+   on a tablet in daylight a colour difference alone is the first thing to go. */
+.ep-dock-item[aria-current="page"]::before,
+.ep-nav-item[aria-current="page"]::before {
+	content: "";
+	position: absolute;
+	inset-inline-start: 0;
+	top: 20%;
+	bottom: 20%;
+	width: 3px;
+	border-radius: 999px;
+	background: var(--ep-accent);
+}
+
+.ep-dock-item,
+.ep-nav-item { position: relative; }
+.ep-nav-item { transition: background-color 0.12s ease, color 0.12s ease; }
+
+/* ---------------------------------------------------------------- headings */
+.ep-screen-bar {
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--ep-line);
+}
+
+.ep-screen-title { font-size: 1.35rem; letter-spacing: -0.01em; }
+
+.ep-section-head::after {
+	content: "";
+	flex: 1 1 auto;
+	height: 1px;
+	background: var(--ep-line);
+}
+
+.ep-section-head { display: flex; align-items: center; }
+
+/* ------------------------------------------------------------------ rows */
+.ep-row:hover { background: var(--ep-tint); }
+.ep-row--link { cursor: pointer; }
+.ep-row--link:hover .ep-row-title { color: var(--ep-accent); }
+
+.ep-row-title { font-size: 0.97rem; }
+
+/* ----------------------------------------------------------------- pills */
+/* A dot in the status colour, so a list of badges can be read by shape as well as
+   by word - and in Arabic as easily as in English. */
+.ep-badge::before {
+	content: "";
+	display: inline-block;
+	width: 0.42rem;
+	height: 0.42rem;
+	margin-inline-end: 0.35rem;
+	border-radius: 50%;
+	background: currentColor;
+	vertical-align: 0.05em;
+}
+
+.ep-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.18rem 0.55rem;
+	letter-spacing: 0.01em;
+}
+
+.ep-alert { border-inline-start: 3px solid currentColor; border-radius: 0 var(--ep-r-sm) var(--ep-r-sm) 0; }
+
+/* --------------------------------------------------------------- buttons */
+.ep-btn { border-radius: var(--ep-r-sm); }
+.ep-btn:not(:disabled) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14); }
+.ep-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-accent) 88%, #000); }
+.ep-btn-ghost:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--ep-accent) 10%, transparent);
+	border-color: var(--ep-accent);
+}
+.ep-btn-danger { background: var(--ep-bad); color: var(--ep-accent-ink); }
+.ep-btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-bad) 88%, #000); }
+
+.ep-row-withdraw:hover:not([disabled]) {
+	border-color: var(--ep-bad);
+	color: var(--ep-bad);
+	background: color-mix(in srgb, var(--ep-bad) 8%, transparent);
+}
+
+.ep-input,
+.ep-cal-select { border-radius: var(--ep-r-sm); }
+.ep-input::placeholder { color: color-mix(in srgb, var(--ep-muted) 75%, transparent); }
+
+/* ---------------------------------------------------------------- states */
+/* Standing in for a screen that has not arrived yet: the shape of what is coming,
+   rather than one spinner in the middle of an empty page. */
+.ep-skeleton {
+	position: relative;
+	overflow: hidden;
+	height: 0.85rem;
+	margin: 0.55rem 0;
+	border-radius: 999px;
+	background: var(--ep-tint);
+}
+
+.ep-skeleton::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	transform: translateX(-100%);
+	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ep-card) 70%, transparent), transparent);
+	animation: ep-shimmer 1.3s ease-in-out infinite;
+}
+
+.ep-skeleton--title { height: 1.1rem; width: 45%; }
+.ep-skeleton--short { width: 30%; }
+
+.ep-skeleton-row { padding: 0.85rem 0; border-bottom: 1px solid var(--ep-line); }
+.ep-skeleton-row:last-child { border-bottom: 0; }
+
+@keyframes ep-shimmer {
+	100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-skeleton::after { animation: none; }
+}
+
+.ep-empty { padding: 2.5rem 1rem; }
+
+.ep-empty-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3.25rem;
+	height: 3.25rem;
+	margin: 0 auto 0.75rem;
+	border-radius: 50%;
+	background: var(--ep-tint);
+	color: var(--ep-muted);
+	font-size: 1.45rem;
+}
+
+.ep-empty-title { font-size: 1rem; color: var(--ep-ink); }
+
+.ep-spin { border-color: color-mix(in srgb, var(--ep-accent) 25%, transparent); }
+
+/* The chevron on a row that opens somewhere: quiet until the row is the one being
+   looked at, then it leans the way the row will take you. */
+.ep-row-go {
+	color: var(--ep-muted);
+	transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.ep-row--link:hover .ep-row-go,
+.ep-row--link:active .ep-row-go {
+	color: var(--ep-accent);
+	transform: translateX(3px);
+}
+
+.ep-root[dir="rtl"] .ep-row--link:hover .ep-row-go,
+.ep-root[dir="rtl"] .ep-row--link:active .ep-row-go { transform: translateX(-3px); }
+
+/* The first card on the only screen everybody lands on. It carries the accent so the
+   portal opens on something that is recognisably this employer's, rather than on a
+   grey list like every other one. */
+.ep-hero {
+	border: 1px solid color-mix(in srgb, var(--ep-accent) 22%, var(--ep-line));
+	background: linear-gradient(
+		to bottom right,
+		color-mix(in srgb, var(--ep-accent) 9%, var(--ep-card)),
+		var(--ep-card) 60%
+	);
+	padding: 1.15rem 1.25rem;
+}
+
+.ep-hero-avatar {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-accent) 14%, var(--ep-card)),
+		0 2px 8px rgba(15, 23, 42, 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-row--link:hover .ep-row-go,
+	.ep-row--link:active .ep-row-go { transform: none; }
+}
+
+/* A day that holds leave is the one a person is scanning for, so it is marked twice:
+   the cell is tinted and today is ringed as well as coloured. */
+.ep-cal-day.ep-cal-has-leave {
+	background: color-mix(in srgb, var(--ep-accent) 7%, var(--ep-card));
+}
+
+.ep-cal-day.ep-cal-today {
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 30%, transparent);
+}
+
+.ep-cal-day.ep-cal-has-leave .ep-cal-leave {
+	font-weight: 600;
+	background: color-mix(in srgb, var(--ep-accent) 18%, transparent);
+}
+
+/* A field that is being typed into states so in the colour it is already using, not
+   only by the outline: on a bright screen the outline alone is easy to lose. */
+.ep-input:focus,
+.ep-cal-select:focus {
+	border-color: var(--ep-accent);
+	background: color-mix(in srgb, var(--ep-accent) 3%, var(--ep-card));
+}
+
+/* --------------------------------------------------------------- utilities
+ *
+ * Several screens had invented the same gap, the same quiet line of text and the
+ * same borderless row, each one written out inline. Named once here, so the next
+ * screen borrows a class instead of guessing at a pixel value.
+ */
+.ep-mt-1 { margin-top: 1rem; }
+.ep-mt-9 { margin-top: 0.9rem; }
+.ep-mt-7 { margin-top: 0.7rem; }
+.ep-mb-9 { margin-bottom: 0.9rem; }
+
+.ep-quiet { color: var(--ep-muted); font-size: 0.9rem; }
+.ep-quiet--block { display: block; margin-bottom: 0.6rem; }
+
+/* A line of after-thought text: smaller and greyer than the body, but still on the
+   measured scale rather than wherever an inline margin happened to put it. */
+.ep-hint { margin-top: 0.75rem; color: var(--ep-muted); font-size: 0.85rem; }
+
+/* Rows. A table header keeps its rule even when it is the only row; the lines of a
+   claim carry no rule at all, sitting as one tight column inside a card; the total is
+   lifted off the list by a rule and the air above it. */
+.ep-row.ep-row--head { border-bottom: 1px solid var(--ep-line); padding: 0.75rem 0; }
+.ep-row--plain { border-bottom: 0; padding: 0; }
+.ep-row--tight { border-bottom: 0; padding: 0.35rem 0; }
+.ep-row--total {
+	margin-top: 0.9rem;
+	border-top: 1px solid var(--ep-line);
+	padding-top: 0.8rem;
+}
+
+/* ---------------------------------------------------------------- details */
+/* Your own record, read back as pairs: the field's name quiet on one side, the value
+   you would recognise bold on the other. A `dl` rather than a list of divs, so the
+   pairing is said out loud by a screen reader instead of being left to the layout. */
+.ep-kv { margin: 0; }
+
+.ep-kv-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.55rem 0;
+	border-bottom: 1px solid var(--ep-line);
+}
+
+.ep-kv-row:last-child { border-bottom: 0; }
+.ep-kv-row dt { color: var(--ep-muted); font-size: 0.88rem; }
+.ep-kv-row dd { margin: 0; font-weight: 600; text-align: end; overflow-wrap: anywhere; }
+
+/* The employee number and the way to the full record, stacked at the reading edge of
+   the hero, where the eye already lands looking for who you are here. */
+.ep-hero-meta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.5rem;
+}
+
+/* ------------------------------------------------- sign-in & this device */
+/* The two doors at the top of the login card: the fingerprint, which is one tap and
+   only appears where a session was left remembered and guarded, and the two numbers
+   under it, which are always there and are the door that never jams. */
+.ep-bio { width: 100%; gap: 0.5rem; margin-bottom: 0.9rem; }
+
+.ep-or {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-bottom: 0.9rem;
+	color: var(--ep-muted);
+	font-size: 0.8rem;
+}
+
+.ep-or::before,
+.ep-or::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--ep-line); }
+
+.ep-checkbox-field { gap: 0.6rem; }
+.ep-checkbox-field .ep-checkbox-label { font-size: 0.95rem; }
+
+.ep-install {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-height: 2.4rem;
+	padding: 0.4rem 0.75rem;
+	border: 1px solid var(--ep-line);
+	border-radius: var(--ep-r-sm);
+	background: var(--ep-card);
+	color: var(--ep-accent);
+	font-size: 0.85rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.ep-install:hover {
+	border-color: var(--ep-accent);
+	background: color-mix(in srgb, var(--ep-accent) 8%, transparent);
+}
+
+.ep-device-on { color: var(--ep-accent); }
+
+.ep-device-offer { align-items: center; flex-wrap: wrap; }
+.ep-device-offer > span { flex: 1 1 12rem; }
+.ep-device-offer .ep-btn { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+
+/* On a phone the header already holds the menu, the name and three controls; the
+   install entry keeps its icon and loses the word. */
+@media (max-width: 40rem) {
+	.ep-install span { display: none; }
+	.ep-install { padding: 0.4rem 0.55rem; }
+}

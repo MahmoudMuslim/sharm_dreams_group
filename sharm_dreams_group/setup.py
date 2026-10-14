@@ -65,6 +65,7 @@ def after_install():
 	sync_drilldown_flags()
 	create_domain_dashboards()
 	apply_app_sidebar()
+	apply_app_dock()
 	apply_workspace()
 	set_default_workspace()
 	apply_desk_entry_points()
@@ -126,6 +127,47 @@ def set_app_logo() -> None:
 	frappe.db.set_single_value("Navbar Settings", "app_logo", logo)
 
 
+def _allow_standard_record_edits(fn):
+	"""Run a setup hook with `developer_mode` forced on, restoring the old value.
+
+	`bench migrate` runs the schema patches first, and `patch_handler.run_single`
+	leaves `conf.developer_mode` at 0 for the rest of the process ("don't write
+	txt files" while patching).  By the time `after_migrate` runs, several of
+	Frappe 16.50+ guards now depend on that flag being on again:
+
+	*  `DocType.validate.check_developer_mode` refuses to save a standard DocType
+	   while it is off, so reordering Employee falls over;
+	*  `DashboardChart.validate` (and NumberCard) refuse to edit a Standard chart
+	   while it is off.
+
+	Forcing it back on makes both halves behave, at the cost of the saves
+	exporting the edited JSON into the owning app (Frappe's developer-mode file
+	export).  That export is exactly what keeps the customisations in the upstream
+	checkouts on a developer bench - the files are writable because this bench
+	owns them - and `create_custom_fields`, `reorder_fields_in_tab` and the chart
+	tuning are all re-applied on every migrate, so the export echoes their work
+	rather than drifting from it.  `in_patch` is held on as well because it is how
+	Frappe's own patches satisfy `check_developer_mode`, and it stops nothing
+	else of interest while this hook only edits metadata.
+	"""
+	import functools
+
+	@functools.wraps(fn)
+	def wrapped(*args, **kwargs):
+		prev_developer_mode = frappe.conf.get("developer_mode")
+		prev_in_patch = frappe.flags.get("in_patch")
+		frappe.conf.developer_mode = 1
+		frappe.flags.in_patch = True
+		try:
+			return fn(*args, **kwargs)
+		finally:
+			frappe.conf.developer_mode = prev_developer_mode
+			frappe.flags.in_patch = prev_in_patch
+
+	return wrapped
+
+
+@_allow_standard_record_edits
 def after_migrate() -> None:
 	"""Re-apply everything this app owns, on every migrate.
 
@@ -164,6 +206,7 @@ def after_migrate() -> None:
 	sync_drilldown_flags()
 	create_domain_dashboards()
 	apply_app_sidebar()
+	apply_app_dock()
 	apply_workspace()
 	set_default_workspace()
 	apply_desk_entry_points()
@@ -219,46 +262,37 @@ def apply_workspace() -> None:
 
 
 def apply_desk_entry_points() -> None:
-	"""Put this app on the desk: a `Desktop Icon`, and a `Workspace Sidebar`.
+	"""Keep the legacy `Desktop Icon` in step, and report the new-model entry points.
 
-	Called after install and after every migrate.  Both are needed and neither is
-	enough on its own.
+	Called after install and after every migrate.  In the new navigation model
+	the app is on the desk through the documents it ships as JSON files: the
+	`Dock` at `dock/sharm_dreams_group/` (the rail), the `Sidebar` at
+	`sharm_dreams_group/sidebar/sharm_dreams_group/` (the panel, rebuilt by
+	`apply_app_sidebar`), and `add_to_apps_screen` in `hooks.py` (the apps
+	screen, which builds itself from `boot.app_data`).  None of those needs
+	anything built by hand here.
 
-	`Desktop Icon` is what appears on the desk itself.  It is NOT created from
-	`modules.txt` or from a `config/desktop.py` - in this Frappe version nothing
-	reads a `desktop.py` at all, so writing one changes nothing.  The icon is a
-	document, created from the `add_to_apps_screen` hook by
-	`frappe.utils.install.auto_generate_icons_and_sidebar`.
+	What still does need a hand is the `Desktop Icon`, the archive the old desk
+	grid reads.  It is normally created from the `add_to_apps_screen` hook by
+	`frappe.utils.install.auto_generate_icons_and_sidebar`, registered on
+	`after_app_install` - which fires before this app's workspace exists, so at
+	install time the icon was skipped and never re-tried.  `create_desktop_icons`
+	only fills in what is missing, so this is safe to re-run on every migrate.
 
-	That helper is registered on `after_app_install`, so it runs exactly once, at
-	install time.  Here it was too early to be useful: `create_desktop_icons` is
-	guarded by an existence check and skips an app that already has an icon, and
-	the Workspace `after_app_install` goes on to create only exists afterwards.
-	So the hook fired before the workspace did, no icon was made, and there is no
-	re-run of it on a normal migrate - which leaves an app that is installed and
-	has a public workspace but is simply absent from the desk.
-
-	`Workspace Sidebar` is the left-hand list inside the workspace, and is
-	generated from the workspace's own shortcuts, so it has to exist before the
-	icon resolves to something a user can actually see.
-
-	Re-applied on every migrate rather than only at install, and idempotent:
-	`create_desktop_icons` only fills in what is missing, and the sidebar builder
-	skips any workspace that already has one.  Safe to run against a site where
-	both already exist.
+	`create_desktop_icons` leaves `standard` at its default of 0, and
+	`get_desktop_icons` selects `standard == 1 OR owner in (Administrator, user)`.
+	So the icon is created visible to the installing user alone and the
+	`has_permission` hook never gets to decide anything - every other user is
+	simply not shown it.  The workspace is public and `has_app_permission`
+	returns True unconditionally, so the icon is made standard and that hook
+	becomes the thing that governs visibility, which is what it is there for.
+	This also matches how Frappe, ERPNext and HRMS ship their own app icons.
 	"""
 	from frappe.desk.doctype.desktop_icon.desktop_icon import create_desktop_icons
-	from frappe.desk.doctype.workspace_sidebar.workspace_sidebar import (
-		create_workspace_sidebar_for_workspaces,
-	)
 
-	# Order matters and mirrors frappe's own helper: the sidebar is what makes the
-	# icon resolvable, so build it first.
-	create_workspace_sidebar_for_workspaces()
 	create_desktop_icons()
 
 	icon_name = frappe.get_hooks("app_title", app_name=APP)[0]
-	sidebar = frappe.db.exists("Workspace Sidebar", "Sharm Dreams Group")
 
 	# `create_desktop_icons` leaves `standard` at its default of 0, and
 	# `get_desktop_icons` selects `standard == 1 OR owner in (Administrator, user)`.
@@ -277,6 +311,11 @@ def apply_desk_entry_points() -> None:
 			print(f"  desk icon {icon_name!r}: set standard (was visible to its owner only)")
 
 	icon = frappe.db.get_value("Desktop Icon", icon_name, "link") if icon_exists else None
+	# v16.51 keeps a module's sidebar rows in `Sidebar` / `Custom Sidebar`
+	# rather than the retired `Workspace Sidebar` archive.
+	sidebar = frappe.db.exists("Sidebar", {"module": "Sharm Dreams Group"}) or frappe.db.exists(
+		"Custom Sidebar", {"module": "Sharm Dreams Group"}
+	)
 	print(f"  desk icon: {icon_name!r} -> {icon or 'MISSING'}")
 	print(f"  desk sidebar: {'ok' if sidebar else 'MISSING'}")
 
@@ -2725,9 +2764,9 @@ def create_dashboard_cards() -> None:
 		print("  dashboard: all present")
 
 
-# The dashboard's own name, and the sidebar that reaches it.  In this Frappe
-# version a dashboard is a `Dashboard` document reached through a
-# `Workspace Sidebar` item - which is what `/desk/dashboard-view/<name>` resolves.
+# The dashboard's own name, and the sidebar that reaches it.  A dashboard is a
+# `Dashboard` document reached through a `Sidebar` item - which is what
+# `/desk/dashboard-view/<name>` resolves.
 # Putting the cards on the workspace as well is deliberate: a workspace shows them
 # on the way in, the dashboard shows them full width with room for the charts.
 DASHBOARD_NAME = "SDG Workforce"
@@ -4286,7 +4325,7 @@ _LINK_DOCTYPE = {
 def _link_resolves(link_type: str, link_to: str) -> bool:
 	"""Whether `link_to` names something the desk can actually open.
 
-	A `Workspace Sidebar Item.link_to` is a Dynamic Link resolved by the browser.  A
+	A `Sidebar Item.link_to` is a Dynamic Link resolved by the browser.  A
 	link whose target does not exist does not raise - it opens an empty page, so a typo
 	is indistinguishable from a feature that has not been built yet.  Every entry is
 	therefore checked against the database before it is written, and the unresolved
@@ -4473,13 +4512,12 @@ def panel_links() -> list:
 	return out
 
 
-def apply_app_sidebar() -> None:
-	"""Write the app's single side panel from `APP_SIDEBAR_SECTIONS`.
+def _shell_rows(section_titles: tuple[str, ...] | None = None):
+	"""Build one shell's panel rows: the way in, then the named sections.
 
-	Rows are replaced rather than appended, and a section is kept only if it still
-	has a link that resolves - an empty section header reads as a bug.  Every
-	section is collapsed by default, so the panel opens to a single line per
-	section and the whole app is on screen at once.
+	Returns `(rows, written, unresolved, dropped)`.  `section_titles=None` means
+	every section in `APP_SIDEBAR_SECTIONS`; that is what the tests walk, and the
+	dock shells each pass their own slice.
 	"""
 	# Built as plain dicts first and written in one go at the end.
 	#
@@ -4518,6 +4556,8 @@ def apply_app_sidebar() -> None:
 	dropped_sections: list[str] = []
 
 	for title, groups in panel_sections():
+		if section_titles is not None and title not in section_titles:
+			continue
 		resolved_groups = []
 		for sub_title, links in groups:
 			resolved = [link for link in links if _link_resolves(link[1], link[2])]
@@ -4586,7 +4626,71 @@ def apply_app_sidebar() -> None:
 				rows.append(row)
 				written += 1
 
-	# Anything this app owns must be in the panel.  Reported rather than asserted:
+	return rows, written, unresolved, dropped_sections
+
+
+# The dock: one rail entry per shell.  Each entry opens its own `Sidebar` and
+# loads that shell's children, the way HRMS arranges its eight entries.  The
+# old design crammed all eight sections behind a single entry.
+#
+# The "Sharm " prefix is load-bearing twice over.  A `Sidebar` is named by its
+# title, and bare names like Payroll, Performance and Setup are already shells
+# owned by HRMS and ERPNext - a second `Payroll` would be a second claim on
+# `/desk/payroll`.  And every shell of one module lists that module's
+# workspaces, so which of them owns the Workspace for `home_shell` and
+# `module_for_workspace` is decided by payload order, which is by shell name:
+# "Sharm Dreams Group" - the shell that owns the Workspace and that `app_home`
+# points at - must sort before its siblings, which "Dreams" does against every
+# other word used here.  Renaming a sibling to something starting before "D"
+# would silently move the site's home shell.
+APP_SIDEBAR_SHELLS = (
+	(APP_SIDEBAR, ("Dashboard",), "organization"),
+	("Sharm People", ("People",), SECTION_ICONS["People"]),
+	("Sharm Payroll", ("Payroll",), SECTION_ICONS["Payroll"]),
+	("Sharm Time & Attendance", ("Time & Attendance",), SECTION_ICONS["Time & Attendance"]),
+	("Sharm Performance", ("Performance",), SECTION_ICONS["Performance"]),
+	("Sharm Lifecycle", ("Employee Lifecycle",), SECTION_ICONS["Employee Lifecycle"]),
+	("Sharm Setup", ("Our Setup",), SECTION_ICONS["Our Setup"]),
+	("Sharm Reports", ("Reports",), SECTION_ICONS["Reports"]),
+)
+
+
+def all_sidebar_items() -> list:
+	"""Every `Sidebar Item` across the app's shells, as one list.
+
+	The panel is split across the dock entries now, so anything that asks a
+	question about the whole panel - the tests, the reach reports - walks this
+	union rather than one document.  The way in (Home, Documents) repeats at the
+	top of every shell, because each entry must be able to leave it; the union is
+	asked about as one panel, so those rows are kept from the first shell only.
+	"""
+	rows: list = []
+	for title, _sections, _icon in APP_SIDEBAR_SHELLS:
+		if not frappe.db.exists("Sidebar", title):
+			continue
+		items = list(frappe.get_doc("Sidebar", title).items)
+		if rows:
+			items = [r for r in items if not (r.type == "Link" and not r.child)]
+		rows.extend(items)
+	return rows
+
+
+def apply_app_sidebar() -> None:
+	"""Write one standard `Sidebar` document per dock entry in `APP_SIDEBAR_SHELLS`.
+
+	The new navigation model: an app ships its panels as `Sidebar` documents, and
+	the JSON files under `sharm_dreams_group/sharm_dreams_group/sidebar/` are what
+	a site imports on install or migrate.  Rebuilding the documents here keeps the
+	spec in this file as the source of truth, and because each document is
+	standard, saving it in developer mode re-exports its file, so the shipped
+	JSON and the database stay one thing.
+
+	Rows are replaced rather than appended, and a section is kept only if it still
+	has a link that resolves - an empty section header reads as a bug.  Every
+	section is collapsed by default, so a panel opens to a single line per section
+	and the whole shell is on screen at once.
+	"""
+	# Anything this app owns must be on some panel.  Reported rather than asserted:
 	# the panel is a presentation choice, and a table that fell out of it should be a
 	# line in the migrate log, not a failed deploy.
 	from sharm_dreams_group.workspace import CARDS
@@ -4594,46 +4698,109 @@ def apply_app_sidebar() -> None:
 	linked = {link_to for _place, _label, _lt, link_to, _url in panel_links()}
 	orphans = [n for _g, names in CARDS for n in names if n not in linked]
 	if orphans:
-		print(f"  sidebar: OWN TABLES MISSING FROM THE PANEL: {', '.join(orphans)}")
+		print(f"  sidebar: OWN TABLES MISSING FROM THE PANELS: {', '.join(orphans)}")
 
-	# everything is read now, so the write happens straight after the read
-	if frappe.db.exists("Workspace Sidebar", APP_SIDEBAR):
-		sidebar = frappe.get_doc("Workspace Sidebar", APP_SIDEBAR)
-		sidebar.set("items", [])
-	else:
-		sidebar = frappe.get_doc(
-			{
-				"doctype": "Workspace Sidebar",
-				"sidebar_name": APP_SIDEBAR,
-				"title": APP_SIDEBAR,
-				"app": "sharm_dreams_group",
-				"module": DASHBOARD_MODULE,
-				"standard": 0,
-			}
-		)
-	for row in rows:
-		sidebar.append("items", row)
-	sidebar.app = "sharm_dreams_group"
-	sidebar.module = DASHBOARD_MODULE
-	sidebar.save(ignore_permissions=True)
+	for title, sections, header_icon in APP_SIDEBAR_SHELLS:
+		# everything is read before the document is picked up - see `_shell_rows`
+		rows, n_links, unresolved, dropped = _shell_rows(sections)
+		if frappe.db.exists("Sidebar", title):
+			sidebar = frappe.get_doc("Sidebar", title)
+			sidebar.set("items", [])
+		else:
+			sidebar = frappe.get_doc(
+				{
+					"doctype": "Sidebar",
+					"title": title,
+					"app": "sharm_dreams_group",
+					"module": DASHBOARD_MODULE,
+					"standard": 1,
+				}
+			)
+		for row in rows:
+			sidebar.append("items", row)
+		sidebar.app = "sharm_dreams_group"
+		sidebar.module = DASHBOARD_MODULE
+		sidebar.header_icon = header_icon
+		sidebar.save(ignore_permissions=True)
+		print(f"  sidebar: {title} {n_links} links, {len(sections) - len(dropped)} section(s)")
+		if dropped:
+			print(f"  sidebar: {title}: sections with nothing to show, omitted: {', '.join(dropped)}")
+		for item in unresolved:
+			print(f"  sidebar: {title}: NOT LINKED, target does not exist: {item}")
 
-	# an earlier version shipped a second sidebar on the same app; the panel is
-	# picked by `app`, so leaving it makes the visible one arbitrary
+	# A `Sidebar` owned by this app that the dock does not name is unreachable:
+	# no entry selects it.  It goes together with the file that would otherwise
+	# re-import it on the next migrate, since `Sidebar` has no `on_trash` of its
+	# own to clean the export.
+	want = {t for t, _s, _i in APP_SIDEBAR_SHELLS}
+	strays = [
+		n
+		for n in frappe.db.get_all("Sidebar", filters={"app": "sharm_dreams_group"}, pluck="name")
+		if n not in want
+	]
+	for name in strays:
+		doc = frappe.get_doc("Sidebar", name)
+		import os
+		import shutil
+
+		try:
+			if doc.is_exported():
+				shutil.rmtree(os.path.dirname(doc.exported_file_path()), ignore_errors=True)
+		except Exception:
+			pass
+		frappe.delete_doc("Sidebar", name, ignore_permissions=True, force=True)
+		print(f"  sidebar: removed {name!r}: not on the dock")
+
+	# the retired `Workspace Sidebar` rows for this app: the `Sidebar` documents
+	# above are what the desk reads now, and an archive that still names this app
+	# makes the migrate log ambiguous.
 	stale = frappe.db.get_all(
 		"Workspace Sidebar",
-		filters={"app": "sharm_dreams_group", "name": ["!=", APP_SIDEBAR]},
+		filters={"app": "sharm_dreams_group"},
 		pluck="name",
 		limit_page_length=0,
 	)
 	for name in stale:
 		frappe.delete_doc("Workspace Sidebar", name, ignore_permissions=True, force=True)
-
-	print(
-		f"  sidebar: {APP_SIDEBAR} {written} links across {len(APP_SIDEBAR_SECTIONS) - len(dropped_sections)} sections"
-	)
 	if stale:
-		print(f"  sidebar: removed duplicate(s) for this app: {', '.join(stale)}")
-	if dropped_sections:
-		print(f"  sidebar: sections with nothing to show, omitted: {', '.join(dropped_sections)}")
-	for item in unresolved:
-		print(f"  sidebar: NOT LINKED, target does not exist: {item}")
+		print(f"  sidebar: removed retired Workspace Sidebar(s): {', '.join(stale)}")
+
+
+def apply_app_dock() -> None:
+	"""Write the app's `Dock`: one rail entry per shell in `APP_SIDEBAR_SHELLS`.
+
+	The dock rows and the sidebar documents are the two halves of one spec: the
+	row says the entry exists, the document says what its click loads.  A row
+	whose `link_to` names no shell is dropped by `Dock.anchor_the_items`, so this
+	runs after `apply_app_sidebar`.  The document is standard, so saving it in
+	developer mode re-exports `dock/sharm_dreams_group/sharm_dreams_group.json`.
+	"""
+	items = [
+		{
+			"link_type": "Sidebar",
+			"link_to": title,
+			"title": title,
+			"icon": icon,
+			"added": 0,
+			"hidden": 0,
+		}
+		for title, _sections, icon in APP_SIDEBAR_SHELLS
+	]
+
+	name = frappe.db.get_value("Dock", {"app": "sharm_dreams_group", "user": "", "standard": 1}, "name")
+	if name:
+		dock = frappe.get_doc("Dock", name)
+	else:
+		dock = frappe.get_doc(
+			{
+				"doctype": "Dock",
+				"name": "sharm_dreams_group",
+				"app": "sharm_dreams_group",
+				"standard": 1,
+			}
+		)
+	dock.set("items", [])
+	for item in items:
+		dock.append("items", item)
+	dock.save(ignore_permissions=True)
+	print(f"  dock: {len(items)} entries -> {', '.join(i['link_to'] for i in items)}")

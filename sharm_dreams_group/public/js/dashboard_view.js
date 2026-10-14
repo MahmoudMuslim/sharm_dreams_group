@@ -1127,6 +1127,36 @@ sharm_install("chart colour guard", function () {
 		return colors.filter((color) => typeof color === "string" && color.trim() !== "");
 	};
 });
+	
+// Patch frappe.Chart.prototype.makeChartArea to guard against the race where
+// the ResizeObserver fires after the SVG was already removed.
+// This runs IMMEDIATELY (not via sharm_install) because frappe.Chart is loaded
+// in desk.bundle.js before this bundle, and the HR Setup workspace renders
+// its chart synchronously on page load - the sharm_install timeout would be too late.
+(function () {
+	if (!frappe.Chart || frappe.Chart.prototype.sharm_makeChartArea_patched) return;
+	frappe.Chart.prototype.sharm_makeChartArea_patched = true;
+	const stock_makeChartArea = frappe.Chart.prototype.makeChartArea;
+	if (typeof stock_makeChartArea === "function") {
+		frappe.Chart.prototype.makeChartArea = function () {
+			// The original makeChartArea does: this.svg && this.container.removeChild(this.svg)
+			// which throws if the SVG was already removed (e.g., by chart_wrapper.empty()
+			// before a queued ResizeObserver callback fires). We guard by clearing this.svg
+			// after a safe removal so the original's check becomes falsy.
+			if (this.svg && this.container && this.container.contains(this.svg)) {
+				this.container.removeChild(this.svg);
+				// Prevent the original's unconditional removeChild from throwing
+				this.svg = null;
+			} else if (this.svg && (!this.container || !this.container.contains(this.svg))) {
+				// SVG already gone (detached or removed) - null it so original skips removal
+				this.svg = null;
+			}
+			// Delegate to the original for the rest of the setup (creating new SVG,
+			// drawArea, legendArea, etc.).
+			return stock_makeChartArea.apply(this, arguments);
+		};
+	}
+})();
 
 // A discarded chart keeps drawing.
 //
@@ -1165,6 +1195,8 @@ sharm_install("chart teardown", function () {
 			// A chart already torn down must not stop the new one being built.
 		}
 	}
+
+	
 
 	widget.prototype.sharm_measurable = function () {
 		return measurable(this);

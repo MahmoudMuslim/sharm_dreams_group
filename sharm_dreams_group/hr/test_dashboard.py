@@ -377,7 +377,7 @@ class TestDashboardCards(FrappeTestCase):
 
 		# the panel reaches the dashboard through the Dashboard document, and Home
 		# reaches the workspace; both must be present
-		sidebar = frappe.get_doc("Workspace Sidebar", APP_SIDEBAR)
+		sidebar = frappe.get_doc("Sidebar", APP_SIDEBAR)
 		pointers = {(r.link_type, r.link_to) for r in sidebar.items if r.type == "Link"}
 		self.assertIn(("Dashboard", DASHBOARD_NAME), pointers)
 		self.assertIn(("Workspace", "Sharm Dreams Group"), pointers)
@@ -435,7 +435,7 @@ class TestDashboardAccess(FrappeTestCase):
 class TestAppSidebar(FrappeTestCase):
 	"""The app's side panel.
 
-	`Workspace Sidebar Item.link_to` is a Dynamic Link: a link to something that
+	`Sidebar Item.link_to` is a Dynamic Link: a link to something that
 	does not exist opens an empty page rather than erroring, so nothing about a
 	broken panel is visible from the UI.  These tests are the only thing standing
 	between a typo and a dead tile.
@@ -443,20 +443,36 @@ class TestAppSidebar(FrappeTestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		from sharm_dreams_group.setup import APP_SIDEBAR
+		from sharm_dreams_group.setup import APP_SIDEBAR, all_sidebar_items
 
 		cls.name = APP_SIDEBAR
-		cls.doc = frappe.get_doc("Workspace Sidebar", cls.name)
+		# the panel spans the dock entries now, and the tests below ask about the
+		# whole panel: `doc` is the union of the shells' rows, not one document
+		cls.doc = frappe._dict({"items": all_sidebar_items()})
 
-	def test_the_app_has_exactly_one_sidebar(self):
-		"""The desk picks the panel by `app`, so a second one is an arbitrary winner."""
-		others = frappe.db.get_all(
-			"Workspace Sidebar",
-			filters={"app": "sharm_dreams_group", "name": ["!=", self.name]},
-			pluck="name",
-			limit_page_length=0,
+	def test_the_dock_names_every_sidebar_and_nothing_strays(self):
+		"""One `Sidebar` per dock entry, and no app sidebar off the dock.
+
+		The dock is the index of the app's panels: a `Sidebar` this app owns that
+		no entry names is unreachable, and two entries selecting one panel make
+		the visible one decided by cache rather than by the dock.
+		"""
+		from sharm_dreams_group.setup import APP_SIDEBAR_SHELLS
+
+		want = {title for title, _sections, _icon in APP_SIDEBAR_SHELLS}
+		got = set(frappe.db.get_all("Sidebar", filters={"app": "sharm_dreams_group"}, pluck="name"))
+		self.assertEqual(got, want, "a sidebar competing with, or missing from, the dock")
+
+		dock_name = frappe.db.get_value(
+			"Dock", {"app": "sharm_dreams_group", "user": "", "standard": 1}, "name"
 		)
-		self.assertEqual(others, [], "a second sidebar is competing for the same app")
+		self.assertTrue(dock_name, "this app has no Dock for its entries")
+		entries = {
+			r.link_to
+			for r in frappe.get_doc("Dock", dock_name).items
+			if r.link_type == "Sidebar"
+		}
+		self.assertEqual(entries, want, "a dock entry does not name a panel of this app")
 
 	def test_every_item_resolves(self):
 		"""Every link must open something.  An unresolved one is skipped, not written."""
@@ -552,11 +568,11 @@ class TestAppSidebar(FrappeTestCase):
 				self.assertIn((link_to, link_type), written, f"{label} resolves but is not in the panel")
 
 	def test_building_the_panel_twice_adds_nothing(self):
-		from sharm_dreams_group.setup import apply_app_sidebar
+		from sharm_dreams_group.setup import all_sidebar_items, apply_app_sidebar
 
 		before = [(r.type, r.label, r.link_to) for r in self.doc.items]
 		apply_app_sidebar()
-		after = [(r.type, r.label, r.link_to) for r in frappe.get_doc("Workspace Sidebar", self.name).items]
+		after = [(r.type, r.label, r.link_to) for r in all_sidebar_items()]
 		self.assertEqual(after, before)
 
 
@@ -573,7 +589,7 @@ class TestSidebarRecovery(FrappeTestCase):
 	def setUpClass(cls):
 		from sharm_dreams_group.setup import APP_SIDEBAR
 
-		cls.doc = frappe.get_doc("Workspace Sidebar", APP_SIDEBAR)
+		cls.doc = frappe.get_doc("Sidebar", APP_SIDEBAR)
 
 	def test_home_is_present_and_not_under_a_section(self):
 		"""A Home link inside a collapsed section is not a way back."""
@@ -711,12 +727,10 @@ class TestHrmsPanelCoverage(FrappeTestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		from sharm_dreams_group.setup import APP_SIDEBAR, HRMS_PANEL_GROUPS
+		from sharm_dreams_group.setup import HRMS_PANEL_GROUPS, all_sidebar_items
 
 		cls.groups = HRMS_PANEL_GROUPS
-		cls.in_panel = {
-			r.link_to for r in frappe.get_doc("Workspace Sidebar", APP_SIDEBAR).items if r.type == "Link"
-		}
+		cls.in_panel = {r.link_to for r in all_sidebar_items() if r.type == "Link"}
 
 	def test_the_panel_mirrors_every_hrms_doctype_exactly_once(self):
 		"""A mirror, and a complete one.
@@ -786,11 +800,11 @@ class TestHrmsPanelCoverage(FrappeTestCase):
 			)
 
 	def test_no_section_repeats_a_link(self):
-		from sharm_dreams_group.setup import APP_SIDEBAR
+		from sharm_dreams_group.setup import all_sidebar_items
 
 		links = [
 			(r.label, r.link_type, r.link_to)
-			for r in frappe.get_doc("Workspace Sidebar", APP_SIDEBAR).items
+			for r in all_sidebar_items()
 			if r.type == "Link"
 		]
 		self.assertEqual(len(links), len(set(links)), "the panel lists a link twice")
@@ -808,7 +822,7 @@ class TestHrmsPanelCoverage(FrappeTestCase):
 
 		links = {
 			(r.link_type, r.link_to)
-			for r in frappe.get_doc("Workspace Sidebar", APP_SIDEBAR).items
+			for r in frappe.get_doc("Sidebar", APP_SIDEBAR).items
 			if r.type == "Link"
 		}
 		self.assertIn(("Dashboard", DASHBOARD_NAME), links)
@@ -881,9 +895,10 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 		import pathlib
 		import re
 
-		from sharm_dreams_group.setup import APP_SIDEBAR
+		from sharm_dreams_group.setup import all_sidebar_items
 
-		cls.doc = frappe.get_doc("Workspace Sidebar", APP_SIDEBAR)
+		# whole-panel questions again: the union of the shells, not one document
+		cls.doc = frappe._dict({"items": all_sidebar_items()})
 		# the sprite the desk actually loads: frappe/hooks.py app_include_icons
 		icons = set()
 		for theme in ("lucide", "timeless"):
@@ -1224,7 +1239,7 @@ class TestDomainDashboards(FrappeTestCase):
 		not appear: a link to a dashboard that was never created is a dead row, and a
 		dashboard of zeros is a page that looks broken rather than empty.
 		"""
-		items = frappe.get_doc("Workspace Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
 		headers = [r for r in items if r.type == "Section Break" and not r.child]
 		section = next((r for r in headers if r.label == "Dashboard"), None)
 		self.assertIsNotNone(section, "the panel has no Dashboard section")
@@ -1250,7 +1265,7 @@ class TestDomainDashboards(FrappeTestCase):
 		The workforce and analytics dashboards used to sit under Overview as well as
 		here being a natural home for them; they now live only here.
 		"""
-		items = frappe.get_doc("Workspace Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
 		seen = [r.label for r in items if r.type == "Link" and r.link_type == "Dashboard"]
 		self.assertEqual(len(seen), len(set(seen)), f"a dashboard is listed twice: {seen}")
 
@@ -3072,7 +3087,7 @@ class TestDashboardLayouts(FrappeTestCase):
 			frappe.db.exists("Dashboard", RETIRED_DASHBOARD_NAME),
 			f"{RETIRED_DASHBOARD_NAME} is still in the database",
 		)
-		items = frappe.get_doc("Workspace Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
 		linked = [r.link_to for r in items if r.type == "Link" and r.link_type == "Dashboard"]
 		self.assertNotIn(RETIRED_DASHBOARD_NAME, linked, f"{RETIRED_DASHBOARD_NAME} is still in the panel")
 
@@ -3675,7 +3690,7 @@ class TestPanelReportsSection(FrappeTestCase):
 	        }
 	    }
 
-	`Workspace Sidebar Item` has no `report` field, so from the DocType alone this row
+	`Sidebar Item` has no `report` field, so from the DocType alone this row
 	looks unfinishable - and the natural conclusion, which this file's author reached
 	first, is that the app has to supply the metadata itself.  It does not:
 	`frappe.boot.get_sidebar_items` attaches it, for any Report row whose report exists
@@ -3690,9 +3705,9 @@ class TestPanelReportsSection(FrappeTestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		from sharm_dreams_group.setup import APP_SIDEBAR, REPORT_PANEL_GROUPS
+		from sharm_dreams_group.setup import REPORT_PANEL_GROUPS, all_sidebar_items
 
-		cls.doc = frappe.get_doc("Workspace Sidebar", APP_SIDEBAR)
+		cls.doc = frappe._dict({"items": all_sidebar_items()})
 		cls.reports = [r for r in cls.doc.items if r.link_type == "Report"]
 		# read out of the spec rather than restated, so a fourth group added there
 		# does not have to be added here to keep this test honest
@@ -3992,7 +4007,7 @@ class TestSettingsTablesAreHonest(FrappeTestCase):
 		self.assertIsNone(link_to, "a URL row must leave link_to empty or validation rejects it")
 		self.assertEqual(rest[0], "/drive")
 
-		sb = frappe.get_doc("Workspace Sidebar", "Sharm Dreams Group")
+		sb = frappe.get_doc("Sidebar", "Sharm Dreams Group")
 		row = next(r for r in sb.items if r.type == "Link" and r.label == "Documents")
 		self.assertEqual(row.url, "/drive")
 		# and it is above the sections, not filed under one

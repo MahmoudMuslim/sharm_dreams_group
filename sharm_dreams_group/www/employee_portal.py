@@ -26,6 +26,17 @@ PORTAL_LANGUAGES = (
 # remembers its language does not ask again. Same name convention as the old page.
 LANG_COOKIE = "employee_portal_lang"
 
+# The page route, and the switcher beside it. Named here because both the template's
+# context and `portal/renderers.py` need them, and a second copy in the renderer can
+# only ever drift into a route that 404s.
+PAGE_ROUTE = "employee-portal"
+API_ROUTE = f"{PAGE_ROUTE}-api"
+SETLANG_ROUTE = f"/{PAGE_ROUTE}/setlang"
+# The offline worker, at the site root: a worker registered from `/assets/...` can only
+# control `/assets/...`, so the page it is meant to keep readable offline would never
+# be intercepted by it at all.
+SW_ROUTE = "employee-portal-sw.js"
+
 
 def get_context(context):
 	"""Everything the template needs, and nothing it does not."""
@@ -43,8 +54,9 @@ def get_context(context):
 	# so the direction is decided here rather than per string in the template.
 	context.portal_dir = "rtl" if lang == "ar" else "ltr"
 	context.portal_languages = PORTAL_LANGUAGES
-	context.portal_api = "/employee-portal-api"
-	context.portal_lang_cookie = LANG_COOKIE
+	context.portal_api = f"/{API_ROUTE}"
+	context.portal_lang_api = SETLANG_ROUTE
+	context.portal_sw = f"/{SW_ROUTE}"
 	# Frappe does not set a `csrf_token` *cookie* for website visitors - the desk
 	# passes the value into the page and the client echoes it in a header. Without it
 	# every POST is refused by `Auth.validate_csrf_token` as "Invalid Request", and

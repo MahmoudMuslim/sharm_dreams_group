@@ -27,9 +27,13 @@ required_apps = ["frappe/erpnext/hrms"]
 # Both are defined in `sharm_dreams_group.portal.renderers.PortalApiRenderer` and
 # `PortalLangRenderer`. Authorisation is via the `Employee Self Service Session`
 # token minted at sign-in (National ID + Employee Number).
+# Three routes: `/employee-portal-api` for actions, `/employee-portal/setlang` for
+# language, and `/employee-portal-sw.js` for the offline worker - the last one served
+# from the root so its scope reaches the page itself.
 page_renderer = [
 	"sharm_dreams_group.portal.renderers.PortalApiRenderer",
 	"sharm_dreams_group.portal.renderers.PortalLangRenderer",
+	"sharm_dreams_group.portal.renderers.PortalServiceWorkerRenderer",
 ]
 
 # ------------------------------------------------------------------------------

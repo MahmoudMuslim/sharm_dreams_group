@@ -6,18 +6,26 @@
 	"display": "standalone",
 	"background_color": "#f4f6f8",
 	"theme_color": "#2563eb",
-	"orientation": "portrait-primary",
+	"orientation": "any",
 	"scope": "/employee-portal",
 	"icons": [
 		{
 			"src": "/assets/sharm_dreams_group/images/logo.png",
-			"sizes": "192x192",
+			"sizes": "500x500",
 			"type": "image/png",
-			"purpose": "any maskable"
+			"purpose": "any"
 		}
 	],
-	"categories": ["business", "productivity"],
+	"categories": [
+		"business",
+		"productivity"
+	],
 	"lang": "en",
 	"dir": "ltr",
-	"prefer_related_applications": false
+	"prefer_related_applications": false,
+	"display_override": [
+		"standalone",
+		"minimal-ui",
+		"browser"
+	]
 }

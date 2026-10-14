@@ -120,9 +120,10 @@ const sandbox = {
 };
 sandbox.frappe.provide("frappe.ui.sidebar");
 sandbox.frappe.ui.sidebar = {};
-sandbox.frappe.ui.Sidebar.prototype.prepare = function () {
+sandbox.frappe.ui.Sidebar.prototype.load_sidebar_data = function () {
 	sandbox.__prepare_ran = (sandbox.__prepare_ran || 0) + 1;
-	return sandbox.__prepare_result;
+	// the stock output, as `nest_section_items()` would leave it
+	this.sidebar_items = sandbox.__stock_output;
 };
 vm.createContext(sandbox);
 vm.runInContext(SRC, sandbox, { filename: "sidebar_sections.js" });
@@ -153,11 +154,10 @@ check("Sidebar prototype patched", !!Sidebar && !!Sidebar.prototype, typeof Side
 
 const sidebar = Object.create(Sidebar.prototype);
 sidebar.sidebar_data = { items: flat };
-sidebar.workspace_title = "Sharm Dreams Group";
-sidebar.workspace_sidebar_items = [];
-// the stock output, as `find_nested_items()` would leave it: a child Section Break
-// hoisted to the top level, which is the bug this file exists to fix
-sandbox.__prepare_result = [
+// the stock output, as `find_nested_items()`/`nest_section_items()` would leave it:
+// a child Section Break hoisted to the top level, which is the bug this file exists
+// to fix
+sandbox.__stock_output = [
 	{ type: "Link", label: "Home" },
 	{ type: "Section Break", label: "People", icon: "users", child: 0 },
 	{ type: "Section Break", label: "The Employee Record", icon: "contact-round", child: 1 },
@@ -167,11 +167,10 @@ sandbox.__prepare_result = [
 	{ type: "Link", label: "Documents", link_type: "URL", url: "/drive", child: 1 },
 	{ type: "Link", label: "Contract Type by Company" },
 ];
-sidebar.sidebar_data = { items: flat };
 sidebar.wrapper = { find: () => ({ first: () => ({ removeAttr: () => {} }) }) };
-sidebar.prepare();
+sidebar.load_sidebar_data();
 
-const nested = sidebar.workspace_sidebar_items;
+const nested = sidebar.sidebar_items;
 const topSections = nested.filter((i) => i.type === "Section Break" && !i.child);
 check("Home stays at the top level", nested[0] && nested[0].label === "Home", nested[0] && nested[0].label);
 check(
@@ -252,12 +251,23 @@ const four_groups = [
 ];
 const grouped = Object.create(Sidebar.prototype);
 grouped.sidebar_data = { items: four_groups };
-grouped.workspace_title = "Sharm Dreams Group";
-grouped.workspace_sidebar_items = [];
 grouped.wrapper = { find: () => ({ first: () => ({ removeAttr: () => {} }) }) };
-grouped.prepare();
+sandbox.__stock_output = [
+	{ type: "Link", label: "Home" },
+	{ type: "Section Break", label: "Reports", icon: "file-chart-column", child: 0 },
+	{ type: "Section Break", label: "People & Headcount", child: 1, indent: 1 },
+	{ type: "Link", label: "Employee Analytics", child: 1 },
+	{ type: "Link", label: "Employee Exits", child: 1 },
+	{ type: "Section Break", label: "Payroll & Tax", child: 1, indent: 1 },
+	{ type: "Link", label: "Salary Register", child: 1 },
+	{ type: "Section Break", label: "Attendance & Leave", child: 1, indent: 1 },
+	{ type: "Link", label: "Monthly Attendance Sheet", child: 1 },
+	{ type: "Section Break", label: "Money & Loans", child: 1, indent: 1 },
+	{ type: "Link", label: "Trial Balance", child: 1 },
+];
+grouped.load_sidebar_data();
 
-const reports = grouped.workspace_sidebar_items.find((i) => i.label === "Reports");
+const reports = grouped.sidebar_items.find((i) => i.label === "Reports");
 const groups = (reports && reports.nested_items) || [];
 check("Reports holds four sub-sections", groups.length === 4, groups.map((g) => g.label));
 check(
@@ -300,23 +310,24 @@ function panel_depth(list, level) {
 }
 check(
 	"the Reports tree is three deep - Reports, a group, a report",
-	panel_depth(grouped.workspace_sidebar_items) <= 3,
-	panel_depth(grouped.workspace_sidebar_items)
+	panel_depth(grouped.sidebar_items) <= 3,
+	panel_depth(grouped.sidebar_items)
 );
 
 // --- 1b. editor mode is left alone ---------------------------------------
 // The sidebar editor edits a copy and `create_sidebar` renders that copy, so
-// re-nesting the boot list mid-edit would throw the edit away.
+// re-nesting the boot list mid-edit would throw the edit away. (v16 moved the
+// arrangement editor out of the desk, so this guard is exercised only here.)
 const editor = Object.create(Sidebar.prototype);
 editor.sidebar_data = { items: flat };
 editor.editor = { edit_mode: true };
-sandbox.__prepare_result = [{ type: "Link", label: "an edit in progress" }];
-editor.prepare();
+sandbox.__stock_output = [{ type: "Link", label: "an edit in progress" }];
+editor.load_sidebar_data();
 check(
 	"editor mode is not re-nested",
-	editor.workspace_sidebar_items === undefined ||
-		!editor.workspace_sidebar_items.some((i) => i.label === "People" && !i.nested_items),
-	editor.workspace_sidebar_items
+	editor.sidebar_items === undefined ||
+		!editor.sidebar_items.some((i) => i.label === "People" && !i.nested_items),
+	editor.sidebar_items
 );
 
 // and a flat panel with no sub-sections is left exactly as the desk built it
@@ -328,13 +339,13 @@ plain.sidebar_data = {
 		{ type: "Link", label: "One Row", child: 1 },
 	],
 };
-sandbox.__prepare_result = [{ type: "Link", label: "untouched" }];
-plain.prepare();
+sandbox.__stock_output = [{ type: "Link", label: "untouched" }];
+plain.load_sidebar_data();
 check(
 	"a panel with no sub-sections is not re-nested",
-	(plain.workspace_sidebar_items || []).length === 0 ||
-		!(plain.workspace_sidebar_items || []).some((i) => i.label === "Only" && i.nested_items),
-	plain.workspace_sidebar_items
+	(plain.sidebar_items || []).length === 0 ||
+		!(plain.sidebar_items || []).some((i) => i.label === "Only" && i.nested_items),
+	plain.sidebar_items
 );
 
 // --- 2. a same-site URL opens in this tab ---------------------------------
@@ -353,21 +364,48 @@ sidebar.wrapper = {
 		return el();
 	},
 };
-sidebar.workspace_title = "Sharm Dreams Group";
-sandbox.frappe.boot.workspace_sidebar_item = {
-	"sharm dreams group": {
-		items: [
-			{ type: "Link", label: "Documents", link_type: "URL", url: "/drive" },
-			{ type: "Link", label: "Payroll Guide", link_type: "URL", url: "https://example.com/x" },
-			{ type: "Link", label: "Other", link_type: "URL", url: "//cdn.example.com/y" },
-		],
-	},
-};
+sidebar.items = [
+	{ item: { type: "Link", link_type: "URL", url: "/drive" } },
+	{ item: { type: "Link", link_type: "URL", url: "https://example.com/x" } },
+	{ item: { type: "Link", link_type: "URL", url: "//cdn.example.com/y" } },
+	{ item: { type: "Link", link_type: "DocType", link_to: "Employee Declarations" } },
+];
 sidebar.open_internal_urls_in_this_tab();
 const internal = targets.filter((t) => t.url === "/drive");
 const external = targets.filter((t) => t.url !== "/drive");
 check("a same-site URL loses target=_blank", internal.length === 1 && internal[0].removed === "target", internal);
 check("an external URL is left alone", external.length === 0, external);
+
+// --- 2a. closing only touches sections that can actually be toggled ----------
+// v16's `SectionBreakSidebarItem.make()` bails on a section with no nested items,
+// so `enable_collapsible()` never runs and `$drop_icon` stays unset. The desk's
+// own `keep_closed` path never reaches such a row; `sharm_close_kept_closed_sections`
+// must not crash on one either. A row that *has* a toggle still gets closed.
+const closes = [];
+function togglable(label, opts) {
+	return Object.assign(
+		{ item: { type: "Section Break", label, keep_closed: 1 }, collapsed: false, items: [] },
+		opts,
+		{ close() { closes.push(label); } }
+	);
+}
+const keeper = Object.create(Sidebar.prototype);
+keeper.items = [
+	togglable("Empty Heading"),
+	togglable("Nested Bill", { $drop_icon: {}, $nested_items: {} }),
+	{ item: { type: "Link", url: "/drive" } },
+];
+keeper.sharm_close_kept_closed_sections(0);
+check(
+	"a keep_closed section with no toggle affordance is left alone",
+	closes.length === 1 && closes[0] === "Nested Bill",
+	closes
+);
+check(
+	"a keep_closed section with a toggle is still closed",
+	closes[0] === "Nested Bill",
+	closes
+);
 
 // --- 4. the section icon is actually injected into a rendered header --------
 // The desk stores a Section Break's icon and never renders it: `sidebar_item.html`

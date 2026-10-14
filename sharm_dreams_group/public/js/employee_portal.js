@@ -17,8 +17,14 @@
 
 	var CFG = window.EMPLOYEE_PORTAL || {};
 	var API = CFG.api || "/employee-portal-api";
-	var LANG_COOKIE = CFG.langCookie || "employee_portal_lang";
+	var LANG_API = CFG.langApi || "/employee-portal/setlang";
 	var TOKEN_KEY = "employee_portal.token";
+	var THEME_KEY = "employee_portal.theme";
+	// Both live in `localStorage` and only ever alongside a remembered session: the
+	// credential id of this tablet's fingerprint or face reader, and nothing about the
+	// person it belongs to. The National ID is never stored anywhere.
+	var WEBAUTH_KEY = "employee_portal.credential";
+	var REMEMBER_KEY = "employee_portal.remembered";
 
 	var host = document.getElementById("screenHost");
 	var root = document.getElementById("epRoot");
@@ -31,7 +37,238 @@
 		employee: null,
 		loading: false,
 		error: "",
+		notifCounts: {},
+		// Whether this session was asked to outlive the tab, and whether this tablet has
+		// a biometric reader standing in front of it. Both read from storage at boot.
+		remembered: false,
+		credentialId: null,
+		// Set once, when a sign-in was remembered on a tablet with no biometric yet:
+		// the offer belongs to the moment after that choice, not to every later visit.
+		suggestBiometric: false,
+		// Whether this browser will give us the tablet's own reader at all.
+		bioReady: false,
+		// The colleague directory once read. Cleared on sign out: it is a company's
+		// staff list, and whoever picks up the tablet next may work elsewhere.
+		directory: null,
 	};
+
+	/* Biometric sign-in, and what it actually protects.
+	 *
+	 * The credential is created and used entirely inside this browser - the server never
+	 * sees it and does not check it, because there is nowhere in an Employee record to
+	 * hold a credential without a schema change to a shared HR database. So this is a
+	 * guard on the tablet, not a second factor at the door: it stands between the saved
+	 * session and the next pair of hands that picks the device up, and it is worth
+	 * exactly that and no more.
+	 *
+	 * The way back is always the two numbers. A reader that fails, a finger that is
+	 * wet, a browser that changes its mind - none of them can lock a person out of
+	 * their own record.
+	 */
+	function randomBytes(length) {
+		var bytes = new Uint8Array(length);
+		(window.crypto || window.msCrypto).getRandomValues(bytes);
+		return bytes;
+	}
+
+	function fromBase64Url(value) {
+		var padded = value.replace(/-/g, "+").replace(/_/g, "/");
+		while (padded.length % 4) padded += "=";
+		var binary = window.atob(padded);
+		var bytes = new Uint8Array(binary.length);
+		for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+		return bytes;
+	}
+
+	// Fingerprint reader, face camera, or the device PIN standing in for either. An
+	// external security key would satisfy this too, and no tablet here carries one.
+	function platformAuthenticator() {
+		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
+			return Promise.resolve(false);
+		}
+		if (!PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+			return Promise.resolve(false);
+		}
+		return PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(
+			function () {
+				return false;
+			}
+		);
+	}
+
+	function storeCredential(id) {
+		state.credentialId = id;
+		try {
+			window.localStorage.setItem(WEBAUTH_KEY, id);
+		} catch (e) {
+			/* the session still works; it simply will not survive a reboot */
+		}
+	}
+
+	function dropCredential() {
+		state.credentialId = null;
+		try {
+			window.localStorage.removeItem(WEBAUTH_KEY);
+		} catch (e) {
+			/* nothing stored */
+		}
+	}
+
+	function enrollBiometric() {
+		var employee = state.employee || {};
+		return navigator.credentials
+			.create({
+				publicKey: {
+					challenge: randomBytes(32),
+					rp: { name: "Employee Portal" },
+					// A handle, not an identity: nothing about the person is recoverable
+					// from what the authenticator ends up bound to.
+					user: {
+						id: new TextEncoder().encode(String(employee.employee || "employee")),
+						name: String(employee.employee_number || employee.employee || "employee"),
+						displayName: String(employee.employee_name || "Employee"),
+					},
+					pubKeyCredParams: [
+						{ type: "public-key", alg: -7 },
+						{ type: "public-key", alg: -257 },
+					],
+					authenticatorSelection: {
+						userVerification: "required",
+						residentKey: "preferred",
+					},
+					timeout: 60000,
+				},
+			})
+			.then(function (credential) {
+				if (!credential || !credential.id) throw new Error("No key came back.");
+				storeCredential(credential.id);
+				return credential.id;
+			});
+	}
+
+	function unlockWithBiometric() {
+		if (!state.credentialId) {
+			return Promise.reject(new Error("This tablet has no biometric set up yet."));
+		}
+		return navigator.credentials
+			.get({
+				publicKey: {
+					challenge: randomBytes(32),
+					allowCredentials: [{ type: "public-key", id: fromBase64Url(state.credentialId) }],
+					userVerification: "required",
+					timeout: 60000,
+				},
+			})
+			.then(function (assertion) {
+				if (!assertion) throw new Error("Unlock was cancelled.");
+				var token = restoreToken();
+				if (!token) {
+					throw new Error("The saved session has gone. Sign in once with your numbers.");
+				}
+				state.token = token;
+				return token;
+			});
+	}
+
+	// ------------------------------------------------------------- navigation
+	/* One table for every screen, and one for the sections. The dock, the sidebar, the
+	   heading above each screen and the badges on all three are read out of these, so
+	   adding a screen is adding a row here - there is no second list somewhere else
+	   that can be forgotten and go stale.
+	   `hidden` screens are reached from inside a section - a form behind a list - and
+	   are named in the heading but not offered in the sidebar. `back` is where the back
+	   control on a narrow screen returns to. */
+	var SECTIONS = [
+		{ key: "home", label: "Overview", icon: "fa-th-large" },
+		{ key: "timeoff", label: "Time off", icon: "fa-calendar-check-o" },
+		{ key: "pay", label: "Pay", icon: "fa-money" },
+		{ key: "time", label: "Time", icon: "fa-clock-o" },
+		{ key: "growth", label: "Results", icon: "fa-line-chart" },
+		{ key: "people", label: "People", icon: "fa-users" },
+		{ key: "equipment", label: "Assets", icon: "fa-laptop" },
+	];
+
+	var SCREENS = {
+		dashboard: { label: "Overview", section: "home", icon: "fa-th-large" },
+		details: { label: "My details", section: "home", icon: "fa-id-badge" },
+		balances: { label: "Leave balances", section: "timeoff", icon: "fa-balance-scale" },
+		time_off: { label: "My requests", section: "timeoff", icon: "fa-calendar-check-o" },
+		time_off_form: { label: "Request time off", section: "timeoff", icon: "fa-plus", hidden: true, back: "time_off" },
+		leave_calendar: { label: "Team calendar", section: "timeoff", icon: "fa-calendar" },
+		payslips: { label: "My payslips", section: "pay", icon: "fa-file-pdf-o" },
+		expenses: { label: "Expense claims", section: "pay", icon: "fa-money" },
+		expense_form: { label: "New expense claim", section: "pay", icon: "fa-plus", hidden: true, back: "expenses" },
+		attendance: { label: "Shift & attendance", section: "time", icon: "fa-clock-o" },
+		timesheets: { label: "Timesheets", section: "time", icon: "fa-list-alt" },
+		timesheet_form: { label: "Log time", section: "time", icon: "fa-plus", hidden: true, back: "timesheets" },
+		overtime: { label: "Overtime", section: "time", icon: "fa-bolt" },
+		overtime_form: { label: "Log overtime", section: "time", icon: "fa-plus", hidden: true, back: "overtime" },
+		performance: { label: "My performance", section: "growth", icon: "fa-line-chart" },
+		colleagues: { label: "Colleagues", section: "people", icon: "fa-address-book-o" },
+		org_chart: { label: "Org chart", section: "people", icon: "fa-sitemap" },
+		assets: { label: "My assets", section: "equipment", icon: "fa-laptop" },
+	};
+
+	// `Object.keys` rather than the table's own order, so the sidebar order is set here
+	// and matches the dashboard tiles it sits beside.
+	var SECTION_ORDER = {
+		home: ["dashboard", "details"],
+		timeoff: ["balances", "time_off", "leave_calendar"],
+		pay: ["payslips", "expenses"],
+		time: ["attendance", "timesheets", "overtime"],
+		growth: ["performance"],
+		people: ["colleagues", "org_chart"],
+		equipment: ["assets"],
+	};
+
+	function screensInSection(key) {
+		return (SECTION_ORDER[key] || []).filter(function (screen) {
+			return SCREENS[screen] && !SCREENS[screen].hidden;
+		});
+	}
+
+	function sectionOf(screen) {
+		var s = SCREENS[screen];
+		return (s && s.section) || "home";
+	}
+
+	function sectionLabel(key) {
+		for (var i = 0; i < SECTIONS.length; i++) {
+			if (SECTIONS[i].key === key) return SECTIONS[i].label;
+		}
+		return "Overview";
+	}
+
+	// How many outstanding items a screen has, from the notification counts the
+	// dashboard read once and kept.
+	function countFor(screen) {
+		return state.notifCounts[screen] || 0;
+	}
+
+	function countSection(key) {
+		return screensInSection(key).reduce(function (total, screen) {
+			return total + countFor(screen);
+		}, 0);
+	}
+
+	function initialsOf(name) {
+		var words = String(name || "?").trim().split(/\s+/).filter(Boolean);
+		var letters = words
+			.slice(0, 2)
+			.map(function (w) {
+				return w.charAt(0);
+			})
+			.join("");
+		return letters.toUpperCase() || "?";
+	}
+
+	function closest(node, selector) {
+		while (node && node !== document.body) {
+			if (node.matches && node.matches(selector)) return node;
+			node = node.parentNode;
+		}
+		return null;
+	}
 
 	// ---------------------------------------------------------------- helpers
 	function esc(value) {
@@ -72,6 +309,9 @@
 	function expired(message) {
 		if (/expired or invalid|Token Expired|Invalid CSRF/i.test(message || "")) {
 			forgetToken();
+			state.employee = null;
+			state.directory = null;
+			state.notifCounts = {};
 			show("login");
 			return true;
 		}
@@ -80,6 +320,10 @@
 
 	function call(payload) {
 		state.loading = true;
+		// Per call, because "did this answer come off the cache" is a fact about one
+		// response: a shared flag would have the next live screen clear the banner that
+		// this cached one raised.
+		var servedOffline = false;
 		return fetch(API, {
 			method: "POST",
 			credentials: "same-origin",
@@ -98,21 +342,52 @@
 						var msgs = data._server_messages;
 						throw new Error(msgs ? String(msgs) : data.exc || "Request failed.");
 					}
+					if (data.offline) {
+						// Answered from the cache, or nothing cached at all: the banner
+						// says so, and the screen still shows whatever was cached.
+						servedOffline = true;
+						showOfflineBanner();
+					}
 					if (data.message && data.message.error) throw new Error(data.message.error);
 					return data.message;
 				});
 			})
 			.then(function (message) {
 				state.loading = false;
+				if (!servedOffline) clearOfflineBanner();
 				return message;
 			})
 			.catch(function (e) {
 				state.loading = false;
 				if (e && e.name === "TypeError") {
+					showOfflineBanner();
 					throw new Error("Cannot reach the server. Check the network and try again.");
 				}
+				if (e && /offline/i.test(e.message || "")) showOfflineBanner();
 				throw e;
 			});
+	}
+
+	// The banner beside the offline element in the page shell. Shown when a request
+	// could not be answered, not merely when the browser reports the network down -
+	// a captive-proxy wifi says "online" and still refuses every call.
+	function showOfflineBanner() {
+		var banner = document.getElementById("epOfflineBanner");
+		if (banner) banner.hidden = false;
+		// The CSS shows the banner only under `.ep-root.ep-offline`, so both have to
+		// move together - setting `hidden` alone leaves it invisible.
+		root.classList.add("ep-offline");
+	}
+
+	// An answer that came back means the network came back: a banner left up after the
+	// first successful call is a banner that says "offline" about data that is live.
+	// Never about a cached one - the worker marks those, and only a request that went
+	// out and returned clears the notice.
+	function clearOfflineBanner() {
+		if (!navigator.onLine) return;
+		root.classList.remove("ep-offline");
+		var banner = document.getElementById("epOfflineBanner");
+		if (banner) banner.hidden = true;
 	}
 
 	function fail(error) {
@@ -123,12 +398,37 @@
 		render();
 	}
 
-	function rememberToken(token) {
+	// Two stores under one key. An ordinary session belongs to the tab and dies with
+	// it; a *remembered* one has to outlive a reboot, so it is written to the durable
+	// store and the server is told at sign-in to give the row the longer expiry. What is
+	// remembered is the session and never the credentials - no tablet on this floor
+	// holds anybody's National ID.
+	function rememberToken(token, remembered) {
 		state.token = token;
+		state.remembered = !!remembered;
 		try {
-			window.sessionStorage.setItem(TOKEN_KEY, token);
+			if (remembered) {
+				window.localStorage.setItem(TOKEN_KEY, token);
+				window.localStorage.setItem(REMEMBER_KEY, "1");
+				window.sessionStorage.removeItem(TOKEN_KEY);
+			} else {
+				window.sessionStorage.setItem(TOKEN_KEY, token);
+				clearRemembered();
+			}
 		} catch (e) {
 			/* private browsing: the session simply will not survive a reload */
+		}
+	}
+
+	function clearRemembered() {
+		state.remembered = false;
+		state.credentialId = null;
+		try {
+			window.localStorage.removeItem(TOKEN_KEY);
+			window.localStorage.removeItem(REMEMBER_KEY);
+			window.localStorage.removeItem(WEBAUTH_KEY);
+		} catch (e) {
+			/* nothing was stored, so there is nothing to take back out */
 		}
 	}
 
@@ -140,13 +440,30 @@
 		} catch (e) {
 			/* nothing to clean up */
 		}
+		clearRemembered();
 	}
 
 	function restoreToken() {
 		try {
-			return window.sessionStorage.getItem(TOKEN_KEY);
+			return (
+				window.sessionStorage.getItem(TOKEN_KEY) ||
+				window.localStorage.getItem(TOKEN_KEY)
+			);
 		} catch (e) {
 			return null;
+		}
+	}
+
+	// Read once, at boot: a remembered session and the credential that guards it are
+	// both facts about this tablet rather than about this visit.
+	function restoreRemembered() {
+		try {
+			state.remembered = window.localStorage.getItem(REMEMBER_KEY) === "1";
+			state.credentialId = window.localStorage.getItem(WEBAUTH_KEY) || null;
+			if (!state.remembered) state.credentialId = null;
+		} catch (e) {
+			state.remembered = false;
+			state.credentialId = null;
 		}
 	}
 
@@ -154,23 +471,244 @@
 	function show(screen) {
 		state.screen = screen;
 		state.error = "";
+		updateHeader();
+		renderShell();
+		// The drawer overlaps the body on the widths where it is a drawer; leaving it
+		// open after a pick would hide the screen that was just chosen.
+		setNavOpen(false);
+		var main = document.querySelector(".ep-main");
+		if (main) main.scrollTop = 0;
+		var s = SCREENS[screen];
+		if (s) announce(s.label);
 		render();
+	}
+
+	// The chrome beside the body: the section rail and, for the selected section, the
+	// screens in it. Re-rendered on every screen change, because what is highlighted
+	// and how many items are outstanding both follow where the employee is.
+	function renderShell() {
+		var dock = document.getElementById("epDock");
+		var nav = document.getElementById("epNav");
+		var title = document.getElementById("epSidebarTitle");
+		if (!dock || !nav || !title) return;
+
+		if (state.screen === "login") {
+			root.classList.add("ep-locked");
+			dock.innerHTML = "";
+			nav.innerHTML = "";
+			return;
+		}
+		root.classList.remove("ep-locked");
+
+		var active = sectionOf(state.screen);
+
+		dock.innerHTML = SECTIONS.map(function (section) {
+			var here = section.key === active;
+			var count = countSection(section.key);
+			return (
+				'<button type="button" class="ep-dock-item" data-section="' +
+				esc(section.key) +
+				'"' +
+				(here ? ' aria-current="page"' : "") +
+				"><i class=\"fa " +
+				esc(section.icon) +
+				'"></i><span class="ep-dock-label">' +
+				esc(section.label) +
+				"</span>" +
+				(count ? '<span class="ep-dock-dot" title="' + esc(count) + ' outstanding"></span>' : "") +
+				"</button>"
+			);
+		}).join("");
+
+		title.textContent = sectionLabel(active);
+
+		// Overview is the one screen that is not "inside" a section, so its sidebar
+		// lists the sections themselves - the same destinations as the rail, in words.
+		// Your own record sits at the end of that list, because it is a destination too,
+		// and the only one on this side of the portal that is not about time, pay or
+		// other people.
+		if (active === "home") {
+			nav.innerHTML = SECTIONS.filter(function (section) {
+				return section.key !== "home";
+			})
+				.map(function (section) {
+					var first = screensInSection(section.key)[0];
+					return first ? navItem(first, section.label, section.icon) : "";
+				})
+				.join("") + navItem("details", SCREENS.details.label, SCREENS.details.icon);
+			return;
+		}
+
+		nav.innerHTML = screensInSection(active)
+			.map(function (screen) {
+				return navItem(screen, SCREENS[screen].label, SCREENS[screen].icon);
+			})
+			.join("");
+	}
+
+	function navItem(screen, label, icon) {
+		var here = screen === state.screen;
+		var count = countFor(screen);
+		return (
+			'<button type="button" role="listitem" class="ep-nav-item" data-screen="' +
+			esc(screen) +
+			'"' +
+			(here ? ' aria-current="page"' : "") +
+			"><i class=\"fa " +
+			esc(icon) +
+			'"></i><span>' +
+			esc(label) +
+			"</span>" +
+			(count ? '<span class="ep-nav-count">' + esc(count > 9 ? "9+" : count) + "</span>" : "") +
+			"</button>"
+		);
+	}
+
+	function setNavOpen(open) {
+		root.classList.toggle("ep-nav-open", !!open);
+		var toggle = document.getElementById("epNavToggle");
+		if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+	}
+
+	// One figure on a screen that has several: assets in service, days left, claims
+	// outstanding. The same shape each time, so the eye knows where the number is.
+	function stat(value, label) {
+		return (
+			'<div class="ep-stat"><div class="ep-stat-value">' +
+			esc(value === null || value === undefined ? "-" : value) +
+			'</div><div class="ep-stat-label">' +
+			esc(label) +
+			"</div></div>"
+		);
+	}
+
+	// What the content about to arrive looks like, as flat blocks. A spinner says
+	// "wait"; this says "it will be here, and about this tall".
+	function loadingBlock(rows) {
+		var out = "";
+		for (var i = 0, n = rows || 4; i < n; i++) {
+			out +=
+				'<div class="ep-skeleton-row"><div class="ep-skeleton ep-skeleton--title"></div>' +
+				'<div class="ep-skeleton ep-skeleton--short"></div></div>';
+		}
+		return out;
+	}
+
+	// The card that holds a panel body, with its id - the part that survives the
+	// fetch - already in place around the skeleton that does not.
+	function loadingPanel(cls) {
+		return '<div class="' + esc(cls || "ep-card") + '" id="panelBody">' + loadingBlock(4) + "</div>";
+	}
+
+	// The one button a list screen offers, in the heading rather than floating over the
+	// body: it is the screen's purpose, not a decoration beside it.
+	function actionButton(id, icon, label) {
+		return (
+			'<button type="button" class="ep-btn ep-btn-ghost" id="' +
+			esc(id) +
+			'"><i class="fa ' +
+			esc(icon) +
+			'"></i> ' +
+			esc(label) +
+			"</button>"
+		);
+	}
+
+	// The heading every screen opens with: where the employee is, and the way back on
+	// the widths where the sidebar is hidden behind the drawer. `backId` is left to the
+	// caller because each screen binds its own return - a form goes back to its list,
+	// a list goes back to the overview.
+	function screenBar(backId, action) {
+		var s = SCREENS[state.screen] || {};
+		var crumb = sectionLabel(s.section || "home");
+		if (s.hidden && s.back && SCREENS[s.back]) {
+			crumb = sectionLabel(s.section) + " · " + SCREENS[s.back].label;
+		}
+		return (
+			'<div class="ep-screen-bar">' +
+			'<button type="button" class="ep-back" id="' +
+			esc(backId) +
+			'" aria-label="Back"><i class="fa fa-arrow-left"></i></button>' +
+			'<div class="ep-screen-heading">' +
+			'<h1 class="ep-screen-title">' +
+			esc(s.label || "Employee Portal") +
+			'</h1><p class="ep-screen-sub">' +
+			esc(crumb) +
+			"</p></div>" +
+			(action ? '<div class="ep-screen-actions">' + action + "</div>" : "") +
+			"</div>"
+		);
+	}
+
+	// The name beside the switchers in the header. Kept in the page rather than in a
+	// screen, because who is signed in does not change when they move between screens.
+	function updateHeader() {
+		var wrap = document.getElementById("userInfo");
+		var signedIn = !!state.token && state.screen !== "login";
+		if (wrap) wrap.hidden = !signedIn;
+		signOutControls().forEach(function (btn) { btn.hidden = !signedIn; });
+		if (!wrap || !signedIn) return;
+
+		var e = state.employee || {};
+		var avatar = document.getElementById("userAvatar");
+		var name = document.getElementById("userName");
+		var role = document.getElementById("userRole");
+		if (name) name.textContent = e.employee_name || "";
+		if (role) {
+			role.textContent = [e.designation, e.department, e.company].filter(Boolean).join(" · ");
+		}
+		if (avatar) {
+			avatar.innerHTML = e.image
+				? '<img src="' + esc(e.image) + '" alt="" />'
+				: esc(initialsOf(e.employee_name));
+		}
+	}
+
+	function initNav() {
+		var dock = document.getElementById("epDock");
+		var nav = document.getElementById("epNav");
+		var toggle = document.getElementById("epNavToggle");
+		var scrim = document.getElementById("epNavScrim");
+
+		// Both containers outlive every render, so one listener each covers every
+		// button that is later written into them.
+		if (dock) {
+			dock.addEventListener("click", function (e) {
+				var btn = closest(e.target, "[data-section]");
+				if (!btn) return;
+				var first = screensInSection(btn.dataset.section)[0];
+				if (first) show(first);
+			});
+		}
+		if (nav) {
+			nav.addEventListener("click", function (e) {
+				var btn = closest(e.target, "[data-screen]");
+				if (btn) show(btn.dataset.screen);
+			});
+		}
+		if (toggle) {
+			toggle.addEventListener("click", function () {
+				setNavOpen(!root.classList.contains("ep-nav-open"));
+			});
+		}
+		if (scrim) scrim.addEventListener("click", function () { setNavOpen(false); });
+		document.addEventListener("keydown", function (e) {
+			if (e.key === "Escape") setNavOpen(false);
+		});
 	}
 
 	function render() {
 		switch (state.screen) {
 			case "dashboard":
 				return renderDashboard();
+			case "details":
+				return renderDetails();
 			case "balances":
 				return renderBalances();
 			case "time_off":
 				return renderTimeOff();
 			case "time_off_form":
 				return renderTimeOffForm();
-			case "documents":
-				return renderDocuments();
-			case "announcements":
-				return renderAnnouncements();
 			case "colleagues":
 				return renderColleagues();
 			case "org_chart":
@@ -185,34 +723,8 @@
 				return renderOvertimeForm();
 			case "leave_calendar":
 				return renderLeaveCalendar();
-			case "shift_swaps":
-				return renderShiftSwaps();
-			case "shift_swap_form":
-				return renderShiftSwapForm();
-			case "benefits":
-				return renderBenefits();
-			case "learning":
-				return renderLearning();
 			case "assets":
 				return renderAssets();
-			case "asset_form":
-				return renderAssetForm();
-			case "travel":
-				return renderTravel();
-			case "travel_form":
-				return renderTravelForm();
-			case "loans":
-				return renderLoans();
-			case "loan_form":
-				return renderLoanForm();
-			case "wellness":
-				return renderWellness();
-			case "recognition":
-				return renderRecognition();
-			case "recognition_form":
-				return renderRecognitionForm();
-			case "support":
-				return renderSupport();
 			case "expenses":
 				return renderPanel(
 					"my_expense_claims", "claims", renderClaimList, bindClaimRows
@@ -229,8 +741,6 @@
 				return renderPanel(
 					"my_performance", "performance", renderPerformance, bindPerformance
 				);
-			case "compensatory_approvals":
-				return renderCompensatoryApprovals();
 			// No "payslip" screen: a slip is always opened through `openPayslip`, which
 			// needs the slip's name. Routing it through `renderPanel` would post
 			// `my_payslip` with no `name` and come back refused.
@@ -240,41 +750,132 @@
 	}
 
 	function renderLogin() {
+		// Offered only where a session was left remembered *and* this tablet was given a
+		// fingerprint or face to stand in front of it. Everything else is the two numbers.
+		var bio = state.credentialId && state.remembered;
+
 		host.innerHTML =
-			'<div class="ep-fade" style="max-width:24rem;margin:2rem auto">' +
-			'<div class="ep-card">' +
-			'<h1 style="margin:0 0 .3rem;font-size:1.3rem">Employee Portal</h1>' +
-			'<p style="margin:0 0 1.1rem;color:var(--ep-muted);font-size:.95rem">' +
-			"Sign in with your National ID and Employee Number.</p>" +
+			'<div class="ep-fade">' +
+			'<div class="ep-card ep-login">' +
+			'<h1 class="ep-login-title">Employee Portal</h1>' +
+			(bio
+				? '<p class="ep-login-sub">Welcome back. Unlock this tablet with your fingerprint or face.</p>' +
+					'<button type="button" class="ep-btn ep-bio" id="bioBtn">' +
+					'<i class="fa fa-fingerprint"></i> Sign in biometrically</button>' +
+					'<div class="ep-or"><span>or with your numbers</span></div>'
+				: '<p class="ep-login-sub">Sign in with your National ID and Employee Number.</p>') +
 			alertHtml() +
 			'<form id="loginForm" novalidate>' +
 			'<div class="ep-field"><label class="ep-label" for="nid">National ID</label>' +
 			'<input class="ep-input" id="nid" name="national_id" inputmode="numeric" autocomplete="off" required /></div>' +
 			'<div class="ep-field"><label class="ep-label" for="code">Employee Number</label>' +
 			'<input class="ep-input" id="code" name="employee_code" autocomplete="off" required /></div>' +
+			'<div class="ep-field"><div class="ep-checkbox-field">' +
+			'<input type="checkbox" id="rememberMe" name="remember_me" value="1"' +
+			(state.remembered ? " checked" : "") +
+			' /><label class="ep-checkbox-label" for="rememberMe">' +
+			"Keep me signed in on this tablet</label></div>" +
+			'<p class="ep-hint">Saves the session, never your numbers - so the next sign-in is ' +
+			"one tap rather than two fields. Use it only on a tablet that is yours, and turn it " +
+			"off from My details.</p></div>" +
 			'<button class="ep-btn" type="submit" id="loginBtn">' +
 			(state.loading ? '<span class="ep-spin"></span> Signing in' : "Sign in") +
-			"</button></form></div></div>";
+			"</button></form>" +
+			installHint() +
+			"</div></div>";
 
 		var form = document.getElementById("loginForm");
 		form.addEventListener("submit", function (e) {
 			e.preventDefault();
-			signIn(document.getElementById("nid").value, document.getElementById("code").value);
+			// Read before the round trip, because `render()` below rebuilds this card and
+			// the tick would be gone by the time the answer came back.
+			var remembered = document.getElementById("rememberMe").checked;
+			signIn(document.getElementById("nid").value, document.getElementById("code").value, remembered);
 		});
+
+		var bioBtn = document.getElementById("bioBtn");
+		if (bioBtn) {
+			bioBtn.addEventListener("click", function () {
+				bioBtn.disabled = true;
+				bioBtn.innerHTML = '<span class="ep-spin"></span> Waiting for you';
+				unlockWithBiometric()
+					.then(enterPortal)
+					.catch(function (err) {
+						bioBtn.disabled = false;
+						bioBtn.innerHTML =
+							'<i class="fa fa-fingerprint"></i> Sign in biometrically';
+						fail(err);
+					});
+			});
+		}
+
 		var first = document.getElementById("nid");
-		if (first) first.focus();
+		if (first && !bio) first.focus();
 	}
 
-	function signIn(nationalId, employeeCode) {
+	// Running as an installed app, on either engine that reports it.
+	function isStandalone() {
+		if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+		return window.navigator.standalone === true;
+	}
+
+	// iPads never fire `beforeinstallprompt`, so the browser gives an in-page button no
+	// way to press. The one route in is the Share sheet, and it has to be said in words.
+	function installHint() {
+		if (isStandalone()) return "";
+		if (!/ipad|iphone|ipod/i.test(window.navigator.userAgent)) return "";
+		return (
+			'<p class="ep-hint"><i class="fa fa-mobile"></i> To put this on the Home ' +
+			"Screen: press Share, then Add to Home Screen.</p>"
+		);
+	}
+
+	function signIn(nationalId, employeeCode, remembered) {
 		state.loading = true;
+		// Kept through the re-render this call triggers, so the ticked box is still
+		// ticked if the numbers turn out to be wrong and the card is drawn again.
+		state.remembered = !!remembered;
 		render();
-		call({ action: "sign_in", national_id: nationalId, employee_code: employeeCode })
+		call({
+			action: "sign_in",
+			national_id: nationalId,
+			employee_code: employeeCode,
+			remember_me: !!remembered,
+		})
 			.then(function (d) {
-				rememberToken(d.token);
+				rememberToken(d.token, remembered);
 				state.employee = d;
+				state.directory = null;
 				show("dashboard");
+				// The profile carries what the sign-in reply does not - department,
+				// employee number, join date - and the header and tiles read from one
+				// place rather than two partially-filled shapes.
+				call({ action: "my_profile", token: d.token })
+					.then(function (p) {
+						state.employee = p;
+						updateHeader();
+					})
+					.catch(function () {});
+				if (remembered) state.suggestBiometric = true;
 			})
 			.catch(fail);
+	}
+
+	// Shared by both ways in: a remembered session and a biometric one arrive at the same
+	// place, and it would be a strange portal whose two doors showed different screens.
+	function enterPortal() {
+		state.directory = null;
+		state.suggestBiometric = false;
+		show("dashboard");
+		return call({ action: "my_profile", token: state.token })
+			.then(function (p) {
+				state.employee = p;
+				updateHeader();
+			})
+			.catch(function (err) {
+				if (expired(err && err.message)) return;
+				fail(err);
+			});
 	}
 
 	function renderDashboard() {
@@ -289,47 +890,73 @@
 	}
 
 	function renderDashboardWithNotifications(e, notifications) {
-		var counts = countNotificationsByScreen(notifications);
+		state.notifCounts = countNotificationsByScreen(notifications);
+		// After the counts, because the rail and the sidebar carry the same badges the
+		// tiles do, and a stale rail beside fresh tiles reads as two different answers.
+		renderShell();
+
+		var groups = SECTIONS.filter(function (section) {
+			return section.key !== "home";
+		})
+			.map(function (section) {
+				var screens = screensInSection(section.key);
+				if (!screens.length) return "";
+				return (
+					'<div class="ep-section-head"><h2>' +
+					esc(section.label) +
+					"</h2></div>" +
+					'<div class="ep-tiles">' +
+					screens
+						.map(function (screen) {
+							return tile(screen, SCREENS[screen].icon, SCREENS[screen].label, countFor(screen));
+						})
+						.join("") +
+					"</div>"
+				);
+			})
+			.join("");
+
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<div class="ep-card"><h1 style="margin:0;font-size:1.25rem">' +
-			esc(e.employee_name || "") +
+			'<div class="ep-card ep-hero">' +
+			'<div class="ep-hero-avatar">' +
+			(e.image
+				? '<img src="' + esc(e.image) + '" alt="" />'
+				: esc(initialsOf(e.employee_name))) +
+			"</div>" +
+			'<div class="ep-hero-text">' +
+			'<h1 class="ep-hero-name">' +
+			esc(greeting()) +
+			", " +
+			esc(String(e.employee_name || "").split(" ")[0] || "") +
 			"</h1>" +
-			'<p style="margin:.2rem 0 0;color:var(--ep-muted);font-size:.9rem">' +
-			esc(e.designation || "") +
-			(e.company ? " &middot; " + esc(e.company) : "") +
+			'<p class="ep-hero-sub">' +
+			esc([e.designation, e.department, e.company].filter(Boolean).join(" · ")) +
 			"</p></div>" +
+			(e.employee_number
+				? '<div class="ep-hero-meta">' +
+					esc(e.employee_number) +
+					'<button type="button" class="ep-btn ep-btn-ghost" data-tile="details">' +
+					'<i class="fa fa-id-badge"></i> My details</button></div>'
+				: "") +
+			"</div>" +
 			alertHtml() +
+			biometricOfferHtml() +
 			(notifications.length ? renderNotificationStrip(notifications) : "") +
-			'<div class="ep-tiles">' +
-			tile("balances", "fa-balance-scale", "Leave balances", counts.balances) +
-			tile("time_off", "fa-calendar-check-o", "Time off", counts.time_off) +
-			tile("recognition", "fa-trophy", "Recognition", counts.recognition) +
-			tile("wellness", "fa-heartbeat", "Wellness & Safety", counts.wellness) +
-			tile("loans", "fa-money", "Loans & Advances", counts.loans) +
-			tile("travel", "fa-plane", "Travel", counts.travel) +
-			tile("assets", "fa-laptop", "My Assets", counts.assets) +
-			tile("learning", "fa-graduation-cap", "Learning", counts.learning) +
-			tile("shift_swaps", "fa-exchange", "Shift Swaps", counts.shift_swaps) +
-			tile("timesheets", "fa-clock-o", "Timesheets", counts.timesheets) +
-			tile("overtime", "fa-bolt", "Overtime", counts.overtime) +
-			tile("leave_calendar", "fa-calendar", "Team Calendar", counts.leave_calendar) +
-			tile("org_chart", "fa-sitemap", "Org Chart", counts.org_chart) +
-			tile("colleagues", "fa-users", "Colleagues", counts.colleagues) +
-			tile("announcements", "fa-bullhorn", "Announcements", counts.announcements) +
-			tile("benefits", "fa-heartbeat", "Benefits", counts.benefits) +
-			tile("support", "fa-life-ring", "Help & Support", counts.support) +
-			tile("documents", "fa-folder-open", "Documents", counts.documents) +
-			tile("expenses", "fa-money", "Expenses", counts.expenses) +
-			tile("payslips", "fa-file-pdf-o", "My payslips", counts.payslips) +
-			tile("attendance", "fa-clock-o", "Shift & attendance", counts.attendance) +
-			tile("performance", "fa-line-chart", "Performance", counts.performance) +
-			"</div></div>";
+			groups +
+			"</div>";
 		bindTiles();
 	}
 
+	function greeting() {
+		var hour = new Date().getHours();
+		if (hour < 12) return "Good morning";
+		if (hour < 17) return "Good afternoon";
+		return "Good evening";
+	}
+
 	function countNotificationsByScreen(items) {
-		var counts = { balances: 0, time_off: 0, expenses: 0, payslips: 0, attendance: 0, performance: 0, documents: 0, announcements: 0, colleagues: 0, support: 0, org_chart: 0, timesheets: 0, overtime: 0, leave_calendar: 0, shift_swaps: 0, benefits: 0, learning: 0, assets: 0, travel: 0, loans: 0, wellness: 0, recognition: 0 };
+		var counts = { balances: 0, time_off: 0, expenses: 0, payslips: 0, attendance: 0, performance: 0, colleagues: 0, org_chart: 0, timesheets: 0, overtime: 0, leave_calendar: 0, assets: 0 };
 		items.forEach(function (item) {
 			if (counts.hasOwnProperty(item.screen)) {
 				counts[item.screen]++;
@@ -367,17 +994,20 @@
 	}
 
 	function tile(action, icon, label, badge) {
-		var badgeHtml = badge && badge > 0
-			? '<span class="ep-tile-badge" style="background:var(--ep-' + (badge > 5 ? 'bad' : 'warn') + ');color:var(--ep-accent-ink);font-size:.7rem;font-weight:700;padding:.1rem .4rem;border-radius:999px;min-width:1.4rem;text-align:center;margin-left:.5rem">' +
-			  esc(badge > 9 ? "9+" : badge) +
-			  "</span>"
-			: "";
+		var badgeHtml =
+			badge && badge > 0
+				? '<span class="ep-tile-badge' +
+					(badge > 5 ? " ep-tile-badge--bad" : "") +
+					'">' +
+					esc(badge > 9 ? "9+" : badge) +
+					"</span>"
+				: "";
 		return (
 			'<button type="button" class="ep-tile" data-tile="' +
 			esc(action) +
 			'"><span class="ep-tile-icon"><i class="fa ' +
 			esc(icon) +
-			'"></i></span><span style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
+			'"></i></span><span class="ep-tile-text">' +
 			esc(label) +
 			badgeHtml +
 			"</span></button>"
@@ -391,6 +1021,19 @@
 				show(el.dataset.tile);
 			});
 		});
+		var offer = document.getElementById("bioEnable");
+		if (offer) {
+			offer.addEventListener("click", function () {
+				runBiometric(offer);
+			});
+		}
+		var later = document.getElementById("bioOfferNo");
+		if (later) {
+			later.addEventListener("click", function () {
+				state.suggestBiometric = false;
+				render();
+			});
+		}
 		Array.prototype.forEach.call(host2.querySelectorAll(".ep-attn[data-screen]"), function (el) {
 			el.addEventListener("click", function () {
 				show(el.dataset.screen);
@@ -401,9 +1044,9 @@
 	function renderPanel(action, key, draw, bind) {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
+			screenBar("panelBack") +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -436,9 +1079,9 @@
 	function renderAttendance() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
+			screenBar("panelBack") +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -513,7 +1156,7 @@
 				"</button>";
 
 			if ((today.punches || []).length) {
-				html += '<div style="margin-top:.7rem">';
+				html += '<div class="ep-mt-7">';
 				today.punches.forEach(function (p) {
 					html +=
 						'<div class="ep-row-meta">' +
@@ -525,7 +1168,7 @@
 			}
 		}
 
-		html += '<p class="ep-card-title" style="margin-top:1rem">Last ' +
+		html += '<p class="ep-card-title ep-mt-1">Last ' +
 			esc(att.from_date === att.to_date ? "day" : "31 days") +
 			"</p>";
 		var days = att.days || [];
@@ -636,7 +1279,7 @@
 		});
 
 		var goals = d.goals || [];
-		html += '<p class="ep-card-title" style="margin-top:1rem">My goals (' + goals.length + ")</p>";
+		html += '<p class="ep-card-title ep-mt-1">My goals (' + goals.length + ")</p>";
 		if (!goals.length) {
 			html += emptyBlock("fa-flag", "No goals set", "Goals come with your appraisal.");
 		}
@@ -854,12 +1497,292 @@
 			});
 	}
 
+	/* Your own record.
+	 *
+	 * Two halves, because there are two different questions. "What does HR hold about
+	 * me" is answered by the read-only block - company, department, manager, grade, all
+	 * of it theirs to set. "Is the way you reach me still right" is answered by the form,
+	 * and only the five fields in `DETAIL_FIELDS` on the server are in it: the portal
+	 * writes an employee's contact details and nothing else, which is the same rule the
+	 * server enforces by refusing every other name.
+	 */
+	var DETAIL_FIELDS = [
+		["personal_email", "Personal email", "email"],
+		["prefered_email", "Email payslips are sent to", "email"],
+		["emergency_phone_number", "Emergency contact number", "tel"],
+		["current_address", "Current address", "area"],
+		["blood_group", "Blood group", "select"],
+	];
+
+	function renderDetails(note) {
+		host.innerHTML =
+			'<div class="ep-fade">' +
+			screenBar("panelBack") +
+			alertHtml() +
+			(note ? infoAlert(note) : "") +
+			loadingPanel() +
+			"</div>";
+		document.getElementById("panelBack").addEventListener("click", function () {
+			show("dashboard");
+		});
+		call({ action: "my_details", token: state.token })
+			.then(function (d) {
+				document.getElementById("panelBody").innerHTML = detailsHtml(d);
+				bindDetails(d);
+			})
+			.catch(function (err) {
+				if (expired(err && err.message)) return;
+				document.getElementById("panelBody").innerHTML = emptyBlock(
+					"fa-exclamation-triangle",
+					"Cannot read your details",
+					(err && err.message) || ""
+				);
+			});
+	}
+
+	function detailsHtml(d) {
+		var editable = d.editable || {};
+		var read = [
+			["Employee number", d.employee_number],
+			["Designation", d.designation],
+			["Department", d.department],
+			["Company", d.company],
+			["Joined", d.date_of_joining],
+			["Gender", d.gender],
+			["Marital status", d.marital_status],
+		];
+
+		var html =
+			'<div class="ep-card ep-hero">' +
+			'<div class="ep-hero-avatar">' +
+			esc(initialsOf(d.employee_name)) +
+			"</div>" +
+			'<div class="ep-hero-text"><h1 class="ep-hero-name">' +
+			esc(d.employee_name) +
+			"</h1>" +
+			'<p class="ep-hero-sub">' +
+			esc([d.designation, d.department].filter(Boolean).join(" \u00b7 ")) +
+			"</p></div></div>";
+
+		html +=
+			'<div class="ep-card"><p class="ep-card-title">As HR holds it</p><dl class="ep-kv">' +
+			read
+				.filter(function (row) {
+					return row[1];
+				})
+				.map(function (row) {
+					var value = /^\d{4}-\d{2}-\d{2}$/.test(String(row[1]))
+						? dateOnly(row[1])
+						: row[1];
+					return (
+						'<div class="ep-kv-row"><dt>' +
+						esc(row[0]) +
+						"</dt><dd>" +
+						esc(value) +
+						"</dd></div>"
+					);
+				})
+				.join("") +
+			"</dl>" +
+			'<p class="ep-hint">Only your contact details below are yours to change here. Your number, department, grade and everything that decides your pay are set by HR.</p></div>';
+
+		html += deviceCardHtml();
+
+		html += '<div class="ep-card"><p class="ep-card-title">Your contact details</p><form id="detailsForm" novalidate>';
+		DETAIL_FIELDS.forEach(function (field) {
+			var name = field[0];
+			var value = editable[name] || "";
+			html +=
+				'<div class="ep-field"><label class="ep-label" for="' + name + '">' +
+				esc(field[1]) +
+				"</label>";
+			if (field[2] === "area") {
+				html +=
+					'<textarea class="ep-input" id="' + name + '" rows="3">' +
+					esc(value) +
+					"</textarea>";
+			} else if (field[2] === "select") {
+				html +=
+					'<select class="ep-input" id="' + name + '"><option value="">' +
+					"Not recorded</option>" +
+					(d.blood_groups || [])
+						// The doctype's options begin with an empty line, which would
+						// otherwise be a second "Not recorded" in the list.
+						.filter(Boolean)
+						.map(function (option) {
+							return (
+								'<option value="' + esc(option) + '"' +
+								(option === value ? " selected" : "") +
+								">" +
+								esc(option) +
+								"</option>"
+							);
+						})
+						.join("") +
+					"</select>";
+			} else {
+				html +=
+					'<input class="ep-input" id="' + name + '" type="' + field[2] +
+					'" value="' + esc(value) + '" />';
+			}
+			html += "</div>";
+		});
+		html +=
+			'<button type="submit" class="ep-btn" id="saveDetails">Save changes</button></form></div>';
+
+		return html;
+	}
+
+	// Bound after the html is in the document, for the same reason every other screen
+	// binds late: while the markup is being built, the form does not exist yet.
+	function bindDetails(d) {
+		var form = document.getElementById("detailsForm");
+		if (form) {
+			form.addEventListener("submit", function (e) {
+				e.preventDefault();
+				saveDetails(d);
+			});
+		}
+
+		var enable = document.getElementById("bioEnable");
+		if (enable) {
+			enable.addEventListener("click", function () {
+				runBiometric(enable);
+			});
+		}
+
+		var disable = document.getElementById("bioDisable");
+		if (disable) {
+			disable.addEventListener("click", function () {
+				dropCredential();
+				renderDetails("Biometric sign-in turned off on this tablet.");
+			});
+		}
+	}
+
+	// The whole point of remembering a session on a shared floor is that nobody else can
+	// use it, and a ticked box alone does not achieve that. This card is where the choice
+	// is offered, undone, and explained - rather than being decided silently at sign-in.
+	function deviceCardHtml() {
+		var html = '<div class="ep-card"><p class="ep-card-title">On this tablet</p>';
+
+		if (!state.remembered) {
+			return (
+				html +
+				'<p class="ep-quiet">You chose not to stay signed in, so this session ends with '+
+				"the tab - the right setting for a tablet that several people pick up. Tick " +
+				"<strong>Keep me signed in</strong> at the next sign-in and this card will " +
+				"then offer a fingerprint or face unlock.</p></div>"
+			);
+		}
+
+		html += '<p class="ep-quiet">This session stays on this tablet until you sign out.</p>';
+
+		if (state.credentialId) {
+			html +=
+				'<p class="ep-quiet ep-device-on"><i class="fa fa-check-circle"></i> Sign-in asks '+
+				"this tablet for your fingerprint or face before it opens.</p>" +
+				'<button type="button" class="ep-btn ep-btn-ghost ep-mt-9" id="bioDisable">' +
+				'<i class="fa fa-times"></i> Stop using biometric sign-in</button>';
+		} else if (state.bioReady) {
+			html +=
+				'<button type="button" class="ep-btn ep-btn-ghost ep-mt-9" id="bioEnable">' +
+				'<i class="fa fa-fingerprint"></i> Unlock with fingerprint or face</button>' +
+				'<p class="ep-hint">This tablet will ask for your fingerprint before it hands over '+
+				"the saved session. It does not replace your National ID and Employee Number - " +
+				"those stay the way in whenever the reader says no.</p>";
+		} else {
+			html +=
+				'<p class="ep-hint">No fingerprint or face reader is reaching this browser. The '+
+				"reader is only available to a page served over https.</p>";
+		}
+
+		return html + installHint() + "</div>";
+	}
+
+	function runBiometric(button) {
+		button.disabled = true;
+		button.innerHTML = '<span class="ep-spin"></span> Follow the prompt on screen';
+		enrollBiometric()
+			.then(function () {
+				state.suggestBiometric = false;
+				renderDetails("Ready. This tablet will ask for your fingerprint or face before it signs you in.");
+			})
+			.catch(function (err) {
+				if (expired(err && err.message)) return;
+				button.disabled = false;
+				button.innerHTML = '<i class="fa fa-fingerprint"></i> Unlock with fingerprint or face';
+				state.error = (err && err.message) || "The tablet would not agree.";
+				render();
+			});
+	}
+
+	// Offered on the screen a person is already looking at after ticking the box, rather
+	// than as a dialog that interrupts the dashboard they came for.
+	function biometricOfferHtml() {
+		if (!state.suggestBiometric || !state.remembered) return "";
+		if (state.credentialId || !state.bioReady) return "";
+		return (
+			'<div class="ep-alert ep-alert--info ep-device-offer">' +
+			'<i class="fa fa-fingerprint"></i><span>Next time, unlock this tablet with your ' +
+			"fingerprint instead of typing your numbers.</span>" +
+			'<button type="button" class="ep-btn ep-btn-ghost" id="bioEnable">Turn on</button>' +
+			'<button type="button" class="ep-btn ep-btn-ghost" id="bioOfferNo">Not now</button>' +
+			"</div>"
+		);
+	}
+
+	function saveDetails(d) {
+		var before = d.editable || {};
+		var fields = {};
+		DETAIL_FIELDS.forEach(function (field) {
+			var input = document.getElementById(field[0]);
+			if (!input) return;
+			var value = String(input.value || "").trim();
+			// Only what actually moved is sent. An unchanged blank address is not a
+			// request to write a blank over whatever HR holds.
+			if (value !== String(before[field[0]] || "").trim()) {
+				fields[field[0]] = value;
+			}
+		});
+
+		if (!Object.keys(fields).length) {
+			renderDetails("Nothing changed.");
+			return;
+		}
+
+		var button = document.getElementById("saveDetails");
+		button.disabled = true;
+		button.innerHTML = '<span class="ep-spin"></span> Saving';
+
+		var payload = { action: "update_my_details", token: state.token };
+		Object.keys(fields).forEach(function (key) {
+			payload[key] = fields[key];
+		});
+
+		call(payload)
+			.then(function (result) {
+				var saved = (result && result.updated) || Object.keys(fields);
+				announce("Details saved");
+				renderDetails("Saved: " + saved.join(", ") + ".");
+			})
+			.catch(function (err) {
+				if (expired(err && err.message)) return;
+				// The form is left as it was typed, so a correction refused for one field
+				// does not also throw away the four that were right.
+				button.disabled = false;
+				button.innerHTML = "Save changes";
+				state.error = (err && err.message) || "The details could not be saved.";
+				render();
+			});
+	}
+
 	function renderBalances() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
+			screenBar("panelBack") +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -878,134 +1801,39 @@
 			});
 	}
 
-	function renderDocuments() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_documents", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = documentsHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot read your documents",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function documentsHtml(d) {
-		var rows = d.documents || [];
-		var summary = d.summary || {};
-		if (!rows.length) {
-			return emptyBlock("fa-folder-open", "No documents recorded", "Your document checklist will appear here once HR adds it.");
-		}
-		var html =
-			'<p class="ep-card-title">Employee File Index</p>' +
-			'<div class="ep-doc-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">' +
-			'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.4rem .7rem"><i class="fa fa-check"></i> ' + esc(summary.held || 0) + ' Held</span>' +
-			'<span class="ep-badge ep-badge--bad" style="font-size:.9rem;padding:.4rem .7rem"><i class="fa fa-times"></i> ' + esc(summary.missing || 0) + ' Missing</span>' +
-			'<span class="ep-badge" style="font-size:.9rem;padding:.4rem .7rem;background:color-mix(in srgb, var(--ep-muted) 20%, transparent);color:var(--ep-muted)"><i class="fa fa-ban"></i> ' + esc(summary.not_applicable || 0) + ' N/A</span>' +
-			'<span class="ep-badge" style="font-size:.9rem;padding:.4rem .7rem;background:color-mix(in srgb, var(--ep-muted) 20%, transparent);color:var(--ep-muted)"><i class="fa fa-question"></i> ' + esc(summary.not_recorded || 0) + ' Not Recorded</span>' +
-			"</div>";
-		rows.forEach(function (r) {
-			var status = String(r.status || "").toLowerCase();
-			var badgeClass = status === "held" ? "ep-badge--good" : status === "missing" ? "ep-badge--bad" : "ep-badge--info";
-			var icon = status === "held" ? "fa-check-circle" : status === "missing" ? "fa-times-circle" : "fa-info-circle";
-			html +=
-				'<div class="ep-row" style="border-bottom:1px solid var(--ep-line);padding:.75rem 0">' +
-				'<div class="ep-row-main" style="min-width:0">' +
-				'<div class="ep-row-title" style="display:flex;align-items:center;gap:.5rem">' +
-				'<i class="fa ' + esc(icon) + '" style="color:var(--ep-muted)"></i>' +
-				esc(r.document) +
-				"</div>" +
-				(r.notes ? '<div class="ep-row-meta">' + esc(r.notes) + "</div>" : "") +
-				"</div>" +
-				'<span class="ep-badge ' + badgeClass + '">' + esc(r.status) + "</span>" +
-				"</div>";
-		});
-		return html;
-	}
 
-	function renderAnnouncements() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_announcements", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = announcementsHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot read announcements",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function announcementsHtml(d) {
-		var rows = d.announcements || [];
-		if (!rows.length) {
-			return emptyBlock("fa-bullhorn", "No announcements", "Company announcements will appear here when published.");
-		}
-		var html = '<p class="ep-card-title">Announcements</p>';
-		rows.forEach(function (r) {
-			var priority = String(r.priority || "Normal").toLowerCase();
-			var badgeClass = priority === "urgent" ? "ep-badge--bad" : priority === "high" ? "ep-badge--warn" : "ep-badge--info";
-			var icon = priority === "urgent" ? "fa-exclamation-circle" : priority === "high" ? "fa-bolt" : "fa-bullhorn";
-			var published = dateOnly(r.published_on);
-			var expires = r.expires_on ? " &middot; Expires " + esc(dateOnly(r.expires_on)) : "";
-			html +=
-				'<div class="ep-announcement" style="border-bottom:1px solid var(--ep-line);padding:1rem 0">' +
-				'<div style="display:flex;align-items:flex-start;gap:.75rem">' +
-				'<span class="ep-attn-icon ep-attn-icon--' + badgeClass.replace("ep-badge--", "") + '" style="width:2.5rem;height:2.5rem;line-height:2.5rem;font-size:1.1rem;flex-shrink:0">' +
-				'<i class="fa ' + esc(icon) + '"></i></span>' +
-				'<div style="flex:1;min-width:0">' +
-				'<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.4rem">' +
-				'<strong style="font-size:1.05rem">' + esc(r.title) + '</strong>' +
-				'<span class="ep-badge ' + badgeClass + '">' + esc(r.priority) + '</span>' +
-				'</div>' +
-				'<div style="color:var(--ep-muted);font-size:.85rem;margin-bottom:.5rem">' +
-				'Published ' + esc(published) + expires +
-				'</div>' +
-				'<div style="line-height:1.6">' + r.content + '</div>' +
-				'</div>' +
-				'</div>' +
-				'</div>';
-		});
-		return html;
-	}
 
+	/* The directory.
+	 *
+	 * One read fills the whole screen, and the toolbar narrows what that read already
+	 * returned. Every field the search looks at - name, number, designation,
+	 * department, mobile, email, manager - is in the rows that arrived the first time,
+	 * so asking the server again per keystroke was a request per letter, on a device
+	 * that shares one connection at a time and is often offline. */
 	function renderColleagues() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
+			screenBar("panelBack") +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			'<div id="panelBody">' + loadingBlock(3) + '</div>' +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
 		});
+
+		if (state.directory) {
+			paintDirectory();
+			return;
+		}
 		call({ action: "my_colleagues", token: state.token })
 			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = colleaguesHtml(d);
-				bindColleaguesSearch(d);
+				state.directory = {
+					rows: d.colleagues || [],
+					departments: d.departments || [],
+				};
+				paintDirectory();
 			})
 			.catch(function (err) {
 				if (expired(err && err.message)) return;
@@ -1017,103 +1845,191 @@
 			});
 	}
 
-	function colleaguesHtml(d) {
-		var rows = d.colleagues || [];
-		var departments = d.departments || [];
-		var deptOptions = departments.map(function (dept) {
-			return '<option value="' + esc(dept) + '">' + esc(dept) + '</option>';
-		}).join('');
+	function paintDirectory() {
+		var body = document.getElementById("panelBody");
+		var dir = state.directory;
+		if (!body || !dir) return;
+
+		var rows = dir.rows;
 		if (!rows.length) {
-			return emptyBlock("fa-users", "No colleagues found", "No active employees in your company.");
+			body.innerHTML = emptyBlock(
+				"fa-users",
+				"No colleagues yet",
+				"No other active employees in your company."
+			);
+			return;
 		}
-		var html =
-			'<p class="ep-card-title">Colleagues <span style="font-weight:400;color:var(--ep-muted);font-size:.9rem">(' + rows.length + ')</span></p>' +
-			'<div class="ep-colleagues-toolbar" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">' +
-			'<div class="ep-field" style="flex:1;min-width:180px;margin-bottom:0">' +
-			'<label class="ep-label" for="colleagueSearch" style="margin-bottom:.25rem">Search</label>' +
-			'<input class="ep-input" id="colleagueSearch" type="search" placeholder="Name, number, designation..." inputmode="text" />' +
-			'</div>' +
-			'<div class="ep-field" style="min-width:160px;margin-bottom:0">' +
-			'<label class="ep-label" for="colleagueDept" style="margin-bottom:.25rem">Department</label>' +
-			'<select class="ep-input" id="colleagueDept">' +
-			'<option value="">All departments</option>' + deptOptions +
-			'</select>' +
-			'</div>' +
-			'</div>' +
-			'<div id="colleaguesList">' + renderColleagueList(rows) + '</div>';
-		return html;
-	}
 
-	function renderColleagueList(rows) {
-		if (!rows.length) {
-			return '<div class="ep-empty" style="padding:2rem"><i class="fa fa-users ep-empty-icon"></i><div class="ep-empty-title">No colleagues match</div><div style="font-size:.9rem">Try a different search or department.</div></div>';
-		}
-		var html = '<div class="ep-colleagues-grid">';
-		rows.forEach(function (c) {
-			var initials = (c.employee_name || "?").split(" ").map(function (w) { return w[0]; }).join("").substring(0, 2).toUpperCase();
-			var avatar = c.image
-				? '<img src="' + esc(c.image) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-				: '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;background:linear-gradient(135deg,var(--ep-accent),var(--ep-accent-dark));color:var(--ep-accent-ink);font-weight:700;font-size:1.1rem">' + esc(initials) + '</div>';
-			var dept = c.department ? '<div class="ep-row-meta"><i class="fa fa-building-o"></i> ' + esc(c.department) + '</div>' : '';
-			var desig = c.designation ? '<div class="ep-row-meta"><i class="fa fa-briefcase"></i> ' + esc(c.designation) + '</div>' : '';
-			var empNum = c.employee_number ? '<div class="ep-row-meta"><i class="fa fa-id-badge"></i> ' + esc(c.employee_number) + '</div>' : '';
-			var phone = c.cell_number ? '<div class="ep-row-meta"><i class="fa fa-phone"></i> ' + esc(c.cell_number) + '</div>' : '';
-			var email = c.company_email ? '<div class="ep-row-meta"><i class="fa fa-envelope-o"></i> ' + esc(c.company_email) + '</div>' : '';
-			html +=
-				'<div class="ep-colleague-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;background:var(--ep-card)">' +
-				'<div style="display:flex;gap:1rem;align-items:flex-start">' +
-				'<div style="width:4rem;height:4rem;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatar + '</div>' +
-				'<div style="flex:1;min-width:0">' +
-				'<div class="ep-row-title" style="font-size:1rem">' + esc(c.employee_name) + '</div>' +
-				desig + dept + empNum + phone + email +
-				'</div>' +
-				'</div>' +
-				'</div>';
-		});
-		html += '</div>';
-		return html;
-	}
-
-	function bindColleaguesSearch(d) {
-		var input = document.getElementById("colleagueSearch");
-		var select = document.getElementById("colleagueDept");
-		var list = document.getElementById("colleaguesList");
-		if (!input || !select || !list) return;
-
-		var debounceTimer;
-		function doSearch() {
-			var search = input.value.trim();
-			var dept = select.value;
-			call({ action: "my_colleagues", token: state.token, search: search || undefined, department: dept || undefined })
-				.then(function (result) {
-					list.innerHTML = renderColleagueList(result.colleagues || []);
+		body.innerHTML =
+			'<div class="ep-dir-toolbar">' +
+			'<div class="ep-field"><label class="ep-label" for="dirSearch">Find someone</label>' +
+			'<input class="ep-input" id="dirSearch" type="search" autocomplete="off" ' +
+			'placeholder="Name, number, designation, email" /></div>' +
+			'<div class="ep-field"><label class="ep-label" for="dirDept">Department</label>' +
+			'<select class="ep-input" id="dirDept"><option value="">All departments</option>' +
+			dir.departments
+				.map(function (dept) {
+					return '<option value="' + esc(dept) + '">' + esc(dept) + "</option>";
 				})
-				.catch(function (err) {
-					if (expired(err && err.message)) return;
-					list.innerHTML = emptyBlock("fa-exclamation-triangle", "Search failed", (err && err.message) || "");
-				});
+				.join("") +
+			"</select></div>" +
+			'<p class="ep-dir-count" id="dirCount"></p>' +
+			"</div>" +
+			'<div id="dirList"></div>';
+
+		var search = document.getElementById("dirSearch");
+		var dept = document.getElementById("dirDept");
+		var count = document.getElementById("dirCount");
+		var list = document.getElementById("dirList");
+
+		function refresh() {
+			var found = filterDirectory(rows, search.value, dept.value);
+			count.textContent =
+				found.length === rows.length
+					? rows.length + " colleagues, grouped by department"
+					: found.length + " of " + rows.length + " colleagues";
+			list.innerHTML = directoryGroupsHtml(found);
 		}
 
-		input.addEventListener("input", function () {
-			clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(doSearch, 300);
-		});
-		select.addEventListener("change", doSearch);
+		search.addEventListener("input", refresh);
+		dept.addEventListener("change", refresh);
+		refresh();
 	}
+
+	function filterDirectory(rows, text, dept) {
+		var needle = String(text || "").trim().toLowerCase();
+		return rows.filter(function (c) {
+			if (dept && (c.department || "") !== dept) return false;
+			if (!needle) return true;
+			return [
+				c.employee_name,
+				c.employee_number,
+				c.designation,
+				c.department,
+				c.company_email,
+				c.cell_number,
+				c.manager_name,
+			]
+				.filter(Boolean)
+				.join(" ")
+				.toLowerCase()
+				.indexOf(needle) !== -1;
+		});
+	}
+
+	// Grouped by department rather than one long alphabetical list: on a wall tablet
+	// next to the workshop door, "who is in Facilities" is the question, and scrolling
+	// past three hundred unrelated names to answer it is not a search.
+	function directoryGroupsHtml(rows) {
+		if (!rows.length) {
+			return emptyBlock(
+				"fa-search",
+				"Nobody matches that",
+				"Try part of a name, an employee number, or another department."
+			);
+		}
+		var groups = {};
+		var order = [];
+		rows.forEach(function (c) {
+			var key = c.department || "No department";
+			if (!groups[key]) {
+				groups[key] = [];
+				order.push(key);
+			}
+			groups[key].push(c);
+		});
+		return order
+			.map(function (key) {
+				return (
+					'<section class="ep-dir-group">' +
+					'<h2 class="ep-dir-group-title"><i class="fa fa-building-o"></i> ' +
+					esc(key) +
+					"<span>" +
+					groups[key].length +
+					"</span></h2>" +
+					'<div class="ep-colleagues-grid">' +
+					groups[key].map(colleagueCardHtml).join("") +
+					"</div></section>"
+				);
+			})
+			.join("");
+	}
+
+	function colleagueCardHtml(c) {
+		var meta = "";
+		function line(icon, value) {
+			if (!value) return;
+			meta +=
+				'<li><i class="fa ' +
+				esc(icon) +
+				'"></i><span>' +
+				esc(value) +
+				"</span></li>";
+		}
+
+		line("fa-id-badge", c.employee_number);
+		line("fa-mobile", c.cell_number);
+		line("fa-envelope-o", c.company_email);
+		line("fa-share-alt", c.manager_name ? "Reports to " + c.manager_name : "");
+		line("fa-calendar-o", c.date_of_joining ? "Joined " + dateOnly(c.date_of_joining) : "");
+
+		var actions = "";
+		if (c.cell_number) {
+			actions +=
+				'<a class="ep-dir-act" href="tel:' +
+				esc(telHref(c.cell_number)) +
+				'"><i class="fa fa-phone"></i> Call</a>';
+		}
+		if (c.company_email) {
+			actions +=
+				'<a class="ep-dir-act" href="mailto:' +
+				esc(c.company_email) +
+				'"><i class="fa fa-envelope-o"></i> Email</a>';
+		}
+
+		return (
+			'<article class="ep-colleague-card' +
+			(c.is_me ? " ep-colleague-card--me" : "") +
+			'">' +
+			'<div class="ep-colleague-avatar">' +
+			(c.image ? '<img src="' + esc(c.image) + '" alt="" />' : esc(initialsOf(c.employee_name))) +
+			"</div>" +
+			'<div class="ep-colleague-body">' +
+			'<div class="ep-colleague-name"><span>' +
+			esc(c.employee_name) +
+			"</span>" +
+			(c.is_me ? '<span class="ep-you-badge">You</span>' : "") +
+			"</div>" +
+			'<div class="ep-colleague-desig">' +
+			esc(c.designation || "") +
+			"</div>" +
+			(meta ? '<ul class="ep-meta">' + meta + "</ul>" : "") +
+			(actions ? '<div class="ep-colleague-actions">' + actions + "</div>" : "") +
+			"</div></article>"
+		);
+	}
+
+	// `tel:` wants digits, and the numbers on these records are written the way people
+	// dial them by hand - spaces, brackets, a leading 00.
+	function telHref(value) {
+		var digits = String(value).replace(/[^\d+]/g, "");
+		return digits.replace(/^00/, "+");
+	}
+
 
 	function renderOrgChart() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-org-toolbar" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">' +
+			screenBar("panelBack") +
+			'<div class="ep-org-toolbar">' +
 			'<button type="button" class="ep-btn ep-btn-ghost" id="orgExpandAll"><i class="fa fa-expand"></i> Expand All</button>' +
 			'<button type="button" class="ep-btn ep-btn-ghost" id="orgCollapseAll"><i class="fa fa-compress"></i> Collapse All</button>' +
 			'<button type="button" class="ep-btn ep-btn-ghost" id="orgFindMe"><i class="fa fa-crosshairs"></i> Find Me</button>' +
-			'<div style="flex:1"></div>' +
-			'<span id="orgStats" style="color:var(--ep-muted);font-size:.85rem"></span>' +
+			'<span class="ep-toolbar-spacer"></span>' +
+			'<span id="orgStats" class="ep-toolbar-stat"></span>' +
 			'</div>' +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody" style="overflow:auto"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			'<div class="ep-card" id="panelBody" style="overflow:auto">' + loadingBlock(3) + '</div>' +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -1141,18 +2057,19 @@
 			return emptyBlock("fa-sitemap", "No org data", "No active employees in your company.");
 		}
 		var html = '<div class="ep-org-chart">';
-		tree.forEach(function (root) {
-			html += renderOrgNode(root, 0, true);
+		tree.forEach(function (node) {
+			html += renderOrgNode(node, 0, true);
 		});
-		html += '</div>';
+		html += "</div>";
 		return html;
 	}
 
 	function renderOrgNode(node, depth, isRoot) {
-		var initials = (node.employee_name || "?").split(" ").map(function (w) { return w[0]; }).join("").substring(0, 2).toUpperCase();
+		// `.ep-org-avatar` already carries the gradient and the initials type, so an
+		// employee with no photo needs no markup of their own beside one with a photo.
 		var avatar = node.image
-			? '<img src="' + esc(node.image) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-			: '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;background:linear-gradient(135deg,var(--ep-accent),var(--ep-accent-dark));color:var(--ep-accent-ink);font-weight:700;font-size:.85rem">' + esc(initials) + '</div>';
+			? '<img src="' + esc(node.image) + '" alt="" />'
+			: esc(initialsOf(node.employee_name));
 		var meBadge = node.is_me ? '<span class="ep-org-me-badge">You</span>' : '';
 		var pathClass = node.in_my_path ? ' ep-org-in-path' : '';
 		var hasChildren = node.children && node.children.length > 0;
@@ -1259,10 +2176,9 @@
 	function renderTimesheets() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newTimesheet" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Log Time</button>' +
+			screenBar("panelBack", actionButton("newTimesheet", "fa-plus", "Log Time")) +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -1293,7 +2209,7 @@
 		rows.forEach(function (r) {
 			var badgeClass = r.status === "Submitted" ? "ep-badge--info" : r.status === "Approved" ? "ep-badge--good" : r.status === "Rejected" ? "ep-badge--bad" : "";
 			html +=
-				'<div class="ep-row" style="border-bottom:1px solid var(--ep-line);padding:.75rem 0">' +
+				'<div class="ep-row ep-row--head">' +
 				'<div class="ep-row-main">' +
 				'<div class="ep-row-title">' + esc(dateOnly(r.start_date)) + " &rarr; " + esc(dateOnly(r.end_date)) + '</div>' +
 				'<div class="ep-row-meta">' + esc(r.status || "Draft") + (r.total_hours ? " &middot; " + esc(r.total_hours) + " hrs" : "") + '</div>' +
@@ -1307,8 +2223,8 @@
 	function renderTimesheetForm() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			screenBar("formBack") +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("formBack").addEventListener("click", function () {
 			show("timesheets");
@@ -1316,7 +2232,7 @@
 		call({ action: "activity_types", token: state.token })
 			.then(function (d) {
 				var types = (d.activity_types || []).map(function (t) {
-					return '<option value="' + esc(t.name) + '">' + esc(t.activity_type_name || t.name) + '</option>';
+					return '<option value="' + esc(t.name) + '">' + esc(t.activity_type || t.name) + '</option>';
 				}).join('');
 				var today = new Date().toISOString().split("T")[0];
 				document.getElementById("panelBody").innerHTML =
@@ -1375,10 +2291,9 @@
 	function renderOvertime() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newOvertime" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Request Overtime</button>' +
+			screenBar("panelBack", actionButton("newOvertime", "fa-plus", "Request overtime")) +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -1409,7 +2324,7 @@
 		rows.forEach(function (r) {
 			var badgeClass = r.status === "Approved" ? "ep-badge--good" : r.status === "Rejected" ? "ep-badge--bad" : "ep-badge--info";
 			html +=
-				'<div class="ep-row" style="border-bottom:1px solid var(--ep-line);padding:.75rem 0">' +
+				'<div class="ep-row ep-row--head">' +
 				'<div class="ep-row-main">' +
 				'<div class="ep-row-title">' + esc(dateOnly(r.date)) + '</div>' +
 				'<div class="ep-row-meta">' + esc(r.status || "Draft") + (r.description ? " &middot; " + esc(r.description) : "") + '</div>' +
@@ -1423,8 +2338,8 @@
 	function renderOvertimeForm() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			screenBar("formBack") +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("formBack").addEventListener("click", function () {
 			show("overtime");
@@ -1473,17 +2388,17 @@
 	function renderLeaveCalendar() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-other-toolbar" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">' +
-			'<label class="ep-label" style="margin-bottom:0"><i class="fa fa-calendar"></i> Month</label>' +
-			'<select class="ep-input" id="calMonth" style="width:auto;min-width:140px"></select>' +
-			'<label class="ep-label" style="margin-bottom:0"><i class="fa fa-calendar-o"></i> Year</label>' +
-			'<select class="ep-input" id="calYear" style="width:auto;min-width:100px"></select>' +
-			'<div style="flex:1"></div>' +
-			'<span id="calStats" style="color:var(--ep-muted);font-size:.85rem"></span>' +
+			screenBar("panelBack") +
+			'<div class="ep-cal-toolbar">' +
+			'<label class="ep-label ep-cal-label" for="calMonth"><i class="fa fa-calendar"></i> Month</label>' +
+			'<select class="ep-input ep-cal-select" id="calMonth"></select>' +
+			'<label class="ep-label ep-cal-label" for="calYear"><i class="fa fa-calendar-o"></i> Year</label>' +
+			'<select class="ep-input ep-cal-select" id="calYear"></select>' +
+			'<span class="ep-toolbar-spacer"></span>' +
+			'<span id="calStats" class="ep-toolbar-stat"></span>' +
 			'</div>' +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody" style="overflow:auto"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel("ep-card ep-card-scroll") +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -1554,28 +2469,47 @@
 		});
 		var monthStart = getdate(d.month_start);
 		var monthEnd = getdate(d.month_end);
+		var firstDow = monthStart.getDay();
 		var html = '<div class="ep-cal-grid">';
+		DOW_NAMES.forEach(function (name) {
+			html += '<div class="ep-cal-dow">' + name + "</div>";
+		});
+		// The blanks before the first of the month, so the 1st sits under its own
+		// weekday rather than under whichever column the month happened to start in.
+		for (var b = 0; b < firstDow; b++) {
+			html += '<div class="ep-cal-day ep-cal-blank" aria-hidden="true"></div>';
+		}
 		var cur = new Date(monthStart);
 		while (cur <= monthEnd) {
 			var key = cur.toISOString().split("T")[0];
 			var dayLeaves = byDate[key] || [];
 			var isWeekend = cur.getDay() === 5 || cur.getDay() === 6; // Fri/Sat
-			var isToday = key === dateOnly(frappe.datetime.nowdate ? frappe.datetime.nowdate() : new Date().toISOString().split("T")[0]);
+			var isToday = key === dateOnly(new Date().toISOString());
 			html +=
-				'<div class="ep-cal-day' + (isWeekend ? " ep-cal-weekend" : "") + (isToday ? " ep-cal-today" : "") + (dayLeaves.length ? " ep-cal-has-leave" : "") + '" style="border:1px solid var(--ep-line);border-radius:.5rem;background:var(--ep-card);min-height:80px">' +
-				'<div class="ep-cal-date" style="padding:.35rem .5rem;font-weight:600;text-align:center' + (isToday ? ";background:var(--ep-accent);color:var(--ep-accent-ink)" : "") + '">' + cur.getDate() + '</div>';
+				'<div class="ep-cal-day' +
+				(isWeekend ? " ep-cal-weekend" : "") +
+				(isToday ? " ep-cal-today" : "") +
+				(dayLeaves.length ? " ep-cal-has-leave" : "") +
+				'">' +
+				'<div class="ep-cal-date">' +
+				cur.getDate() +
+				"</div>";
 			dayLeaves.forEach(function (lv) {
 				html +=
-					'<div class="ep-cal-leave" style="padding:0 .4rem .35rem;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-					esc(lv.employee_name) + ": " + esc(lv.leave_type) +
+					'<div class="ep-cal-leave">' +
+					esc(lv.employee_name) +
+					": " +
+					esc(lv.leave_type) +
 					"</div>";
 			});
-			html += '</div>';
+			html += "</div>";
 			cur = add_days(cur, 1);
 		}
-		html += '</div>';
+		html += "</div>";
 		return html;
 	}
+
+	var DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 	function updateCalStats(d) {
 		var statsEl = document.getElementById("calStats");
@@ -1597,520 +2531,26 @@
 		return result;
 	}
 
-	function renderShiftSwaps() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newSwap" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Request Swap</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		document.getElementById("newSwap").addEventListener("click", function () {
-			show("shift_swap_form");
-		});
-		call({ action: "my_shift_swaps", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = shiftSwapsHtml(d);
-				bindShiftSwapActions();
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot read shift swaps",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function bindShiftSwapActions() {
-		var body = document.getElementById("panelBody");
-		if (!body) return;
-		
-		body.querySelectorAll(".swap-approve").forEach(function (btn) {
-			btn.addEventListener("click", function () {
-				approveShiftSwap(btn.dataset.name, btn);
-			});
-		});
-		
-		body.querySelectorAll(".swap-reject").forEach(function (btn) {
-			btn.addEventListener("click", function () {
-				var reason = prompt("Rejection reason (optional):");
-				rejectShiftSwap(btn.dataset.name, reason, btn);
-			});
-		});
-	}
 
-	function approveShiftSwap(name, button) {
-		var label = button.innerHTML;
-		button.disabled = true;
-		button.innerHTML = '<span class="ep-spin"></span> Approving';
-		call({ action: "approve_shift_swap", token: state.token, name: name })
-			.then(function () {
-				announce("Shift swap approved.");
-				show("shift_swaps");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				button.disabled = false;
-				button.innerHTML = label;
-				state.error = (err && err.message) || "Could not approve.";
-				render();
-			});
-	}
 
-	function rejectShiftSwap(name, reason, button) {
-		var label = button.innerHTML;
-		button.disabled = true;
-		button.innerHTML = '<span class="ep-spin"></span> Rejecting';
-		call({ action: "reject_shift_swap", token: state.token, name: name, reason: reason })
-			.then(function () {
-				announce("Shift swap rejected.");
-				show("shift_swaps");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				button.disabled = false;
-				button.innerHTML = label;
-				state.error = (err && err.message) || "Could not reject.";
-				render();
-			});
-	}
 
-	function shiftSwapsHtml(d) {
-		var sent = d.sent || [];
-		var received = d.received || [];
-		var pendingReceived = d.pending_received || [];
-		
-		if (!sent.length && !received.length) {
-			return emptyBlock("fa-exchange", "No shift swaps", "Request a swap with a colleague or respond to incoming requests.");
-		}
-		
-		var html = '';
-		
-		// Pending received (action needed)
-		if (pendingReceived.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-bell"></i> Awaiting Your Response (' + pendingReceived.length + ')</p>';
-			pendingReceived.forEach(function (r) {
-				html +=
-					'<div class="ep-swap-card ep-swap-pending" style="border:1px solid var(--ep-warn);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:color-mix(in srgb, var(--ep-warn) 5%, var(--ep-card))">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">' +
-					'<div style="flex:1;min-width:200px">' +
-					'<div class="ep-row-title">' + esc(r.requester_name) + ' wants to swap</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(r.shift_date)) + ' &middot; ' + esc(r.requester_shift) + ' \u2194 ' + esc(r.recipient_shift) + '</div>' +
-					(r.reason ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-comment-o"></i> ' + esc(r.reason) + '</div>' : '') +
-					'</div>' +
-					'<div style="display:flex;gap:.5rem">' +
-					'<button type="button" class="ep-btn ep-btn-ghost swap-approve" data-name="' + esc(r.name) + '" style="min-width:100px"><i class="fa fa-check"></i> Approve</button>' +
-					'<button type="button" class="ep-btn ep-btn-ghost swap-reject" data-name="' + esc(r.name) + '" style="min-width:100px;background:color-mix(in srgb, var(--ep-bad) 10%, transparent);color:var(--ep-bad);border-color:var(--ep-bad)"><i class="fa fa-times"></i> Reject</button>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Sent requests
-		if (sent.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-paper-plane"></i> Your Requests (' + sent.length + ')</p>';
-			sent.forEach(function (r) {
-				var badgeClass = r.status === "Approved" ? "ep-badge--good" : r.status === "Rejected" ? "ep-badge--bad" : "ep-badge--info";
-				html +=
-					'<div class="ep-swap-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:200px">' +
-					'<div class="ep-row-title">Swap with ' + esc(r.recipient_name) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(r.shift_date)) + ' &middot; ' + esc(r.requester_shift) + ' \u2194 ' + esc(r.recipient_shift) + '</div>' +
-					(r.reason ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-comment-o"></i> ' + esc(r.reason) + '</div>' : '') +
-					'</div>' +
-					'<span class="ep-badge ' + badgeClass + '" style="font-size:.85rem;padding:.35rem .7rem;flex-shrink:0">' + esc(r.status) + '</span>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Other received (already responded)
-		var otherReceived = received.filter(function (r) { return r.status !== "Pending"; });
-		if (otherReceived.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-inbox"></i> Other Requests (' + otherReceived.length + ')</p>';
-			otherReceived.forEach(function (r) {
-				var badgeClass = r.status === "Approved" ? "ep-badge--good" : "ep-badge--bad";
-				html +=
-					'<div class="ep-swap-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:200px">' +
-					'<div class="ep-row-title">Request from ' + esc(r.requester_name) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(r.shift_date)) + ' &middot; ' + esc(r.requester_shift) + ' \u2194 ' + esc(r.recipient_shift) + '</div>' +
-					(r.reason ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-comment-o"></i> ' + esc(r.reason) + '</div>' : '') +
-					'</div>' +
-					'<span class="ep-badge ' + badgeClass + '" style="font-size:.85rem;padding:.35rem .7rem;flex-shrink:0">' + esc(r.status) + '</span>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
 
-	function renderShiftSwapForm() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("formBack").addEventListener("click", function () {
-			show("shift_swaps");
-		});
-		
-		// Fetch colleagues and shifts
-		Promise.all([
-			call({ action: "my_colleagues", token: state.token }),
-			call({ action: "my_shifts", token: state.token }),
-		]).then(function (results) {
-			var colleagues = results[0].colleagues || [];
-			var shifts = results[1].shifts || [];
-			
-			var colleagueOptions = colleagues
-				.filter(function (c) { return c.name !== state.employee; })
-				.map(function (c) {
-					return '<option value="' + esc(c.name) + '" data-name="' + esc(c.employee_name) + '">' + esc(c.employee_name) + ' (' + esc(c.employee_number) + ')</option>';
-				}).join('');
-			
-			var shiftOptions = shifts.map(function (s) {
-				return '<option value="' + esc(s.name) + '">' + esc(s.shift_type) + ' (' + esc(s.start_time) + '-' + esc(s.end_time) + ')</option>';
-			}).join('');
-			
-			var today = new Date().toISOString().split("T")[0];
-			
-			document.getElementById("panelBody").innerHTML =
-				'<p class="ep-card-title">Request Shift Swap</p>' +
-				'<form id="swapForm" novalidate>' +
-				'<div class="ep-field"><label class="ep-label" for="swapColleague">Colleague</label>' +
-				'<select class="ep-input" id="swapColleague" required>' +
-				'<option value="">Select a colleague</option>' + colleagueOptions +
-				'</select></div>' +
-				'<div class="ep-field"><label class="ep-label" for="swapDate">Date</label>' +
-				'<input class="ep-input" id="swapDate" type="date" value="' + today + '" min="' + today + '" required /></div>' +
-				'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">' +
-				'<div class="ep-field"><label class="ep-label" for="swapMyShift">Your Shift</label>' +
-				'<select class="ep-input" id="swapMyShift" required>' +
-				'<option value="">Select your shift</option>' + shiftOptions +
-				'</select></div>' +
-				'<div class="ep-field"><label class="ep-label" for="swapTheirShift">Their Shift</label>' +
-				'<select class="ep-input" id="swapTheirShift" required>' +
-				'<option value="">Select their shift</option>' + shiftOptions +
-				'</select></div>' +
-				'</div>' +
-				'<div class="ep-field"><label class="ep-label" for="swapReason">Reason (optional)</label>' +
-				'<textarea class="ep-input" id="swapReason" rows="3" placeholder="Why do you need to swap?"></textarea></div>' +
-				'<button class="ep-btn" type="submit">Send Request</button></form>';
-			
-			document.getElementById("swapForm").addEventListener("submit", function (e) {
-				e.preventDefault();
-				submitShiftSwapForm();
-			});
-		}).catch(function (err) {
-			if (expired(err && err.message)) return;
-			document.getElementById("panelBody").innerHTML = emptyBlock(
-				"fa-exclamation-triangle",
-				"Cannot load form",
-				(err && err.message) || ""
-			);
-		});
-	}
 
-	function submitShiftSwapForm() {
-		call({
-			action: "request_shift_swap",
-			token: state.token,
-			recipient: document.getElementById("swapColleague").value,
-			shift_date: document.getElementById("swapDate").value,
-			requester_shift: document.getElementById("swapMyShift").value,
-			recipient_shift: document.getElementById("swapTheirShift").value,
-			reason: document.getElementById("swapReason").value,
-		})
-			.then(function () {
-				announce("Shift swap request sent.");
-				show("shift_swaps");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				var body = document.getElementById("panelBody");
-				if (body) {
-					body.innerHTML =
-						'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>' +
-						esc(err.message) +
-						"</span></div>" + body.innerHTML;
-				}
-			});
-	}
 
-	function renderBenefits() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_benefits", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = benefitsHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load benefits",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function benefitsHtml(d) {
-		var enrollments = d.enrollments || [];
-		var claims = d.claims || [];
-		var wellness = d.wellness || [];
-		
-		if (!enrollments.length && !claims.length && !wellness.length) {
-			return emptyBlock("fa-heartbeat", "No benefits enrolled", "Your insurance and wellness programs will appear here once enrolled.");
-		}
-		
-		var html = '';
-		
-		// Summary stats
-		if (claims.length) {
-			html +=
-				'<div class="ep-benefits-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-				'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-file-text-o"></i> ' + esc(d.total_claims || 0) + ' Total Claims</span>' +
-				'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-clock-o"></i> ' + esc(d.pending_claims || 0) + ' Pending</span>' +
-				'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-check-circle"></i> ' + esc(d.approved_claims || 0) + ' Approved</span>' +
-				'</div>';
-		}
-		
-		// Insurance Enrollments
-		if (enrollments.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-shield"></i> Insurance Coverage</p>';
-			enrollments.forEach(function (e) {
-				var statusClass = e.status === "Active" ? "ep-badge--good" : e.status === "Expired" ? "ep-badge--bad" : "ep-badge--warn";
-				var dependents = e.dependents || [];
-				html +=
-					'<div class="ep-benefit-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(e.plan_name || e.insurance_scheme) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(e.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-building"></i> ' + esc(e.insurance_company) + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-tag"></i> ' + esc(e.coverage_type) + ' &middot; Sum Insured: ' + esc(e.sum_insured) + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-credit-card"></i> Policy: ' + esc(e.policy_number || "—") + (e.card_number ? ' &middot; Card: ' + esc(e.card_number) : '') + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(e.start_date)) + (e.end_date ? ' &rarr; ' + esc(dateOnly(e.end_date)) : '') + '</div>' +
-					(dependents.length ? '<div style="margin-top:.5rem"><strong>Covered Dependents:</strong> ' + dependents.map(function(dep) { return esc(dep.dependent_name) + ' (' + esc(dep.relation) + ')'; }).join(', ') + '</div>' : '') +
-					'</div>' +
-					(e.network_providers ? '<div style="margin-top:.75rem;padding:.75rem;background:color-mix(in srgb, var(--ep-muted) 5%, var(--ep-card));border-radius:.5rem;font-size:.85rem"><strong>Network Providers:</strong> ' + esc(e.network_providers) + '</div>' : '') +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Recent Claims
-		if (claims.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-file-text-o"></i> Recent Claims</p>';
-			claims.forEach(function (c) {
-				var statusClass = c.status === "Approved" ? "ep-badge--good" : c.status === "Rejected" ? "ep-badge--bad" : c.status === "Paid" ? "ep-badge--info" : "ep-badge--warn";
-				html +=
-					'<div class="ep-claim-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:200px">' +
-					'<div class="ep-row-title">' + esc(c.claim_type) + ' &middot; ' + esc(c.hospital_provider) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(c.claim_date)) + ' &middot; Claimed: ' + esc(c.amount_claimed) + (c.amount_approved ? ' &middot; Approved: ' + esc(c.amount_approved) : '') + '</div>' +
-					(c.description ? '<div class="ep-row-meta" style="margin-top:.25rem">' + esc(c.description) + '</div>' : '') +
-					'</div>' +
-					'<span class="ep-badge ' + statusClass + '" style="font-size:.85rem;padding:.35rem .7rem;flex-shrink:0">' + esc(c.status) + '</span>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Wellness Programs
-		if (wellness.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-leaf"></i> Wellness Programs</p>';
-			wellness.forEach(function (w) {
-				var statusClass = w.status === "Completed" ? "ep-badge--good" : w.status === "In Progress" ? "ep-badge--info" : "ep-badge--warn";
-				var progress = w.progress || 0;
-				html +=
-					'<div class="ep-wellness-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div class="ep-row-title">' + esc(w.program_name) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(w.start_date)) + (w.end_date ? ' &rarr; ' + esc(dateOnly(w.end_date)) : '') + '</div>' +
-					(w.description ? '<div class="ep-row-meta" style="margin-top:.25rem">' + esc(w.description) + '</div>' : '') +
-					'</div>' +
-					'<div style="text-align:right;min-width:150px">' +
-					'<div class="ep-badge ' + statusClass + '" style="margin-bottom:.5rem">' + esc(w.status) + '</div>' +
-					'<div style="width:120px;height:8px;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);border-radius:4px;overflow:hidden">' +
-					'<div style="width:' + progress + '%;height:100%;background:var(--ep-accent);transition:width .3s"></div>' +
-					'</div>' +
-					'<div style="font-size:.8rem;color:var(--ep-muted);margin-top:.25rem">' + progress + '% complete</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
 
-	function renderLearning() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_learning", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = learningHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load learning",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function learningHtml(d) {
-		var enrollments = d.enrollments || [];
-		var certifications = d.certifications || [];
-		var learningPaths = d.learning_paths || [];
-		var completed = d.completed_courses || [];
-		
-		if (!enrollments.length && !certifications.length && !learningPaths.length) {
-			return emptyBlock("fa-graduation-cap", "No learning records", "Your courses, certifications, and learning paths will appear here once enrolled.");
-		}
-		
-		var html = '';
-		
-		// Summary stats
-		if (enrollments.length || certifications.length || learningPaths.length) {
-			html +=
-				'<div class="ep-learning-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-				'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-clock-o"></i> ' + esc(d.in_progress || 0) + ' In Progress</span>' +
-				'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-play-circle"></i> ' + esc(d.not_started || 0) + ' Not Started</span>' +
-				'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-check-circle"></i> ' + esc(d.completed_count || 0) + ' Completed</span>' +
-				'<span class="ep-badge ep-badge--bad" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-exclamation-triangle"></i> ' + esc(d.overdue || 0) + ' Overdue</span>' +
-				'<span class="ep-badge" style="font-size:.9rem;padding:.5rem .8rem;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);color:var(--ep-muted)"><i class="fa fa-certificate"></i> ' + esc(d.expiring_certs || 0) + ' Expiring Soon</span>' +
-				'</div>';
-		}
-		
-		// Course Enrollments
-		if (enrollments.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-book"></i> Course Enrollments</p>';
-			enrollments.forEach(function (e) {
-				var statusClass = e.status === "Completed" ? "ep-badge--good" : e.status === "In Progress" ? "ep-badge--info" : e.status === "Overdue" || (e.due_date && e.due_date < new Date().toISOString().split("T")[0] && e.status !== "Completed") ? "ep-badge--bad" : "ep-badge--warn";
-				var isOverdue = e.due_date && e.due_date < new Date().toISOString().split("T")[0] && e.status !== "Completed";
-				var progress = e.progress || 0;
-				html +=
-					'<div class="ep-learning-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(e.course_name || e.course) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(e.status) + (isOverdue ? ' (Overdue)' : '') + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(e.start_date)) + (e.end_date ? ' &rarr; ' + esc(dateOnly(e.end_date)) : '') + (e.due_date ? ' &middot; Due: ' + esc(dateOnly(e.due_date)) : '') + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-clock-o"></i> ' + esc(e.hours || 0) + ' hrs' + (e.training_provider ? ' &middot; ' + esc(e.training_provider) : '') + '</div>' +
-					(e.is_mandatory ? '<div class="ep-row-meta" style="color:var(--ep-warn)"><i class="fa fa-exclamation-circle"></i> Mandatory</div>' : '') +
-					'</div>' +
-					'<div style="text-align:right;min-width:150px">' +
-					'<div style="width:120px;height:8px;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);border-radius:4px;overflow:hidden;margin-bottom:.5rem">' +
-					'<div style="width:' + progress + '%;height:100%;background:' + (progress === 100 ? 'var(--ep-good)' : 'var(--ep-accent)') + ';transition:width .3s"></div>' +
-					'</div>' +
-					'<div style="font-size:.8rem;color:var(--ep-muted)">' + progress + '% complete</div>' +
-					(e.certificate_number ? '<a href="#" style="font-size:.8rem;color:var(--ep-accent);margin-top:.5rem;display:block"><i class="fa fa-certificate"></i> Certificate: ' + esc(e.certificate_number) + '</a>' : '') +
-					(e.score ? '<div style="font-size:.8rem;color:var(--ep-muted);margin-top:.25rem">Score: ' + esc(e.score) + '%</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Certifications
-		if (certifications.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-certificate"></i> Certifications</p>';
-			certifications.forEach(function (c) {
-				var statusClass = c.status === "Active" ? "ep-badge--good" : c.status === "Expired" ? "ep-badge--bad" : "ep-badge--warn";
-				var isExpiring = c.expiry_date && c.expiry_date < new Date(Date.now() + 90*24*60*60*1000).toISOString().split("T")[0] && c.status === "Active";
-				html +=
-					'<div class="ep-cert-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)"' + (isExpiring ? ' style="border-left:4px solid var(--ep-warn)"' : '') + '>' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(c.certification_name) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(c.status) + '</span>' +
-					(isExpiring ? '<span class="ep-badge ep-badge--warn" style="font-size:.7rem"><i class="fa fa-clock-o"></i> Expiring Soon</span>' : '') +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-building"></i> ' + esc(c.issuing_body) + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> Issued: ' + esc(dateOnly(c.issue_date)) + (c.expiry_date ? ' &middot; Expires: ' + esc(dateOnly(c.expiry_date)) : '') + '</div>' +
-					(c.credential_id ? '<div class="ep-row-meta"><i class="fa fa-id-badge"></i> Credential: ' + esc(c.credential_id) + '</div>' : '') +
-					'</div>' +
-					(c.credential_url ? '<a href="' + esc(c.credential_url) + '" target="_blank" style="font-size:.85rem;color:var(--ep-accent)"><i class="fa fa-external-link"></i> Verify</a>' : '') +
-					'</div>';
-			});
-		}
-		
-		// Learning Paths
-		if (learningPaths.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-road"></i> Learning Paths</p>';
-			learningPaths.forEach(function (lp) {
-				var statusClass = lp.status === "Completed" ? "ep-badge--good" : lp.status === "In Progress" ? "ep-badge--info" : "ep-badge--warn";
-				var progress = lp.progress || 0;
-				html +=
-					'<div class="ep-lpath-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div class="ep-row-title">' + esc(lp.learning_path_name || lp.learning_path) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(lp.start_date)) + (lp.target_end_date ? ' &rarr; ' + esc(dateOnly(lp.target_end_date)) : '') + '</div>' +
-					'</div>' +
-					'<div style="text-align:right;min-width:150px">' +
-					'<div class="ep-badge ' + statusClass + '" style="margin-bottom:.5rem">' + esc(lp.status) + '</div>' +
-					'<div style="width:120px;height:8px;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);border-radius:4px;overflow:hidden">' +
-					'<div style="width:' + progress + '%;height:100%;background:var(--ep-accent);transition:width .3s"></div>' +
-					'</div>' +
-					'<div style="font-size:.8rem;color:var(--ep-muted);margin-top:.25rem">' + progress + '% complete</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
 
 	function renderAssets() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newAssetReq" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Request Equipment</button>' +
+			screenBar("panelBack") +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
-		});
-		document.getElementById("newAssetReq").addEventListener("click", function () {
-			show("asset_form");
 		});
 		call({ action: "my_assets", token: state.token })
 			.then(function (d) {
@@ -2128,965 +2568,81 @@
 
 	function assetsHtml(d) {
 		var assets = d.assets || [];
-		var requests = d.requests || [];
-		
-		var html = '';
-		
-		// Summary stats
-		if (assets.length || requests.length) {
-			html +=
-				'<div class="ep-assets-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-				'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-laptop"></i> ' + esc(d.total_assets || 0) + ' Total</span>' +
-				'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-check-circle"></i> ' + esc(d.active_assets || 0) + ' Active</span>' +
-				'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-shield"></i> ' + esc(d.maintenance_due || 0) + ' Warranty Expiring</span>' +
-				'<span class="ep-badge" style="font-size:.9rem;padding:.5rem .8rem;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);color:var(--ep-muted)"><i class="fa fa-clock-o"></i> ' + esc(requests.length) + ' Requests</span>' +
-				'</div>';
-		}
-		
-		// Assigned Assets
-		if (assets.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-laptop"></i> Assigned Equipment</p>';
-			assets.forEach(function (a) {
-				var statusClass = a.status === "In Use" ? "ep-badge--good" : a.status === "Under Maintenance" ? "ep-badge--warn" : "ep-badge";
-				var maint = a.maintenance || [];
-				var nextMaint = maint.length ? maint[0] : null;
-				html +=
-					'<div class="ep-asset-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1.25rem;margin-bottom:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(a.asset_name || a.item_code) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(a.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-tag"></i> ' + esc(a.asset_category) + (a.serial_no ? ' &middot; SN: ' + esc(a.serial_no) : '') + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> Assigned: ' + esc(dateOnly(a.assigned_date)) + (a.expected_return_date ? ' &middot; Return by: ' + esc(dateOnly(a.expected_return_date)) : '') + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-dollar"></i> Value: ' + esc(a.purchase_amount) + (a.purchase_date ? ' &middot; Purchased: ' + esc(dateOnly(a.purchase_date)) : '') + '</div>' +
-					(a.warranty_expiry ? '<div class="ep-row-meta" style="color:' + (a.warranty_expiry < new Date(Date.now() + 30*24*60*60*1000).toISOString().split("T")[0] ? 'var(--ep-warn)' : 'var(--ep-muted)') + '"><i class="fa fa-shield"></i> Warranty: ' + esc(dateOnly(a.warranty_expiry)) + (a.warranty_expiry < new Date(Date.now() + 30*24*60*60*1000).toISOString().split("T")[0] ? ' (Expiring Soon)' : '') + '</div>' : '') +
-					(a.condition ? '<div class="ep-row-meta"><i class="fa fa-heartbeat"></i> Condition: ' + esc(a.condition) + '</div>' : '') +
-					(a.location ? '<div class="ep-row-meta"><i class="fa fa-map-marker"></i> Location: ' + esc(a.location) + '</div>' : '') +
-					'</div>' +
-					(maint.length ? '<div style="margin-top:.75rem;padding:.75rem;background:color-mix(in srgb, var(--ep-muted) 5%, var(--ep-card));border-radius:.5rem;font-size:.85rem"><strong>Maintenance:</strong> ' + maint.map(function(m) { return esc(m.maintenance_type) + ' - ' + esc(dateOnly(m.scheduled_date)) + ' (' + esc(m.status) + ')'; }).join(', ') + '</div>' : '') +
-					'</div>' +
-					'</div>';
-			});
-		} else {
-			html += emptyBlock("fa-laptop", "No equipment assigned", "Your assigned assets will appear here.");
-		}
-		
-		// Asset Requests
-		if (requests.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-plus-circle"></i> Your Requests</p>';
-			requests.forEach(function (r) {
-				var statusClass = r.status === "Approved" ? "ep-badge--good" : r.status === "Rejected" ? "ep-badge--bad" : r.status === "Fulfilled" ? "ep-badge--info" : "ep-badge--warn";
-				html +=
-					'<div class="ep-asset-req" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:200px">' +
-					'<div class="ep-row-title">' + esc(r.item_name) + ' <span class="ep-badge" style="font-size:.7rem;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);color:var(--ep-muted)">' + esc(r.asset_category) + '</span></div>' +
-					'<div class="ep-row-meta">' + esc(r.purpose) + '</div>' +
-					'<div class="ep-row-meta">Priority: ' + esc(r.priority) + ' &middot; Requested: ' + esc(dateOnly(r.requested_date)) + (r.approved_date ? ' &middot; Approved: ' + esc(dateOnly(r.approved_date)) : '') + '</div>' +
-					'</div>' +
-					'<span class="ep-badge ' + statusClass + '" style="font-size:.85rem;padding:.35rem .7rem;flex-shrink:0">' + esc(r.status) + '</span>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
+		var soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-	function renderAssetForm() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("formBack").addEventListener("click", function () {
-			show("assets");
-		});
-		call({ action: "asset_categories", token: state.token })
-			.then(function (d) {
-				var cats = (d.asset_categories || []).map(function (c) {
-					return '<option value="' + esc(c.name) + '">' + esc(c.category_name || c.name) + '</option>';
-				}).join('');
-				document.getElementById("panelBody").innerHTML =
-					'<p class="ep-card-title">Request Equipment</p>' +
-					'<form id="assetForm" novalidate>' +
-					'<div class="ep-field"><label class="ep-label" for="reqCategory">Category</label>' +
-					'<select class="ep-input" id="reqCategory" required>' +
-					'<option value="">Select category</option>' + cats +
-					'</select></div>' +
-					'<div class="ep-field"><label class="ep-label" for="reqItem">Item Name / Description</label>' +
-					'<input class="ep-input" id="reqItem" placeholder="e.g., MacBook Pro 16\", Dell Monitor 27\"" required /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="reqPurpose">Purpose / Justification</label>' +
-					'<textarea class="ep-input" id="reqPurpose" rows="3" placeholder="Why do you need this equipment?" required></textarea></div>' +
-					'<div class="ep-field"><label class="ep-label" for="reqPriority">Priority</label>' +
-					'<select class="ep-input" id="reqPriority">' +
-					'<option value="Low">Low</option>' +
-					'<option value="Medium" selected>Medium</option>' +
-					'<option value="High">High</option>' +
-					'<option value="Urgent">Urgent</option>' +
-					'</select></div>' +
-					'<div class="ep-field"><label class="ep-label" for="reqExpected">Expected Date (optional)</label>' +
-					'<input class="ep-input" id="reqExpected" type="date" /></div>' +
-					'<button class="ep-btn" type="submit">Submit Request</button></form>';
-				document.getElementById("assetForm").addEventListener("submit", function (e) {
-					e.preventDefault();
-					submitAssetForm();
-				});
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load categories",
-					(err && err.message) || ""
-				);
-			});
-	}
-
-	function submitAssetForm() {
-		call({
-			action: "request_asset",
-			token: state.token,
-			asset_category: document.getElementById("reqCategory").value,
-			item_name: document.getElementById("reqItem").value,
-			purpose: document.getElementById("reqPurpose").value,
-			priority: document.getElementById("reqPriority").value,
-			expected_date: document.getElementById("reqExpected").value || null,
-		})
-			.then(function () {
-				announce("Asset request submitted.");
-				show("assets");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				var body = document.getElementById("panelBody");
-				if (body) {
-					body.innerHTML =
-						'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>' +
-						esc(err.message) +
-						"</span></div>" + body.innerHTML;
-				}
-			});
-	}
-
-	function renderTravel() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newTravel" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Request Travel</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		document.getElementById("newTravel").addEventListener("click", function () {
-			show("travel_form");
-		});
-		call({ action: "my_travel", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = travelHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load travel",
-					(err && err.message) || ""
-				);
-			});
-	}
-
-	function travelHtml(d) {
-		var rows = d.travel || [];
-		if (!rows.length) {
-			return emptyBlock("fa-plane", "No travel requests", "Your travel requests will appear here.");
-		}
 		var html =
-			'<p class="ep-card-title">Travel Requests</p>' +
-			'<div class="ep-travel-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">' +
-			'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-clock-o"></i> ' + esc(d.pending || 0) + ' Pending</span>' +
-			'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-check-circle"></i> ' + esc(d.approved || 0) + ' Approved</span>' +
-			'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-flag-checkered"></i> ' + esc(d.completed || 0) + ' Completed</span>' +
-			'</div>';
-		rows.forEach(function (r) {
-			var statusClass = r.approval_status === "Approved" ? "ep-badge--good" : r.approval_status === "Rejected" ? "ep-badge--bad" : r.status === "Completed" ? "ep-badge--info" : "ep-badge--warn";
-			html +=
-				'<div class="ep-travel-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-				'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-				'<div style="flex:1;min-width:250px">' +
-				'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-				'<strong style="font-size:1.1rem">' + esc(r.purpose) + '</strong>' +
-				'<span class="ep-badge ' + statusClass + '">' + esc(r.approval_status || r.status) + '</span>' +
-				'</div>' +
-				'<div class="ep-row-meta"><i class="fa fa-map-marker"></i> ' + esc(r.destination) + ' &middot; ' + esc(r.mode_of_travel) + '</div>' +
-				'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(r.departure_date)) + ' &rarr; ' + esc(dateOnly(r.return_date)) + '</div>' +
-				'<div class="ep-row-meta"><i class="fa fa-money"></i> Estimated: ' + esc(r.estimated_cost) + (r.advance_amount ? ' &middot; Advance: ' + esc(r.advance_amount) : '') + (r.actual_cost ? ' &middot; Actual: ' + esc(r.actual_cost) : '') + '</div>' +
-				(r.description ? '<div class="ep-row-meta" style="margin-top:.25rem">' + esc(r.description) + '</div>' : '') +
-				'</div>' +
-				'</div>' +
-				'</div>';
-		});
-		return html;
-	}
-
-	function renderTravelForm() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			'<div class="ep-stats">' +
+			stat(d.total_assets, "Assets") +
+			stat(d.active_assets, "In service") +
+			stat(d.insurance_due, "Insurance due") +
 			"</div>";
-		document.getElementById("formBack").addEventListener("click", function () {
-			show("travel");
-		});
-		call({ action: "travel_modes", token: state.token })
-			.then(function (d) {
-				var modes = (d.travel_modes || []).map(function (m) {
-					return '<option value="' + esc(m.name) + '">' + esc(m.mode_name || m.name) + '</option>';
-				}).join('');
-				var today = new Date().toISOString().split("T")[0];
-				var nextWeek = new Date(Date.now() + 7*24*60*60*1000).toISOString().split("T")[0];
-				document.getElementById("panelBody").innerHTML =
-					'<p class="ep-card-title">Request Travel</p>' +
-					'<form id="travelForm" novalidate>' +
-					'<div class="ep-field"><label class="ep-label" for="trPurpose">Purpose</label>' +
-					'<textarea class="ep-input" id="trPurpose" rows="3" placeholder="Business meeting, conference, training..." required></textarea></div>' +
-					'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">' +
-					'<div class="ep-field"><label class="ep-label" for="trDeparture">Departure Date</label>' +
-					'<input class="ep-input" id="trDeparture" type="date" value="' + today + '" min="' + today + '" required /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="trReturn">Return Date</label>' +
-					'<input class="ep-input" id="trReturn" type="date" value="' + nextWeek + '" min="' + today + '" required /></div>' +
-					'</div>' +
-					'<div class="ep-field"><label class="ep-label" for="trDestination">Destination</label>' +
-					'<input class="ep-input" id="trDestination" placeholder="City, Country" required /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="trMode">Mode of Travel</label>' +
-					'<select class="ep-input" id="trMode" required>' +
-					'<option value="">Select mode</option>' + modes +
-					'</select></div>' +
-					'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">' +
-					'<div class="ep-field"><label class="ep-label" for="trEstCost">Estimated Cost</label>' +
-					'<input class="ep-input" id="trEstCost" type="number" step="0.01" min="0" required /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="trAdvance">Advance Amount (optional)</label>' +
-					'<input class="ep-input" id="trAdvance" type="number" step="0.01" min="0" value="0" /></div>' +
-					'</div>' +
-					'<div class="ep-field"><label class="ep-label" for="trDesc">Description (optional)</label>' +
-					'<textarea class="ep-input" id="trDesc" rows="3" placeholder="Additional details..."></textarea></div>' +
-					'<button class="ep-btn" type="submit">Submit Request</button></form>';
-				document.getElementById("travelForm").addEventListener("submit", function (e) {
-					e.preventDefault();
-					submitTravelForm();
-				});
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load travel modes",
-					(err && err.message) || ""
-				);
-			});
-	}
-
-	function submitTravelForm() {
-		var dep = document.getElementById("trDeparture").value;
-		var ret = document.getElementById("trReturn").value;
-		if (dep > ret) {
-			var body = document.getElementById("panelBody");
-			if (body) {
-				body.innerHTML =
-					'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>Departure date cannot be after return date.</span></div>' + body.innerHTML;
+		if (!assets.length) {
+			return html + emptyBlock("fa-laptop", "No equipment assigned", "What HR has handed you will appear here.");
+		}
+		html += '<p class="ep-card-title">Assigned equipment</p>';
+		assets.forEach(function (a) {
+			var expiring = a.insurance_end_date && a.insurance_end_date < soon;
+			var meta = "";
+			function line(icon, value, tone) {
+				if (!value) return;
+				meta +=
+					"<li" +
+					(tone ? ' class="' + tone + '"' : "") +
+					"><i class=\"fa " +
+					esc(icon) +
+					'"></i><span>' +
+					esc(value) +
+					"</span></li>";
 			}
-			return;
-		}
-		call({
-			action: "request_travel",
-			token: state.token,
-			purpose: document.getElementById("trPurpose").value,
-			departure_date: dep,
-			return_date: ret,
-			destination: document.getElementById("trDestination").value,
-			mode_of_travel: document.getElementById("trMode").value,
-			estimated_cost: parseFloat(document.getElementById("trEstCost").value),
-			advance_amount: parseFloat(document.getElementById("trAdvance").value) || 0,
-			description: document.getElementById("trDesc").value,
-		})
-			.then(function () {
-				announce("Travel request submitted.");
-				show("travel");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				var body = document.getElementById("panelBody");
-				if (body) {
-					body.innerHTML =
-						'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>' +
-						esc(err.message) +
-						"</span></div>" + body.innerHTML;
-				}
-			});
-	}
+			line("fa-tag", a.asset_category);
+			line("fa-building-o", a.department);
+			line("fa-calendar", "Acquired " + dateOnly(a.purchase_date));
+			line("fa-money", a.purchase_amount ? "Value " + a.purchase_amount : "");
+			line(
+				"fa-shield",
+				a.insurance_end_date
+					? "Insurance " +
+						dateOnly(a.insurance_end_date) +
+						(expiring ? " - due soon" : "") +
+						(a.insurer ? " \u00b7 " + a.insurer : "")
+					: "",
+				expiring ? "ep-meta--warn" : ""
+			);
+			line("fa-map-marker", a.location);
 
-	function renderLoans() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newLoan" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Request Loan</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
+			html +=
+				'<article class="ep-asset-card">' +
+				'<div class="ep-asset-head"><span class="ep-asset-name">' +
+				esc(a.asset_name || a.item_code) +
+				'</span><span class="ep-badge ' +
+				(a.status === "Submitted" ? "ep-badge--good" : "ep-badge--info") +
+				'">' +
+				esc(a.status) +
+				"</span></div>" +
+				'<ul class="ep-meta">' +
+				meta +
+				"</ul></article>";
 		});
-		document.getElementById("newLoan").addEventListener("click", function () {
-			show("loan_form");
-		});
-		call({ action: "my_loans", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = loansHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load loans",
-					(err && err.message) || ""
-				);
-			});
-	}
-
-	function loansHtml(d) {
-		var advances = d.salary_advances || [];
-		var loans = d.employee_loans || [];
-		
-		if (!advances.length && !loans.length) {
-			return emptyBlock("fa-money", "No loans or advances", "Your salary advances and loans will appear here.");
-		}
-		
-		var html = '';
-		
-		// Summary stats
-		html +=
-			'<div class="ep-loans-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-			'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-clock-o"></i> ' + esc(d.pending_advances || 0) + ' Pending</span>' +
-			'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-money"></i> ' + esc(d.active_loans || 0) + ' Active Loans</span>' +
-			'<span class="ep-badge ep-badge--bad" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-exclamation-triangle"></i> ' + esc(d.total_outstanding || 0) + ' Outstanding</span>' +
-			'</div>';
-		
-		// Salary Advances
-		if (advances.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-bolt"></i> Salary Advances</p>';
-			advances.forEach(function (a) {
-				var statusClass = a.status === "Paid" ? "ep-badge--good" : a.status === "Submitted" || a.status === "Pending" ? "ep-badge--warn" : "ep-badge";
-				html +=
-					'<div class="ep-loan-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">Salary Advance</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(a.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-money"></i> Amount: ' + esc(a.advance_amount) + ' &middot; Paid: ' + esc(a.paid_amount) + ' &middot; Balance: ' + esc(a.balance_amount) + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(a.posting_date)) + (a.deduction_per_month ? ' &middot; ' + esc(a.deduction_per_month) + '/month for ' + esc(a.repay_months) + ' months' : '') + '</div>' +
-					(a.purpose ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-comment-o"></i> ' + esc(a.purpose) + '</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Employee Loans
-		if (loans.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-university"></i> Employee Loans</p>';
-			loans.forEach(function (l) {
-				var statusClass = l.status === "Paid" || l.status === "Closed" ? "ep-badge--good" : l.status === "Disbursed" || l.status === "Partially Paid" ? "ep-badge--info" : l.status === "Pending" ? "ep-badge--warn" : "ep-badge";
-				html +=
-					'<div class="ep-loan-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(l.loan_type) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(l.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-money"></i> Amount: ' + esc(l.loan_amount) + ' &middot; Paid: ' + esc(l.total_paid_amount || l.total_amount_paid) + ' &middot; Balance: ' + esc(l.balance_amount) + '</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-percent"></i> Interest: ' + esc(l.interest_rate || 0) + '% &middot; ' + esc(l.repayment_periods) + ' months &middot; ' + esc(l.repayment_amount) + '/month</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(l.posting_date)) + '</div>' +
-					(l.purpose ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-comment-o"></i> ' + esc(l.purpose) + '</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
 		return html;
 	}
 
-	function renderLoanForm() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("formBack").addEventListener("click", function () {
-			show("loans");
-		});
-		call({ action: "loan_types", token: state.token })
-			.then(function (d) {
-				var types = (d.loan_types || []).map(function (t) {
-					return '<option value="' + esc(t.name) + '" data-rate="' + esc(t.interest_rate || 0) + '" data-max="' + esc(t.max_amount || 0) + '" data-periods="' + esc(t.max_repayment_periods || 12) + '">' + esc(t.loan_type_name || t.name) + (t.interest_rate ? ' (' + esc(t.interest_rate) + '%)' : '') + '</option>';
-				}).join('');
-				document.getElementById("panelBody").innerHTML =
-					'<p class="ep-card-title">Request Loan / Advance</p>' +
-					'<form id="loanForm" novalidate>' +
-					'<div class="ep-field"><label class="ep-label" for="lnType">Type</label>' +
-					'<select class="ep-input" id="lnType" required>' +
-					'<option value="Salary Advance">Salary Advance (no interest, repaid via salary)</option>' +
-					types +
-					'</select></div>' +
-					'<div class="ep-field"><label class="ep-label" for="lnAmount">Amount</label>' +
-					'<input class="ep-input" id="lnAmount" type="number" step="0.01" min="1" required /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="lnPurpose">Purpose</label>' +
-					'<textarea class="ep-input" id="lnPurpose" rows="3" placeholder="Why do you need this loan/advance?" required></textarea></div>' +
-					'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">' +
-					'<div class="ep-field"><label class="ep-label" for="lnMonths">Repayment Months</label>' +
-					'<input class="ep-input" id="lnMonths" type="number" min="1" max="60" value="12" /></div>' +
-					'<div class="ep-field"><label class="ep-label" for="lnRate">Interest Rate % (for loans)</label>' +
-					'<input class="ep-input" id="lnRate" type="number" step="0.1" min="0" value="0" /></div>' +
-					'</div>' +
-					'<button class="ep-btn" type="submit">Submit Request</button></form>';
-				document.getElementById("loanForm").addEventListener("submit", function (e) {
-					e.preventDefault();
-					submitLoanForm();
-				});
-				
-				// Auto-fill interest rate and max periods when loan type changes
-				document.getElementById("lnType").addEventListener("change", function () {
-					var opt = this.options[this.selectedIndex];
-					if (opt.dataset.rate) document.getElementById("lnRate").value = opt.dataset.rate;
-					if (opt.dataset.periods) document.getElementById("lnMonths").value = opt.dataset.periods;
-					if (opt.dataset.max) document.getElementById("lnAmount").max = opt.dataset.max;
-				});
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load loan types",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function submitLoanForm() {
-		call({
-			action: "request_loan",
-			token: state.token,
-			loan_type: document.getElementById("lnType").value,
-			amount: parseFloat(document.getElementById("lnAmount").value),
-			purpose: document.getElementById("lnPurpose").value,
-			repayment_months: parseInt(document.getElementById("lnMonths").value, 10) || 12,
-			interest_rate: parseFloat(document.getElementById("lnRate").value) || 0,
-		})
-			.then(function () {
-				announce("Loan request submitted.");
-				show("loans");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				var body = document.getElementById("panelBody");
-				if (body) {
-					body.innerHTML =
-						'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>' +
-						esc(err.message) +
-						"</span></div>" + body.innerHTML;
-				}
-			});
-	}
 
-	function renderWellness() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newIncident" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Report Incident</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newObservation" style="margin-bottom:.8rem;float:right;margin-right:.5rem"><i class="fa fa-eye"></i> Report Observation</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		document.getElementById("newIncident").addEventListener("click", function () {
-			show("incident_form");
-		});
-		document.getElementById("newObservation").addEventListener("click", function () {
-			show("observation_form");
-		});
-		call({ action: "my_wellness", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = wellnessHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load wellness",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function wellnessHtml(d) {
-		var incidents = d.incidents || [];
-		var wellness = d.wellness_programs || [];
-		var checkups = d.health_checkups || [];
-		var observations = d.safety_observations || [];
-		
-		if (!incidents.length && !wellness.length && !checkups.length && !observations.length) {
-			return emptyBlock("fa-heartbeat", "No wellness records", "Your safety incidents, wellness programs, and health checkups will appear here.");
-		}
-		
-		var html = '';
-		
-		// Summary stats
-		html +=
-			'<div class="ep-wellness-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-			'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-exclamation-triangle"></i> ' + esc(d.open_incidents || 0) + ' Open Incidents</span>' +
-			'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-leaf"></i> ' + esc(d.completed_programs || 0) + ' Programs Done</span>' +
-			'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-stethoscope"></i> ' + esc(d.upcoming_checkups || 0) + ' Checkups Due</span>' +
-			'<span class="ep-badge" style="font-size:.9rem;padding:.5rem .8rem;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);color:var(--ep-muted)"><i class="fa fa-eye"></i> ' + esc(observations.length) + ' Observations</span>' +
-			'</div>';
-		
-		// Safety Incidents
-		if (incidents.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-exclamation-triangle"></i> Safety Incidents</p>';
-			incidents.forEach(function (i) {
-				var severityClass = i.severity === "Critical" ? "ep-badge--bad" : i.severity === "High" ? "ep-badge--bad" : i.severity === "Medium" ? "ep-badge--warn" : "ep-badge--info";
-				var statusClass = i.status === "Closed" ? "ep-badge--good" : i.status === "Resolved" ? "ep-badge--info" : i.status === "Under Investigation" ? "ep-badge--warn" : "ep-badge";
-				html +=
-					'<div class="ep-wellness-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(i.incident_type) + '</strong>' +
-					'<span class="ep-badge ' + severityClass + '">' + esc(i.severity) + '</span>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(i.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(i.incident_date)) + ' &middot; <i class="fa fa-map-marker"></i> ' + esc(i.location) + '</div>' +
-					'<div class="ep-row-meta">' + esc(i.description) + '</div>' +
-					(i.root_cause ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-search"></i> Root Cause: ' + esc(i.root_cause) + '</div>' : '') +
-					(i.corrective_action ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-wrench"></i> Action: ' + esc(i.corrective_action) + '</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Safety Observations
-		if (observations.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-eye"></i> Safety Observations</p>';
-			observations.forEach(function (o) {
-				var severityClass = o.severity === "Critical" ? "ep-badge--bad" : o.severity === "High" ? "ep-badge--bad" : o.severity === "Medium" ? "ep-badge--warn" : "ep-badge--info";
-				var statusClass = o.status === "Closed" ? "ep-badge--good" : o.status === "Action Taken" ? "ep-badge--info" : "ep-badge--warn";
-				html +=
-					'<div class="ep-wellness-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(o.observation_type) + '</strong>' +
-					'<span class="ep-badge ' + severityClass + '">' + esc(o.severity) + '</span>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(o.status) + '</span>' +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(o.observation_date)) + ' &middot; <i class="fa fa-map-marker"></i> ' + esc(o.location) + '</div>' +
-					'<div class="ep-row-meta">' + esc(o.description) + '</div>' +
-					(o.suggested_action ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-lightbulb-o"></i> Suggested: ' + esc(o.suggested_action) + '</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Wellness Programs
-		if (wellness.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-leaf"></i> Wellness Programs</p>';
-			wellness.forEach(function (w) {
-				var statusClass = w.status === "Completed" ? "ep-badge--good" : w.status === "In Progress" ? "ep-badge--info" : "ep-badge--warn";
-				var progress = w.progress || 0;
-				html +=
-					'<div class="ep-wellness-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div class="ep-row-title">' + esc(w.program_name) + '</div>' +
-					'<div class="ep-row-meta">' + esc(dateOnly(w.start_date)) + (w.end_date ? ' &rarr; ' + esc(dateOnly(w.end_date)) : '') + '</div>' +
-					(w.description ? '<div class="ep-row-meta" style="margin-top:.25rem">' + esc(w.description) + '</div>' : '') +
-					'</div>' +
-					'<div style="text-align:right;min-width:150px">' +
-					'<div class="ep-badge ' + statusClass + '" style="margin-bottom:.5rem">' + esc(w.status) + '</div>' +
-					'<div style="width:120px;height:8px;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);border-radius:4px;overflow:hidden">' +
-					'<div style="width:' + progress + '%;height:100%;background:var(--ep-accent);transition:width .3s"></div>' +
-					'</div>' +
-					'<div style="font-size:.8rem;color:var(--ep-muted);margin-top:.25rem">' + progress + '% complete</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Health Checkups
-		if (checkups.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-stethoscope"></i> Health Checkups</p>';
-			checkups.forEach(function (c) {
-				var statusClass = c.status === "Completed" ? "ep-badge--good" : c.status === "Pending Results" ? "ep-badge--warn" : "ep-badge--info";
-				var isDue = c.next_due_date && c.next_due_date >= new Date().toISOString().split("T")[0];
-				html +=
-					'<div class="ep-wellness-row" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card)"' + (isDue ? ' style="border-left:4px solid var(--ep-accent)"' : '') + '>' +
-					'<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(c.checkup_type) + '</strong>' +
-					'<span class="ep-badge ' + statusClass + '">' + esc(c.status) + '</span>' +
-					(isDue ? '<span class="ep-badge ep-badge--info" style="font-size:.7rem"><i class="fa fa-calendar"></i> Due Soon</span>' : '') +
-					'</div>' +
-					'<div class="ep-row-meta"><i class="fa fa-calendar"></i> ' + esc(dateOnly(c.checkup_date)) + (c.provider ? ' &middot; <i class="fa fa-building"></i> ' + esc(c.provider) : '') + '</div>' +
-					(c.next_due_date ? '<div class="ep-row-meta"><i class="fa fa-clock-o"></i> Next Due: ' + esc(dateOnly(c.next_due_date)) + '</div>' : '') +
-					(c.results_summary ? '<div class="ep-row-meta" style="margin-top:.25rem"><i class="fa fa-file-text-o"></i> ' + esc(c.results_summary) + '</div>' : '') +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
 
-	function renderRecognition() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newRecognition" style="margin-bottom:.8rem;float:right"><i class="fa fa-plus"></i> Give Recognition</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		document.getElementById("newRecognition").addEventListener("click", function () {
-			show("recognition_form");
-		});
-		call({ action: "my_recognition", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = recognitionHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load recognition",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function recognitionHtml(d) {
-		var received = d.received || [];
-		var sent = d.sent || [];
-		var badges = d.badges || [];
-		
-		if (!received.length && !sent.length && !badges.length) {
-			return emptyBlock("fa-trophy", "No recognition yet", "Give and receive recognition from your colleagues.");
-		}
-		
-		var html = '';
-		
-		// Summary stats
-		html +=
-			'<div class="ep-recognition-summary" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem">' +
-			'<span class="ep-badge ep-badge--good" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-trophy"></i> ' + esc(d.points_balance || 0) + ' Points</span>' +
-			'<span class="ep-badge ep-badge--info" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-inbox"></i> ' + esc(d.total_received || 0) + ' Received</span>' +
-			'<span class="ep-badge ep-badge--warn" style="font-size:.9rem;padding:.5rem .8rem"><i class="fa fa-paper-plane"></i> ' + esc(d.total_sent || 0) + ' Sent</span>' +
-			'<span class="ep-badge" style="font-size:.9rem;padding:.5rem .8rem;background:color-mix(in srgb, var(--ep-muted) 15%, transparent);color:var(--ep-muted)"><i class="fa fa-medal"></i> ' + esc(badges.length) + ' Badges</span>' +
-			'</div>';
-		
-		// Badges
-		if (badges.length) {
-			html += '<p class="ep-card-title"><i class="fa fa-medal"></i> Badges Earned</p>';
-			html += '<div class="ep-badges-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem;margin-bottom:1.5rem">';
-			badges.forEach(function (b) {
-				html +=
-					'<div class="ep-badge-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;background:var(--ep-card);text-align:center">' +
-					'<div style="width:4rem;height:4rem;border-radius:50%;margin:0 auto .75rem;background:' + esc(b.color || '#f59e0b') + ';display:flex;align-items:center;justify-content:center">' +
-					'<i class="fa ' + esc(b.icon || 'fa-trophy') + '" style="font-size:1.5rem;color:white"></i>' +
-					'</div>' +
-					'<div class="ep-row-title" style="font-size:.9rem">' + esc(b.badge_name) + '</div>' +
-					'<div class="ep-row-meta" style="font-size:.75rem">' + esc(b.badge_type) + '</div>' +
-					'<div class="ep-row-meta" style="font-size:.7rem;margin-top:.25rem">' + esc(dateOnly(b.earned_date)) + '</div>' +
-					(b.description ? '<div class="ep-row-meta" style="font-size:.7rem;margin-top:.25rem;color:var(--ep-muted)">' + esc(b.description) + '</div>' : '') +
-					'</div>';
-			});
-			html += '</div>';
-		}
-		
-		// Received Recognition
-		if (received.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-inbox"></i> Received (' + received.length + ')</p>';
-			received.forEach(function (r) {
-				html +=
-					'<div class="ep-recognition-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card);border-left:4px solid var(--ep-good)">' +
-					'<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(r.recognition_type) + '</strong>' +
-					(r.points > 0 ? '<span class="ep-badge ep-badge--info" style="font-size:.7rem"><i class="fa fa-star"></i> +' + esc(r.points) + '</span>' : '') +
-					(r.badge ? '<span class="ep-badge" style="font-size:.7rem;background:color-mix(in srgb, var(--ep-warn) 15%, transparent);color:var(--ep-warn)"><i class="fa fa-medal"></i> ' + esc(r.badge) + '</span>' : '') +
-					'</div>' +
-					'<div class="ep-row-meta">From: ' + esc(r.sender_name) + ' &middot; ' + esc(dateOnly(r.recognition_date)) + '</div>' +
-					'<div class="ep-row-meta" style="margin-top:.25rem;line-height:1.5">' + esc(r.message) + '</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		// Sent Recognition
-		if (sent.length) {
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-paper-plane"></i> Sent (' + sent.length + ')</p>';
-			sent.forEach(function (s) {
-				html +=
-					'<div class="ep-recognition-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;margin-bottom:.75rem;background:var(--ep-card);border-left:4px solid var(--ep-accent)">' +
-					'<div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">' +
-					'<div style="flex:1;min-width:250px">' +
-					'<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong style="font-size:1.1rem">' + esc(s.recognition_type) + '</strong>' +
-					(s.points > 0 ? '<span class="ep-badge ep-badge--info" style="font-size:.7rem"><i class="fa fa-star"></i> +' + esc(s.points) + '</span>' : '') +
-					(s.badge ? '<span class="ep-badge" style="font-size:.7rem;background:color-mix(in srgb, var(--ep-warn) 15%, transparent);color:var(--ep-warn)"><i class="fa fa-medal"></i> ' + esc(s.badge) + '</span>' : '') +
-					'</div>' +
-					'<div class="ep-row-meta">To: ' + esc(s.recipient_name) + ' &middot; ' + esc(dateOnly(s.recognition_date)) + '</div>' +
-					'<div class="ep-row-meta" style="margin-top:.25rem;line-height:1.5">' + esc(s.message) + '</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-		}
-		
-		return html;
-	}
 
-	function renderRecognitionForm() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("formBack").addEventListener("click", function () {
-			show("recognition");
-		});
-		call({ action: "recognition_types", token: state.token })
-			.then(function (d) {
-				var types = (d.recognition_types || []).map(function (t) {
-					return '<option value="' + esc(t.name) + '" data-points="' + esc(t.default_points || 0) + '">' + esc(t.type_name || t.name) + (t.default_points ? ' (+' + esc(t.default_points) + ' pts)' : '') + '</option>';
-				}).join('');
-				
-				call({ action: "my_colleagues", token: state.token })
-					.then(function (colleagues) {
-						var colleagueOptions = (colleagues.colleagues || [])
-							.filter(function (c) { return c.name !== state.employee; })
-							.map(function (c) {
-								return '<option value="' + esc(c.name) + '">' + esc(c.employee_name) + ' (' + esc(c.employee_number) + ')</option>';
-							}).join('');
-						
-						document.getElementById("panelBody").innerHTML =
-							'<p class="ep-card-title">Give Recognition</p>' +
-							'<form id="recognitionForm" novalidate>' +
-							'<div class="ep-field"><label class="ep-label" for="recRecipient">Recipient</label>' +
-							'<select class="ep-input" id="recRecipient" required>' +
-							'<option value="">Select a colleague</option>' + colleagueOptions +
-							'</select></div>' +
-							'<div class="ep-field"><label class="ep-label" for="recType">Type</label>' +
-							'<select class="ep-input" id="recType" required>' +
-							'<option value="">Select type</option>' + types +
-							'</select></div>' +
-							'<div class="ep-field"><label class="ep-label" for="recMessage">Message</label>' +
-							'<textarea class="ep-input" id="recMessage" rows="4" placeholder="Why are you recognizing this person? Be specific!" required></textarea></div>' +
-							'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">' +
-							'<div class="ep-field"><label class="ep-label" for="recPoints">Points</label>' +
-							'<input class="ep-input" id="recPoints" type="number" min="0" value="0" /></div>' +
-							'<div class="ep-field"><label class="ep-label" for="recBadge">Badge (optional)</label>' +
-							'<input class="ep-input" id="recBadge" placeholder="e.g., Team Player, Innovation Star" /></div>' +
-							'</div>' +
-							'<button class="ep-btn" type="submit">Send Recognition</button></form>';
-						
-						document.getElementById("recognitionForm").addEventListener("submit", function (e) {
-							e.preventDefault();
-							submitRecognitionForm();
-						});
-						
-						// Auto-fill points when type changes
-						document.getElementById("recType").addEventListener("change", function () {
-							var opt = this.options[this.selectedIndex];
-							if (opt.dataset.points) document.getElementById("recPoints").value = opt.dataset.points;
-						});
-					})
-					.catch(function (err) {
-						if (expired(err && err.message)) return;
-						document.getElementById("panelBody").innerHTML = emptyBlock(
-							"fa-exclamation-triangle",
-							"Cannot load colleagues",
-							(err && err.message) || ""
-						);
-					});
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load types",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function submitRecognitionForm() {
-		call({
-			action: "send_recognition",
-			token: state.token,
-			recipient: document.getElementById("recRecipient").value,
-			recognition_type: document.getElementById("recType").value,
-			message: document.getElementById("recMessage").value,
-			points: parseInt(document.getElementById("recPoints").value) || 0,
-			badge: document.getElementById("recBadge").value || null,
-		})
-			.then(function () {
-				announce("Recognition sent!");
-				show("recognition");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				var body = document.getElementById("panelBody");
-				if (body) {
-					body.innerHTML =
-						'<div class="ep-alert ep-alert--bad"><i class="fa fa-exclamation-triangle"></i><span>' +
-						esc(err.message) +
-						"</span></div>" + body.innerHTML;
-				}
-			});
-	}
 
-	function renderSupport() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_support", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = supportHtml(d);
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot load support",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function supportHtml(d) {
-		var html = '<p class="ep-card-title">Help & Support</p>';
-		var hasContent = false;
 
-		// HR Contacts
-		var hr = d.hr_contacts || [];
-		if (hr.length) {
-			hasContent = true;
-			html += '<p class="ep-card-title" style="margin-top:1rem"><i class="fa fa-user-tie"></i> HR Contacts</p>';
-			html += '<div class="ep-support-grid">';
-			hr.forEach(function (c) {
-				var initials = (c.employee_name || "?").split(" ").map(function (w) { return w[0]; }).join("").substring(0, 2).toUpperCase();
-				var avatar = c.image
-					? '<img src="' + esc(c.image) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
-					: '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;background:linear-gradient(135deg,var(--ep-accent),var(--ep-accent-dark));color:var(--ep-accent-ink);font-weight:700;font-size:1rem">' + esc(initials) + '</div>';
-				var email = c.company_email ? '<a href="mailto:' + esc(c.company_email) + '" style="color:var(--ep-accent);text-decoration:none"><i class="fa fa-envelope-o"></i> ' + esc(c.company_email) + '</a>' : '';
-				var phone = c.cell_number ? '<a href="tel:' + esc(c.cell_number) + '" style="color:var(--ep-accent);text-decoration:none;margin-left:1rem"><i class="fa fa-phone"></i> ' + esc(c.cell_number) + '</a>' : '';
-				var dept = c.department ? '<div class="ep-row-meta"><i class="fa fa-building-o"></i> ' + esc(c.department) + '</div>' : '';
-				html +=
-					'<div class="ep-support-card" style="border:1px solid var(--ep-line);border-radius:.8rem;padding:1rem;background:var(--ep-card)">' +
-					'<div style="display:flex;gap:1rem;align-items:center">' +
-					'<div style="width:3.5rem;height:3.5rem;border-radius:50%;overflow:hidden;flex-shrink:0">' + avatar + '</div>' +
-					'<div style="flex:1;min-width:0">' +
-					'<div class="ep-row-title" style="font-size:.95rem">' + esc(c.employee_name) + '</div>' +
-					'<div class="ep-row-meta">' + esc(c.designation) + '</div>' +
-					dept +
-					'<div style="margin-top:.5rem">' + email + phone + '</div>' +
-					'</div>' +
-					'</div>' +
-					'</div>';
-			});
-			html += '</div>';
-		}
 
-		// FAQs
-		var faqs = d.faqs || [];
-		if (faqs.length) {
-			hasContent = true;
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-question-circle"></i> Frequently Asked Questions</p>';
-			faqs.forEach(function (f) {
-				html +=
-					'<details class="ep-faq-item" style="border:1px solid var(--ep-line);border-radius:.6rem;overflow:hidden;margin-bottom:.5rem;background:var(--ep-card)">' +
-					'<summary style="padding:1rem;cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:.5rem">' +
-					'<i class="fa fa-chevron-right" style="color:var(--ep-muted);transition:transform .2s"></i>' +
-					esc(f.title) +
-					'</summary>' +
-					'<div style="padding:0 1rem 1rem;border-top:1px solid var(--ep-line);line-height:1.6">' + f.content + '</div>' +
-					'</details>';
-			});
-		}
 
-		// Policies
-		var policies = d.policies || [];
-		if (policies.length) {
-			hasContent = true;
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-file-text-o"></i> Policies & Documents</p>';
-			policies.forEach(function (p) {
-				var attachment = p.attachment ? '<a href="' + esc(p.attachment) + '" target="_blank" style="color:var(--ep-accent);text-decoration:none;margin-left:.75rem"><i class="fa fa-download"></i> Download</a>' : '';
-				html +=
-					'<div class="ep-policy-item" style="border:1px solid var(--ep-line);border-radius:.6rem;padding:1rem;margin-bottom:.5rem;background:var(--ep-card)">' +
-					'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">' +
-					'<strong>' + esc(p.title) + '</strong>' +
-					attachment +
-					'</div>' +
-					'<div style="line-height:1.6;color:var(--ep-ink)">' + p.content + '</div>' +
-					'</div>';
-			});
-		}
 
-		// Help topics
-		var help = d.help_topics || [];
-		if (help.length) {
-			hasContent = true;
-			html += '<p class="ep-card-title" style="margin-top:1.5rem"><i class="fa fa-lightbulb-o"></i> Help Topics</p>';
-			help.forEach(function (h) {
-				html +=
-					'<details class="ep-help-item" style="border:1px solid var(--ep-line);border-radius:.6rem;overflow:hidden;margin-bottom:.5rem;background:var(--ep-card)">' +
-					'<summary style="padding:1rem;cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:.5rem">' +
-					'<i class="fa fa-chevron-right" style="color:var(--ep-muted);transition:transform .2s"></i>' +
-					esc(h.title) +
-					'</summary>' +
-					'<div style="padding:0 1rem 1rem;border-top:1px solid var(--ep-line);line-height:1.6">' + h.content + '</div>' +
-					'</details>';
-			});
-		}
 
-		if (!hasContent) {
-			html = emptyBlock("fa-life-ring", "No support content yet", "HR can add FAQs, policies, and help topics from the desk.");
-		}
 
-		return html;
-	}
+
+
 
 	function balancesHtml(d) {
 		var rows = d.balances || [];
@@ -3095,7 +2651,7 @@
 		}
 		var html =
 			'<p class="ep-card-title">Leave balance &middot; ' + esc(d.year) + "</p>" +
-			'<p style="margin:-.2rem 0 .8rem;color:var(--ep-muted);font-size:.9rem">' +
+			'<p class="ep-card-sub">' +
 			esc(d.total_remaining) +
 			" days remaining in total</p>";
 		rows.forEach(function (r) {
@@ -3112,7 +2668,7 @@
 					: "";
 			html +=
 				'<div class="ep-balance">' +
-				'<div class="ep-row" style="border:0;padding:0">' +
+				'<div class="ep-row ep-row--plain">' +
 				'<div class="ep-row-main"><div class="ep-row-title">' +
 				esc(r.label || r.leave_type) +
 				"</div>" +
@@ -3140,11 +2696,9 @@
 	function renderTimeOff() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newRequest" style="margin-bottom:.8rem">' +
-			'<i class="fa fa-plus"></i> Request time off</button>' +
+			screenBar("panelBack", actionButton("newRequest", "fa-plus", "Request time off")) +
 			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("panelBack").addEventListener("click", function () {
 			show("dashboard");
@@ -3155,6 +2709,7 @@
 		call({ action: "my_leaves", token: state.token })
 			.then(function (d) {
 				document.getElementById("panelBody").innerHTML = leavesHtml(d);
+				bindLeaves();
 			})
 			.catch(function (err) {
 				if (expired(err && err.message)) return;
@@ -3187,9 +2742,44 @@
 				tone(r.status) +
 				'">' +
 				esc(r.status) +
-				"</span></div>";
+				"</span>" +
+				(r.status === "Open"
+					? '<button type="button" class="ep-row-withdraw" data-name="' +
+					  esc(r.name) +
+					  '">Withdraw</button>'
+					: "") +
+				"</div>";
 		});
 		return html;
+	}
+
+	// A request that is still with the approver is the employee's to take back. Bound
+	// after the rows exist, like every other listener here.
+	function bindLeaves() {
+		Array.prototype.forEach.call(
+			host.querySelectorAll(".ep-row-withdraw"),
+			function (el) {
+				el.addEventListener("click", function () {
+					el.disabled = true;
+					call({
+						action: "cancel_leave",
+						token: state.token,
+						name: el.dataset.name,
+						reason: "Withdrawn by the employee from the portal.",
+					})
+						.then(function () {
+							announce("Request withdrawn.");
+							renderTimeOff();
+						})
+						.catch(function (err) {
+							el.disabled = false;
+							if (expired(err && err.message)) return;
+							state.error = (err && err.message) || "Could not withdraw it.";
+							renderTimeOff();
+						});
+				});
+			}
+		);
 	}
 
 	function tone(status) {
@@ -3203,8 +2793,8 @@
 	function renderTimeOffForm() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			screenBar("formBack") +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("formBack").addEventListener("click", function () {
 			show("time_off");
@@ -3316,14 +2906,14 @@
 		// missing.
 		var html =
 			'<p class="ep-card-title">My expense claims</p>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="newClaim" style="margin-bottom:.9rem">' +
+			'<button type="button" class="ep-btn ep-btn-ghost ep-mb-9" id="newClaim">' +
 			'<i class="fa fa-plus"></i> Claim an expense</button>';
 		if (!rows.length) {
 			return (
 				html +
 				'<div class="ep-empty"><div class="ep-empty-icon"><i class="fa fa-money"></i></div>' +
 				'<div class="ep-empty-title">Nothing claimed yet</div>' +
-				'<div style="font-size:.9rem">Anything you claim will be listed here.</div></div>'
+				'<div class="ep-quiet">Anything you claim will be listed here.</div></div>'
 			);
 		}
 		rows.forEach(function (r) {
@@ -3332,16 +2922,16 @@
 			// would overstate it wherever HR sanctioned less.
 			var amount = r.total_sanctioned_amount || r.total_claimed_amount;
 			html +=
-				'<div class="ep-row" data-claim="' +
+				'<div class="ep-row ep-row--link" data-claim="' +
 				esc(r.name) +
-				'" style="cursor:pointer">' +
+				'">' +
 				'<div class="ep-row-main"><div class="ep-row-title">' +
 				esc(dateOnly(r.posting_date)) +
 				'</div><div class="ep-row-meta">' +
 				esc(claimLabel(r)) +
 				'</div></div><div class="ep-row-value">' +
 				money(amount, r.currency) +
-				' <i class="fa fa-chevron-right" style="color:var(--ep-muted)"></i></div></div>';
+				' <i class="fa fa-chevron-right ep-row-go"></i></div></div>';
 		});
 		return html;
 	}
@@ -3390,7 +2980,7 @@
 		var rows = d.items || [];
 		var html =
 			'<p class="ep-card-title">Expense claim</p>' +
-			'<div style="color:var(--ep-muted);font-size:.9rem;margin-bottom:.6rem">' +
+			'<div class="ep-quiet ep-quiet--block">' +
 			esc(d.name) +
 			" &middot; " +
 			esc(dateOnly(d.posting_date)) +
@@ -3401,10 +2991,10 @@
 			"</span>";
 
 		html +=
-			'<p class="ep-card-title" style="margin-top:.9rem"><i class="fa fa-list"></i> Lines</p>';
+			'<p class="ep-card-title ep-mt-9"><i class="fa fa-list"></i> Lines</p>';
 		if (!rows.length) {
 			html +=
-				'<div style="color:var(--ep-muted);font-size:.9rem">No lines recorded.</div>';
+				'<div class="ep-quiet">No lines recorded.</div>';
 		}
 		rows.forEach(function (r) {
 			// Both figures once they differ. A sanctioned line that came back lower than
@@ -3414,7 +3004,7 @@
 				Number(r.sanctioned_amount || 0) > 0 &&
 				Number(r.sanctioned_amount) !== Number(r.amount);
 			html +=
-				'<div class="ep-row" style="border:0;padding:.35rem 0">' +
+				'<div class="ep-row ep-row--tight">' +
 				'<div class="ep-row-main"><div class="ep-row-title">' +
 				esc(r.expense_type) +
 				"</div>" +
@@ -3432,17 +3022,17 @@
 
 		if (d.receipts && d.receipts.length) {
 			html +=
-				'<p class="ep-card-title" style="margin-top:.9rem"><i class="fa fa-paperclip"></i> Receipts</p>';
+				'<p class="ep-card-title ep-mt-9"><i class="fa fa-paperclip"></i> Receipts</p>';
 			d.receipts.forEach(function (r) {
 				html +=
-					'<div class="ep-row" style="border:0;padding:.3rem 0"><div class="ep-row-main">' +
+					'<div class="ep-row ep-row--tight"><div class="ep-row-main">' +
 					esc(r.file_name) +
 					"</div></div>";
 			});
 		}
 
 		html +=
-			'<div class="ep-row" style="margin-top:.9rem;border-top:1px solid var(--ep-line)">' +
+			'<div class="ep-row ep-row--total">' +
 			'<div class="ep-row-main"><strong>Claimed</strong></div>' +
 			'<div class="ep-row-value">' +
 			money(d.total_claimed_amount, d.currency) +
@@ -3456,7 +3046,7 @@
 			Number(d.total_sanctioned_amount) !== Number(d.total_claimed_amount)
 		) {
 			html +=
-				'<div class="ep-row" style="border:0;padding:.3rem 0">' +
+				'<div class="ep-row ep-row--tight">' +
 				'<div class="ep-row-main">Approved amount</div>' +
 				'<div class="ep-row-value">' +
 				money(d.total_sanctioned_amount, d.currency) +
@@ -3472,7 +3062,7 @@
 			// better they know that than be surprised the claim disappears.
 			var pending = String(d.approval_status || "") === "Draft" && d.docstatus === 0;
 			html +=
-				'<button type="button" class="ep-btn ep-btn-ghost" id="withdrawClaim" style="margin-top:1rem">' +
+				'<button type="button" class="ep-btn ep-btn-ghost ep-mt-1" id="withdrawClaim">' +
 				'<i class="fa fa-' +
 				(pending ? "times" : "trash-o") +
 				'"></i> ' +
@@ -3480,7 +3070,7 @@
 				"</button>";
 			if (pending) {
 				html +=
-					'<p style="margin-top:.5rem;color:var(--ep-muted);font-size:.85rem">' +
+					'<p class="ep-hint">' +
 					"This one is still with HR for approval. Cancelling it removes the request.</p>";
 			}
 		}
@@ -3517,8 +3107,8 @@
 	function renderExpenseForm() {
 		host.innerHTML =
 			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="formBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
+			screenBar("formBack") +
+			loadingPanel() +
 			"</div>";
 		document.getElementById("formBack").addEventListener("click", function () {
 			show("expenses");
@@ -3567,7 +3157,7 @@
 					'<input class="ep-input" id="note" autocomplete="off" /></div>' +
 					'<button class="ep-btn" type="submit">Submit for approval</button></form>' +
 					(withheld.length
-						? '<p style="margin-top:.9rem;color:var(--ep-muted);font-size:.85rem">Not shown: ' +
+						? '<p class="ep-hint">Not shown: ' +
 						  esc(
 								withheld
 									.map(function (t) {
@@ -3664,9 +3254,9 @@
 		var html = '<p class="ep-card-title">Payslips</p>';
 		rows.forEach(function (r) {
 			html +=
-				'<div class="ep-row" data-slip="' +
+				'<div class="ep-row ep-row--link" data-slip="' +
 				esc(r.name) +
-				'" style="cursor:pointer">' +
+				'">' +
 				'<div class="ep-row-main"><div class="ep-row-title">' +
 				esc(dateOnly(r.start_date)) +
 				" &rarr; " +
@@ -3675,7 +3265,7 @@
 				esc(r.status || "") +
 				'</div></div><div class="ep-row-value">' +
 				money(r.net_pay, r.currency) +
-				' <i class="fa fa-chevron-right" style="color:var(--ep-muted)"></i></div></div>';
+				' <i class="fa fa-chevron-right ep-row-go"></i></div></div>';
 		});
 		return html;
 	}
@@ -3725,7 +3315,7 @@
 		function table(heading, icon, rows) {
 			if (!rows || !rows.length) return "";
 			return (
-				'<p class="ep-card-title" style="margin-top:.9rem"><i class="fa ' +
+				'<p class="ep-card-title ep-mt-9"><i class="fa ' +
 				icon +
 				'"></i> ' +
 				esc(heading) +
@@ -3733,7 +3323,7 @@
 				rows
 					.map(function (r) {
 						return (
-							'<div class="ep-row" style="border:0;padding:.35rem 0">' +
+							'<div class="ep-row ep-row--tight">' +
 							'<div class="ep-row-main">' +
 							esc(r.component) +
 							'</div><div class="ep-row-value">' +
@@ -3745,10 +3335,10 @@
 			);
 		}
 		return (
-			'<button type="button" class="ep-btn ep-btn-ghost" id="downloadPdf" style="margin-bottom:.9rem">' +
+			'<button type="button" class="ep-btn ep-btn-ghost ep-mb-9" id="downloadPdf">' +
 			'<i class="fa fa-download"></i> Download PDF</button>' +
 			'<p class="ep-card-title">Payslip</p>' +
-			'<div style="color:var(--ep-muted);font-size:.9rem;margin-bottom:.6rem">' +
+			'<div class="ep-quiet ep-quiet--block">' +
 			esc(dateOnly(d.start_date)) +
 			" &rarr; " +
 			esc(dateOnly(d.end_date)) +
@@ -3760,7 +3350,7 @@
 			table("Earnings", "fa-arrow-circle-up", d.earnings) +
 			table("Deductions", "fa-arrow-circle-down", d.deductions) +
 			table("Employer side (not deducted)", "fa-building", d.employer) +
-			'<div class="ep-row" style="margin-top:.9rem;border-top:1px solid var(--ep-line)">' +
+			'<div class="ep-row ep-row--total">' +
 			'<div class="ep-row-main"><strong>Net pay</strong></div>' +
 			'<div class="ep-row-value">' +
 			money(d.net_pay, d.currency) +
@@ -3844,6 +3434,16 @@
 		);
 	}
 
+	// The same bar as a refusal, in the colour that says it was not one. A save that
+	// answers only by redrawing the form looks like nothing happened.
+	function infoAlert(text) {
+		return (
+			'<div class="ep-alert ep-alert--info"><i class="fa fa-check-circle"></i><span>' +
+			esc(text) +
+			"</span></div>"
+		);
+	}
+
 	function emptyBlock(icon, title, sub) {
 		return (
 			'<div class="ep-empty"><div class="ep-empty-icon"><i class="fa ' +
@@ -3851,125 +3451,14 @@
 			'"></i></div><div class="ep-empty-title">' +
 			esc(title) +
 			"</div>" +
-			(sub ? '<div style="font-size:.9rem">' + esc(sub) + "</div>" : "") +
+			(sub ? '<div class="ep-quiet">' + esc(sub) + "</div>" : "") +
 			"</div>"
 		);
 	}
 
 	// ---------------------------------------------------------- compensatory approvals
-	function renderCompensatoryApprovals() {
-		host.innerHTML =
-			'<div class="ep-fade">' +
-			'<button type="button" class="ep-back" id="panelBack"><i class="fa fa-arrow-left"></i> Back</button>' +
-			alertHtml() +
-			'<div class="ep-card" id="panelBody"><div class="ep-empty"><span class="ep-spin"></span></div></div>' +
-			"</div>";
-		document.getElementById("panelBack").addEventListener("click", function () {
-			show("dashboard");
-		});
-		call({ action: "my_compensatory_proposals", token: state.token })
-			.then(function (d) {
-				document.getElementById("panelBody").innerHTML = compensatoryProposalsHtml(d);
-				bindCompensatoryActions();
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				document.getElementById("panelBody").innerHTML = emptyBlock(
-					"fa-exclamation-triangle",
-					"Cannot read proposals",
-					(err && err.message) || ""
-				);
-			});
-	}
 
-	function compensatoryProposalsHtml(d) {
-		var rows = d.proposals || [];
-		if (!rows.length) {
-			return emptyBlock("fa-check-circle", "No pending proposals", "All compensatory leave requests are up to date.");
-		}
-		var html =
-			'<p class="ep-card-title">Compensatory Approvals</p>' +
-			'<p style="margin:-.2rem 0 .8rem;color:var(--ep-muted);font-size:.9rem">' +
-			esc(rows.length) +
-			" proposal" +
-			(rows.length === 1 ? "" : "s") +
-			" awaiting review</p>";
-		rows.forEach(function (p) {
-			var created = longDate(p.creation);
-			html +=
-				'<div class="ep-balance">' +
-				'<div class="ep-row" style="border:0;padding:0">' +
-				'<div class="ep-row-main"><div class="ep-row-title">' +
-				esc(p.employee_name || p.employee) +
-				"</div>" +
-				'<div class="ep-row-meta">' +
-				esc(p.company || "") +
-				(p.department ? " &middot; " + esc(p.department) : "") +
-				" &middot; " +
-				esc(created) +
-				" &middot; " +
-				esc(p.leave_type || "Leave In Lieu") +
-				" &middot; " +
-				esc(p.new_leaves_allocated) +
-				" days" +
-				"</div></div>" +
-				'<div class="ep-row-value"><span class="ep-badge ep-badge--warn">' +
-				"Pending" +
-				"</span></div></div>" +
-				'<div class="ep-reqs">' +
-				esc(p.description || "") +
-				"</div>" +
-				'<div class="ep-actions" style="margin-top:.75rem;display:flex;gap:.5rem">' +
-				'<button type="button" class="ep-btn ep-btn--good" data-action="approve" data-name="' +
-				esc(p.name) +
-				'"><i class="fa fa-check"></i> Approve</button>' +
-				'<button type="button" class="ep-btn ep-btn-ghost" data-action="reject" data-name="' +
-				esc(p.name) +
-				'"><i class="fa fa-times"></i> Reject</button>' +
-				"</div></div>";
-		});
-		return html;
-	}
 
-	function bindCompensatoryActions() {
-		document.querySelectorAll("[data-action=approve]").forEach(function (btn) {
-			btn.addEventListener("click", function () {
-				var name = btn.dataset.name;
-				if (!confirm("Approve this Leave In Lieu proposal?")) return;
-				btn.disabled = true;
-				btn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Approving...';
-				call({ action: "approve_compensatory_proposal", token: state.token, name: name })
-					.then(function () {
-						renderCompensatoryApprovals();
-					})
-					.catch(function (err) {
-						if (expired(err && err.message)) return;
-						btn.disabled = false;
-						btn.innerHTML = '<i class="fa fa-check"></i> Approve';
-						announce(err && err.message ? err.message : "Could not approve.");
-					});
-			});
-		});
-		document.querySelectorAll("[data-action=reject]").forEach(function (btn) {
-			btn.addEventListener("click", function () {
-				var name = btn.dataset.name;
-				var reason = prompt("Reason for rejection (optional):");
-				if (reason === null) return; // user cancelled
-				btn.disabled = true;
-				btn.innerHTML = '<i class="fa fa-spin fa-spinner"></i> Rejecting...';
-				call({ action: "reject_compensatory_proposal", token: state.token, name: name, reason: reason || "" })
-					.then(function () {
-						renderCompensatoryApprovals();
-					})
-					.catch(function (err) {
-						if (expired(err && err.message)) return;
-						btn.disabled = false;
-						btn.innerHTML = '<i class="fa fa-times"></i> Reject';
-						announce(err && err.message ? err.message : "Could not reject.");
-					});
-			});
-		});
-	}
 
 	// -------------------------------------------------------------- chrome
 	function initLangMenu() {
@@ -3999,35 +3488,120 @@
 				var code = el.dataset.code;
 				close();
 				if (!code || code === CFG.lang) return;
-				// The choice belongs to the device, not to whoever signed in last, so
-				// it is a cookie and the page is reloaded rather than re-rendered.
-				document.cookie =
-					LANG_COOKIE + "=" + encodeURIComponent(code) + ";path=/;max-age=31536000";
-				window.location.reload();
+				// The choice belongs to the device, not to whoever signed in last, so it
+				// is a cookie and the page is reloaded rather than re-rendered: the
+				// strings, the direction and the `lang` attribute all come from the
+				// server render. The server sets the cookie, so a browser that blocks
+				// script-written cookies still gets the right language.
+				fetch(LANG_API, {
+					method: "POST",
+					credentials: "same-origin",
+					headers: { "Content-Type": "application/json", "X-Frappe-CSRF-Token": csrf() },
+					body: JSON.stringify({ lang: code }),
+				}).then(function () {
+					window.location.reload();
+				});
 			});
 		});
 	}
 
-	function initSignOut() {
-		var btn = document.getElementById("signOutBtn");
+	// The light/dark switch. The CSS holds every colour as a variable under
+	// `.ep-root.dark`, so this only moves a class - and the choice is kept in
+	// localStorage rather than a cookie, because it belongs to whoever is holding the
+	// tablet, not to the tablet.
+	function initTheme() {
+		var btn = document.getElementById("themeBtn");
+		var icon = document.getElementById("themeIcon");
 		if (!btn) return;
+
+		var stored = null;
+		try {
+			stored = localStorage.getItem(THEME_KEY);
+		} catch (e) {
+			// A private-mode tablet refuses storage; the theme then just follows
+			// the OS for this visit.
+		}
+		var prefersDark =
+			window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+		var dark = stored ? stored === "dark" : !!prefersDark;
+
+		function apply() {
+			root.classList.toggle("dark", dark);
+			btn.setAttribute("aria-pressed", dark ? "true" : "false");
+			if (icon) icon.className = "fa " + (dark ? "fa-sun-o" : "fa-moon-o");
+		}
+		apply();
+
 		btn.addEventListener("click", function () {
-			var token = state.token;
-			forgetToken();
-			show("login");
-			if (token) call({ action: "sign_out", token: token }).catch(function () {});
+			dark = !dark;
+			apply();
+			try {
+				localStorage.setItem(THEME_KEY, dark ? "dark" : "light");
+			} catch (e) {}
+		});
+
+		if (window.matchMedia) {
+			var mql = window.matchMedia("(prefers-color-scheme: dark)");
+			var onSystemChange = function (e) {
+				var kept = null;
+				try {
+					kept = localStorage.getItem(THEME_KEY);
+				} catch (err) {}
+				// A choice the employee made beats the system: only an unset theme
+				// follows the OS.
+				if (kept) return;
+				dark = e.matches;
+				apply();
+			};
+			if (mql.addEventListener) mql.addEventListener("change", onSystemChange);
+			else if (mql.addListener) mql.addListener(onSystemChange);
+		}
+	}
+
+	// Every control that ends the session - the header's, and the one at the foot of
+	// the sidebar - is found by attribute and answers to one handler, so the two can
+	// not drift into different behaviours.
+	function signOutControls() {
+		return Array.prototype.slice.call(document.querySelectorAll("[data-signout]"));
+	}
+
+	function initSignOut() {
+		signOutControls().forEach(function (btn) {
+			btn.addEventListener("click", function () {
+				var token = state.token;
+				forgetToken();
+				state.employee = null;
+				state.directory = null;
+				state.notifCounts = {};
+				show("login");
+				// The row is deleted server-side, not expired, so a tablet left signed in
+				// at the reception desk cannot be handed on as-is.
+				if (token) call({ action: "sign_out", token: token }).catch(function () {});
+			});
 		});
 	}
 
 	// ----------------------------------------------------------------- boot
 	function boot() {
+		initNav();
+		initTheme();
 		initLangMenu();
 		initSignOut();
+		initInstall();
 		initPWA();
+		restoreRemembered();
+		askAuthenticator();
 
 		var token = restoreToken();
 		if (!token) {
-			render();
+			show("login");
+			return;
+		}
+		// A remembered session that a finger was put in front of is not walked into on
+		// the employee's behalf. The token is here, and it stays unread until the reader
+		// agrees - which is the entire reason anyone would tick the box on a shared floor.
+		if (state.credentialId) {
+			show("login");
 			return;
 		}
 		// A stored token is not trusted on its own: the profile call is what proves it
@@ -4036,18 +3610,70 @@
 		state.token = token;
 		call({ action: "my_profile", token: token })
 			.then(function (d) {
-				state.employee = {
-					employee: d.employee,
-					employee_name: d.employee_name,
-					designation: d.designation,
-					company: d.company,
-				};
+				state.employee = d;
 				show("dashboard");
 			})
 			.catch(function () {
 				forgetToken();
 				render();
 			});
+	}
+
+	// Asked once at boot, because whether this tablet has a reader is a fact about the
+	// hardware rather than about the visit. The answer arrives a moment later than the
+	// first paint, so the login card is redrawn for it once - before anyone has had time
+	// to type anything into it.
+	function askAuthenticator() {
+		platformAuthenticator().then(function (available) {
+			state.bioReady = available;
+			if (available && state.screen === "login" && !state.loading) render();
+		});
+	}
+
+	// The browser keeps its own install entry inside a menu nobody on this floor will
+	// find, so the offer is taken, held, and put beside the app's name instead. It is
+	// answered by the tap on that button or not at all, which is precisely what the
+	// banner that used to live here failed to do.
+	function initInstall() {
+		var button = document.getElementById("epInstallBtn");
+		if (!button) return;
+
+		var deferred = null;
+		var label = '<i class="fa fa-download"></i><span>Install</span>';
+
+		window.addEventListener("beforeinstallprompt", function (event) {
+			event.preventDefault();
+			deferred = event;
+			button.hidden = false;
+		});
+
+		window.addEventListener("appinstalled", function () {
+			deferred = null;
+			button.hidden = true;
+		});
+
+		button.addEventListener("click", function () {
+			if (!deferred) {
+				button.hidden = true;
+				return;
+			}
+			deferred.prompt();
+			deferred.userChoice.then(
+				function (choice) {
+					deferred = null;
+					button.hidden = !!(choice && choice.outcome === "accepted");
+				},
+				function () {
+					deferred = null;
+				}
+			);
+			button.innerHTML = '<span class="ep-spin"></span>';
+			button.disabled = true;
+			window.setTimeout(function () {
+				button.disabled = false;
+				button.innerHTML = label;
+			}, 1200);
+		});
 	}
 
 	function initPWA() {
@@ -4059,20 +3685,6 @@
 				}
 			});
 		}
-
-		// Handle offline API responses
-		var originalCall = window.call;
-		window.call = function(payload) {
-			return originalCall(payload).catch(function(err) {
-				if (err && err.message && err.message.includes('Offline')) {
-					// Show offline indicator
-					var banner = document.getElementById('epOfflineBanner');
-					if (banner) banner.hidden = false;
-					document.body.classList.add('ep-offline');
-				}
-				throw err;
-			});
-		};
 
 		// Check for app updates
 		if ('serviceWorker' in navigator) {
