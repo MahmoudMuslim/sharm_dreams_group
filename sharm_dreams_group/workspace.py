@@ -306,6 +306,7 @@ PORTAL_LINKED_DOCTYPES = {
 	"Insurance Scheme",
 	"Learning Path",
 	"Loan Type",
+	"Mode of Travel",
 	"Recognition Type",
 	"SDG Announcement",
 	"SDG Support Topic",
