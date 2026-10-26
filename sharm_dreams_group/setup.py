@@ -716,14 +716,14 @@ DERIVED_EMPLOYEE_FIELDS = (
 	),
 )
 
-# The days each employee is *owed*, for the self-service page's Time Off balances screen.
+# The days each employee is *owed*, for the employee portal's Time Off balances screen.
 #
 # Retired.  These six fields were the app's own entitlement model - one bucket per
 # leave type, summed against Leave Applications - and every one of them is zero on
 # every employee, so the screen showed everyone owing nothing.
 #
-# Entitlement now comes from `SharmDreamVacation Tracker.xlsx`, extracted by
-# `tools/build_vacation_spec.py` and read through `self_service/vacation_spec.py`.
+# Entitlement now comes from `Leave Allocation`, seeded from
+# `SharmDreamVacation Tracker.xlsx` by `tools/build_vacation_spec.py`.
 # The workbook models **one pooled entitlement** (21 or 30 days a year by age and
 # service, plus hand-entered sums for staff who do not work a 5-day week) and one
 # carried-forward figure, not six buckets.  "Remote Work Days" in particular has no
@@ -931,17 +931,16 @@ MILITARY_DOCUMENT_OPTIONS = "\nMissing\nOn File\nOut and not Returned"
 # exact fit rather than a set the data has to be coerced into.
 SI_STATUS_OPTIONS = "\nUninsured\nInsured"
 
-# How the self-service page's geofence judged a punch, as stored on `Employee Checkin`.  The
-# same four values as `self_service.geo.STATUS_LABELS`, spelled out rather than imported:
-# `self_service.geo` imports Frappe at module scope, and these option tables have to be
-# readable without a site connection.  `self_service.test_self_service` asserts the two agree.
+# How the portal's geofence judged a punch, as stored on `Employee Checkin`.  The
+# same four values as `portal.geo.STATUS_LABELS`, spelled out rather than imported:
+# `portal.geo` imports Frappe at module scope, and these option tables have to be
+# readable without a site connection.
 SELF_SERVICE_GEO_STATUS_OPTIONS = "\nVerified\nOutside allowed zone\nNo zone configured\nLocation unavailable"
 
-# Leave codes that charge two days of the self-service page's vacation entitlement for one day
+# Leave codes that charge two days of the portal's vacation entitlement for one day
 # taken.  Working a weekly rest day is the only such case in the Sharm vocabulary:
 # you spend a rest day, and it is worth two.  Everything else is 1:1.  Named here
-# rather than imported from `self_service.vacation` for the same reason as above, and
-# `self_service.test_self_service` asserts the two agree.
+# rather than imported from `portal.portal` for the same reason as above.
 SELF_SERVICE_DOUBLE_DAY_LEAVE_CODES = frozenset({"WD"})
 
 # Derived from PENALTY_LEVELS rather than written out, so a band HR retunes
@@ -970,9 +969,9 @@ _SELECT_OPTIONS = {
 	# Derived from PENALTY_LEVELS rather than written out, so a band that HR
 	# retunes cannot leave the Select rejecting its own indicator.
 	"sdg_penalty_indicator": PENALTY_INDICATOR_OPTIONS,
-	# The same four values as `self_service.geo.STATUS_LABELS`, in the same order.  The
+	# The same four values as `portal.geo.STATUS_LABELS`, in the same order.  The
 	# mapping is duplicated rather than imported because `_ensure_custom_field`
-	# reads these dicts while `self_service.geo` imports Frappe at module scope; keeping
+	# reads these dicts while `portal.geo` imports Frappe at module scope; keeping
 	# the option list as data here means setup.py stays importable on its own.
 	"sdg_self_service_geo_status": SELF_SERVICE_GEO_STATUS_OPTIONS,
 }
@@ -1560,10 +1559,10 @@ def create_leave_type_fields() -> None:
 		"sdg_vacation_day_multiplier",
 		"Vacation Days Multiplier",
 		"Float",
-		"Paid days this type charges against the self-service page's vacation balances. 2 for "
+		"Paid days this type charges against the portal's vacation balances. 2 for "
 		"Working Rest Day and Working Public Holiday, which burn two days of "
 		"allowance for one day off; 1 for everything else. Read by "
-		"`self_service.vacation.get_vacation_used_by_code`.",
+		"`portal.portal` when it weights leave.",
 	)
 
 
@@ -1585,7 +1584,7 @@ def create_self_service_fields() -> None:
 		"Self Service Geofence Result",
 		"Select",
 		"How the self-service page geofence judged this punch. Written by "
-		"`self_service.api.punch`, read-only. Empty for a checkin made from the desk or "
+		"`portal.attendance.punch`, read-only. Empty for a checkin made from the desk or "
 		"a device, which HRMS records without a location check.",
 		in_list_view=True,
 	):
@@ -1596,7 +1595,7 @@ def create_self_service_fields() -> None:
 		"Self Service Geofence Detail",
 		"Data",
 		"Why the geofence judged it that way, in the words shown to the employee. "
-		"Written by `self_service.api.punch`, read-only.",
+		"Written by `portal.attendance.punch`, read-only.",
 	):
 		created += 1
 	if created:
@@ -1617,7 +1616,7 @@ def create_self_service_defaults() -> None:
 	whatever the outcome - and reports what is left to do.  HR gives each `Shift
 	Location` a centre and a radius, `assign_work_locations` points the shift
 	assignments at them, and `geo_punch_enforce` is turned on, after which
-	`self_service.geo.is_enforced` takes over.  Note the asymmetry, which is deliberate:
+	`portal.geo.is_enforced` takes over.  Note the asymmetry, which is deliberate:
 	that helper fails *closed* to enforced when the setting cannot be read at all,
 	so an unreachable database refuses punches, but an explicitly-off setting is an
 	instruction and is obeyed.

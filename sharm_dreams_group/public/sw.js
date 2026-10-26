@@ -14,7 +14,7 @@
 // that simply fails to load. Anything that is not the portal is passed straight to the
 // network, untouched and uncached.
 
-const CACHE_VERSION = "ep-v20";
+const CACHE_VERSION = "ep-v24";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -49,6 +49,7 @@ const READABLE = new Set([
 	"my_colleagues",
 	"my_org_chart",
 	"my_assets",
+	"approvals",
 	"my_expense_claims",
 	"my_expense_claim",
 	"my_performance",

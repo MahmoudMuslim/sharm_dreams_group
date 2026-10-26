@@ -12,6 +12,8 @@ uses, and it is required rather than chosen.
 
 import frappe
 
+from sharm_dreams_group.portal.portal import IDLE_TIMEOUT_SECONDS
+
 no_cache = 1
 
 # The languages the portal offers. Kept to en/fr/ar for now: those are the ones the
@@ -57,6 +59,10 @@ def get_context(context):
 	context.portal_api = f"/{API_ROUTE}"
 	context.portal_lang_api = SETLANG_ROUTE
 	context.portal_sw = f"/{SW_ROUTE}"
+	# The idle window the page script signs itself out on. Rendered into the page
+	# rather than hardcoded in the bundle so the rule lives in Python beside the
+	# session code it protects.
+	context.portal_idle_ms = IDLE_TIMEOUT_SECONDS * 1000
 	# Frappe does not set a `csrf_token` *cookie* for website visitors - the desk
 	# passes the value into the page and the client echoes it in a header. Without it
 	# every POST is refused by `Auth.validate_csrf_token` as "Invalid Request", and

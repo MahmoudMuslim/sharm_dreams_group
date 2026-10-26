@@ -5,7 +5,7 @@ class EmployeeSelfServiceLocation(Document):
 	"""Superseded punch zone. Nothing reads this.
 
 	The punch fence is now the `Shift Location` on the employee's `Shift Assignment`,
-	which carries the centre and the radius in metres - see `self_service.geo`. This
+	which carries the centre and the radius in metres - see `portal.geo`. This
 	DocType and its rows are kept only so a site that already configured zones here is
 	not left with data it cannot open; new zones go on the Shifts card instead.
 

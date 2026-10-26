@@ -23,8 +23,9 @@ import frappe
 import frappe.utils
 from frappe.utils import now_datetime
 
-from sharm_dreams_group.self_service import webauthn_ops
-from sharm_dreams_group.self_service.webauthn_ops import WebAuthnError
+from sharm_dreams_group.portal import webauthn_ops
+from sharm_dreams_group.portal.portal import REMEMBER_ME_TTL_DAYS
+from sharm_dreams_group.portal.webauthn_ops import WebAuthnError
 from sharm_dreams_group.sharm_dreams_group.doctype.employee_self_service_preauth.employee_self_service_preauth import (
 	consume_preauth,
 )
@@ -105,9 +106,12 @@ def _create_preauth(employee, mode, challenge, allowed_ids):
 	return doc.token
 
 
-def _session_payload(emp):
+def _session_payload(emp, remember_me=False):
 	return {
-		"token": create_session(emp.name).access_token,
+		"token": create_session(
+			emp.name,
+			ttl_hours=REMEMBER_ME_TTL_DAYS * 24 if remember_me else None,
+		).access_token,
 		"employee": emp.name,
 		"employee_name": emp.employee_name,
 	}
@@ -194,6 +198,7 @@ def webauthn_verify(
 	signature=None,
 	credential_id=None,
 	attestation_object=None,
+	remember_me: bool = False,
 ):
 	"""Step 2: verify the WebAuthn response and mint a self-service page session."""
 	data = consume_preauth(preauth_token)
@@ -236,7 +241,7 @@ def webauthn_verify(
 		frappe.throw(GENERIC_FAILURE, exc=frappe.PermissionError)
 
 	frappe.db.commit()
-	return _session_payload(emp)
+	return _session_payload(emp, remember_me)
 
 
 def _register(emp, rp_id, origin, challenge, client_data_json, attestation_object, credential_id):

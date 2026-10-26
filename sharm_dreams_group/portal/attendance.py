@@ -3,7 +3,7 @@
 
 """Attendance: the employee's own shifts, and tapping to record today's hours.
 
-Tap-to-check-in, geofenced. The browser sends its coordinates and `self_service.geo`
+Tap-to-check-in, geofenced. The browser sends its coordinates and `portal.geo`
 verifies them against the `Shift Location` on the employee's current shift assignment -
 the same work-location zone HRMS's own check reads - before the checkin is written.
 Whether a punch outside the zone is refused or merely flagged is `geo_punch_enforce` in
@@ -58,7 +58,7 @@ from frappe import _
 from frappe.utils import add_to_date, flt, get_datetime, getdate, now_datetime, today
 
 from sharm_dreams_group.portal.portal import resolve_session
-from sharm_dreams_group.self_service.geo import check_punch, status_label
+from sharm_dreams_group.portal.geo import check_punch, status_label
 
 __all__ = [
 	"my_attendance",

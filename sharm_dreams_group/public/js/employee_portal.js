@@ -20,11 +20,15 @@
 	var LANG_API = CFG.langApi || "/employee-portal/setlang";
 	var TOKEN_KEY = "employee_portal.token";
 	var THEME_KEY = "employee_portal.theme";
-	// Both live in `localStorage` and only ever alongside a remembered session: the
-	// credential id of this tablet's fingerprint or face reader, and nothing about the
-	// person it belongs to. The National ID is never stored anywhere.
-	var WEBAUTH_KEY = "employee_portal.credential";
 	var REMEMBER_KEY = "employee_portal.remembered";
+	// The two numbers the last sign-ins on this tablet used, so the next one is a tap
+	// rather than two fields. Kept in `localStorage`, capped, and removable from the
+	// sign-in card by whoever is holding the device.
+	var IDENTITIES_KEY = "employee_portal.identities";
+	var IDENTITY_LIMIT = 5;
+	// How long a signed-in screen may sit untouched before the portal signs itself out.
+	// The old page used 30 seconds; the server sends the longer window it settled on.
+	var IDLE_MS = Number(CFG.idleMs) || 600000;
 
 	var host = document.getElementById("screenHost");
 	var root = document.getElementById("epRoot");
@@ -37,55 +41,104 @@
 		employee: null,
 		loading: false,
 		error: "",
+		// Said on the login card after a refusal or an idle sign-out, in the colour that
+		// does not call it a failure.
+		notice: "",
 		notifCounts: {},
-		// Whether this session was asked to outlive the tab, and whether this tablet has
-		// a biometric reader standing in front of it. Both read from storage at boot.
+		// Leave applications waiting on this employee as an approver, read on entry to
+		// the dashboard so the tile can carry the count.
+		approvalCount: 0,
+		// Whether this session was asked to outlive the tab.
 		remembered: false,
-		credentialId: null,
-		// Set once, when a sign-in was remembered on a tablet with no biometric yet:
-		// the offer belongs to the moment after that choice, not to every later visit.
-		suggestBiometric: false,
-		// Whether this browser will give us the tablet's own reader at all.
+		// Whether this browser will give the server a fingerprint or face reader to
+		// verify, and whether the account signing in already has one registered.
 		bioReady: false,
+		biometricWaiting: false,
+		biometricEnrolled: false,
+		// Sign-ins remembered on this tablet, newest first.
+		identities: [],
 		// The colleague directory once read. Cleared on sign out: it is a company's
 		// staff list, and whoever picks up the tablet next may work elsewhere.
 		directory: null,
 	};
 
-	/* Biometric sign-in, and what it actually protects.
+	/* Remembered identities, and what they are worth.
 	 *
-	 * The credential is created and used entirely inside this browser - the server never
-	 * sees it and does not check it, because there is nowhere in an Employee record to
-	 * hold a credential without a schema change to a shared HR database. So this is a
-	 * guard on the tablet, not a second factor at the door: it stands between the saved
-	 * session and the next pair of hands that picks the device up, and it is worth
-	 * exactly that and no more.
-	 *
-	 * The way back is always the two numbers. A reader that fails, a finger that is
-	 * wet, a browser that changes its mind - none of them can lock a person out of
-	 * their own record.
+	 * A chip is the pair of numbers this tablet last accepted, kept only so the next
+	 * sign-in is one tap. It is not a credential: the server authenticates the pair
+	 * again, and on a tablet with a reader it also checks the fingerprint or face before
+	 * it mints a session. Any chip can be removed from the card it appears on.
 	 */
-	function randomBytes(length) {
-		var bytes = new Uint8Array(length);
-		(window.crypto || window.msCrypto).getRandomValues(bytes);
-		return bytes;
+	function readIdentities() {
+		try {
+			var raw = JSON.parse(window.localStorage.getItem(IDENTITIES_KEY) || "[]");
+			return Array.isArray(raw) ? raw.slice(0, IDENTITY_LIMIT) : [];
+		} catch (e) {
+			return [];
+		}
 	}
 
-	function fromBase64Url(value) {
-		var padded = value.replace(/-/g, "+").replace(/_/g, "/");
-		while (padded.length % 4) padded += "=";
-		var binary = window.atob(padded);
+	function writeIdentities() {
+		try {
+			window.localStorage.setItem(
+				IDENTITIES_KEY,
+				JSON.stringify(state.identities.slice(0, IDENTITY_LIMIT))
+			);
+		} catch (e) {
+			/* private browsing: remembering is a convenience, not a requirement */
+		}
+	}
+
+	function rememberIdentity(nationalId, employeeCode) {
+		if (!nationalId) return;
+		state.identities = state.identities.filter(function (entry) {
+			return entry.nationalId !== nationalId;
+		});
+		state.identities.unshift({ nationalId: nationalId, employeeCode: employeeCode || "" });
+		state.identities = state.identities.slice(0, IDENTITY_LIMIT);
+		writeIdentities();
+	}
+
+	function forgetIdentity(nationalId) {
+		state.identities = state.identities.filter(function (entry) {
+			return entry.nationalId !== nationalId;
+		});
+		writeIdentities();
+	}
+
+	/* WebAuthn, as the server verifies it.
+	 *
+	 * The browser's API takes ArrayBuffers while the server speaks base64url, so the
+	 * challenge and credential ids are decoded on the way in and the response is
+	 * re-encoded on the way out. The server checks the assertion against the public
+	 * key it stored when the credential was created, which is what makes this a door
+	 * rather than a lock on the tablet: a copied credential id is worth nothing.
+	 */
+	function b64urlEncode(buffer) {
+		var bytes = new Uint8Array(buffer);
+		var binary = "";
+		for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+		return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+	}
+
+	function b64urlDecode(text) {
+		var normalised = String(text).replace(/-/g, "+").replace(/_/g, "/");
+		while (normalised.length % 4) normalised += "=";
+		var binary = window.atob(normalised);
 		var bytes = new Uint8Array(binary.length);
 		for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-		return bytes;
+		return bytes.buffer;
 	}
 
-	// Fingerprint reader, face camera, or the device PIN standing in for either. An
-	// external security key would satisfy this too, and no tablet here carries one.
+	function webauthnSupported() {
+		return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.get);
+	}
+
+	// A reader on this device, not merely WebAuthn in the browser. Once an account has
+	// enrolled, the numbers are refused and this is the only door left - so it has to
+	// be asked before the employee starts typing, not after a refusal.
 	function platformAuthenticator() {
-		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-			return Promise.resolve(false);
-		}
+		if (!webauthnSupported() || !window.isSecureContext) return Promise.resolve(false);
 		if (!PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
 			return Promise.resolve(false);
 		}
@@ -96,77 +149,67 @@
 		);
 	}
 
-	function storeCredential(id) {
-		state.credentialId = id;
-		try {
-			window.localStorage.setItem(WEBAUTH_KEY, id);
-		} catch (e) {
-			/* the session still works; it simply will not survive a reboot */
-		}
-	}
-
-	function dropCredential() {
-		state.credentialId = null;
-		try {
-			window.localStorage.removeItem(WEBAUTH_KEY);
-		} catch (e) {
-			/* nothing stored */
-		}
-	}
-
-	function enrollBiometric() {
-		var employee = state.employee || {};
-		return navigator.credentials
-			.create({
-				publicKey: {
-					challenge: randomBytes(32),
-					rp: { name: "Employee Portal" },
-					// A handle, not an identity: nothing about the person is recoverable
-					// from what the authenticator ends up bound to.
-					user: {
-						id: new TextEncoder().encode(String(employee.employee || "employee")),
-						name: String(employee.employee_number || employee.employee || "employee"),
-						displayName: String(employee.employee_name || "Employee"),
-					},
-					pubKeyCredParams: [
-						{ type: "public-key", alg: -7 },
-						{ type: "public-key", alg: -257 },
-					],
-					authenticatorSelection: {
-						userVerification: "required",
-						residentKey: "preferred",
-					},
-					timeout: 60000,
-				},
-			})
-			.then(function (credential) {
-				if (!credential || !credential.id) throw new Error("No key came back.");
-				storeCredential(credential.id);
-				return credential.id;
-			});
-	}
-
-	function unlockWithBiometric() {
-		if (!state.credentialId) {
-			return Promise.reject(new Error("This tablet has no biometric set up yet."));
-		}
-		return navigator.credentials
-			.get({
-				publicKey: {
-					challenge: randomBytes(32),
-					allowCredentials: [{ type: "public-key", id: fromBase64Url(state.credentialId) }],
-					userVerification: "required",
-					timeout: 60000,
-				},
-			})
-			.then(function (assertion) {
-				if (!assertion) throw new Error("Unlock was cancelled.");
-				var token = restoreToken();
-				if (!token) {
-					throw new Error("The saved session has gone. Sign in once with your numbers.");
+	// Step one asks the server whose credential this account has - an assertion for a
+	// returning one, an attestation for a first visit - and step two hands the answer
+	// back for verification. No session exists until that verification passes.
+	function biometricSignIn(nationalId, employeeCode, remembered) {
+		state.biometricWaiting = true;
+		render();
+		return call({
+			action: "webauthn_login",
+			national_id: nationalId,
+			employee_code: employeeCode,
+		})
+			.then(function (wa) {
+				var options = wa.mode === "assert" ? wa.assertion_options : wa.attestation_options;
+				if (!options) throw new Error("Biometric sign-in is not set up for this account.");
+				options.challenge = b64urlDecode(options.challenge);
+				if (options.allowCredentials) {
+					options.allowCredentials = options.allowCredentials.map(function (credential) {
+						return Object.assign({}, credential, { id: b64urlDecode(credential.id) });
+					});
 				}
-				state.token = token;
-				return token;
+				if (options.user && options.user.id) {
+					options.user = Object.assign({}, options.user, {
+						id: b64urlDecode(options.user.id),
+					});
+				}
+				var pending =
+					wa.mode === "assert"
+						? navigator.credentials.get({ publicKey: options })
+						: navigator.credentials.create({ publicKey: options });
+				return pending.then(function (credential) {
+					var response = credential.response;
+					return call({
+						action: "webauthn_verify",
+						preauth_token: wa.preauth_token,
+						mode: wa.mode,
+						client_data_json: b64urlEncode(response.clientDataJSON),
+						authenticator_data: b64urlEncode(response.authenticatorData),
+						credential_id: b64urlEncode(credential.rawId),
+						signature: response.signature ? b64urlEncode(response.signature) : null,
+						attestation_object: response.attestationObject
+							? b64urlEncode(response.attestationObject)
+							: null,
+						remember_me: !!remembered,
+					});
+				});
+			})
+			.then(function (session) {
+				state.biometricWaiting = false;
+				session.enrolled = true;
+				return session;
+			})
+			.catch(function (e) {
+				state.biometricWaiting = false;
+				// A cancelled prompt is the common case on a shared tablet, and the
+				// browser's own wording names no action to take.
+				if (e && e.name === "NotAllowedError") {
+					throw new Error(
+						"Biometric sign-in was cancelled or is unavailable on this device. Try again."
+					);
+				}
+				throw e;
 			});
 	}
 
@@ -206,6 +249,7 @@
 		performance: { label: "My performance", section: "growth", icon: "fa-line-chart" },
 		colleagues: { label: "Colleagues", section: "people", icon: "fa-address-book-o" },
 		org_chart: { label: "Org chart", section: "people", icon: "fa-sitemap" },
+		approvals: { label: "Approvals", section: "people", icon: "fa-inbox" },
 		assets: { label: "My assets", section: "equipment", icon: "fa-laptop" },
 	};
 
@@ -217,7 +261,7 @@
 		pay: ["payslips", "expenses"],
 		time: ["attendance", "timesheets", "overtime"],
 		growth: ["performance"],
-		people: ["colleagues", "org_chart"],
+		people: ["colleagues", "org_chart", "approvals"],
 		equipment: ["assets"],
 	};
 
@@ -422,11 +466,9 @@
 
 	function clearRemembered() {
 		state.remembered = false;
-		state.credentialId = null;
 		try {
 			window.localStorage.removeItem(TOKEN_KEY);
 			window.localStorage.removeItem(REMEMBER_KEY);
-			window.localStorage.removeItem(WEBAUTH_KEY);
 		} catch (e) {
 			/* nothing was stored, so there is nothing to take back out */
 		}
@@ -454,16 +496,15 @@
 		}
 	}
 
-	// Read once, at boot: a remembered session and the credential that guards it are
-	// both facts about this tablet rather than about this visit.
+	// Read once, at boot: a remembered session and the identities offered beside the
+	// sign-in form are both facts about this tablet rather than about this visit.
 	function restoreRemembered() {
 		try {
 			state.remembered = window.localStorage.getItem(REMEMBER_KEY) === "1";
-			state.credentialId = window.localStorage.getItem(WEBAUTH_KEY) || null;
-			if (!state.remembered) state.credentialId = null;
+			state.identities = readIdentities();
 		} catch (e) {
 			state.remembered = false;
-			state.credentialId = null;
+			state.identities = [];
 		}
 	}
 
@@ -471,6 +512,9 @@
 	function show(screen) {
 		state.screen = screen;
 		state.error = "";
+		// A notice belongs to the card it was raised on; leaving login keeps it only
+		// long enough to say why the screen came back.
+		if (screen !== "login") state.notice = "";
 		updateHeader();
 		renderShell();
 		// The drawer overlaps the body on the widths where it is a drawer; leaving it
@@ -481,6 +525,7 @@
 		var s = SCREENS[screen];
 		if (s) announce(s.label);
 		render();
+		armIdle();
 	}
 
 	// The chrome beside the body: the section rail and, for the selected section, the
@@ -713,6 +758,8 @@
 				return renderColleagues();
 			case "org_chart":
 				return renderOrgChart();
+			case "approvals":
+				return renderPanel("approvals", "approvals", approvalsHtml, function () {});
 			case "timesheets":
 				return renderTimesheets();
 			case "timesheet_form":
@@ -749,22 +796,51 @@
 		}
 	}
 
+	// The chips above the form: the two numbers this tablet accepted before, so the next
+	// sign-in is a tap. A chip still goes through the same door as typed input.
+	function identityChipsHtml() {
+		if (!state.identities.length) return "";
+		return (
+			'<p class="ep-label ep-recent-label">Remembered on this tablet</p>' +
+			'<div class="ep-recent">' +
+			state.identities
+				.map(function (entry, index) {
+					return (
+						'<span class="ep-recent-chip">' +
+						'<button type="button" class="ep-recent-pick" data-identity="' +
+						index +
+						'"><i class="fa fa-history"></i> ' +
+						esc(entry.nationalId) +
+						(entry.employeeCode
+							? ' <span class="ep-recent-code">' + esc(entry.employeeCode) + "</span>"
+							: "") +
+						"</button>" +
+						'<button type="button" class="ep-recent-x" data-forget="' +
+						index +
+						'" aria-label="Remove"><i class="fa fa-times"></i></button>' +
+						"</span>"
+					);
+				})
+				.join("") +
+			"</div>"
+		);
+	}
+
 	function renderLogin() {
-		// Offered only where a session was left remembered *and* this tablet was given a
-		// fingerprint or face to stand in front of it. Everything else is the two numbers.
-		var bio = state.credentialId && state.remembered;
+		var sub = state.bioReady
+			? "Sign in with your fingerprint or face. The first sign-in on this tablet enrolls it."
+			: "Sign in with your National ID and Employee Number.";
 
 		host.innerHTML =
 			'<div class="ep-fade">' +
 			'<div class="ep-card ep-login">' +
 			'<h1 class="ep-login-title">Employee Portal</h1>' +
-			(bio
-				? '<p class="ep-login-sub">Welcome back. Unlock this tablet with your fingerprint or face.</p>' +
-					'<button type="button" class="ep-btn ep-bio" id="bioBtn">' +
-					'<i class="fa fa-fingerprint"></i> Sign in biometrically</button>' +
-					'<div class="ep-or"><span>or with your numbers</span></div>'
-				: '<p class="ep-login-sub">Sign in with your National ID and Employee Number.</p>') +
+			'<p class="ep-login-sub">' +
+			esc(sub) +
+			"</p>" +
+			(state.notice ? infoAlert(state.notice) : "") +
 			alertHtml() +
+			identityChipsHtml() +
 			'<form id="loginForm" novalidate>' +
 			'<div class="ep-field"><label class="ep-label" for="nid">National ID</label>' +
 			'<input class="ep-input" id="nid" name="national_id" inputmode="numeric" autocomplete="off" required /></div>' +
@@ -778,8 +854,18 @@
 			'<p class="ep-hint">Saves the session, never your numbers - so the next sign-in is ' +
 			"one tap rather than two fields. Use it only on a tablet that is yours, and turn it " +
 			"off from My details.</p></div>" +
-			'<button class="ep-btn" type="submit" id="loginBtn">' +
-			(state.loading ? '<span class="ep-spin"></span> Signing in' : "Sign in") +
+			(state.biometricWaiting
+				? '<p class="ep-hint ep-bio-wait"><span class="ep-spin"></span> ' +
+					"Waiting for your fingerprint or face...</p>"
+				: "") +
+			'<button class="ep-btn" type="submit" id="loginBtn"' +
+			(state.loading ? " disabled" : "") +
+			">" +
+			(state.loading
+				? '<span class="ep-spin"></span> Signing in'
+				: state.bioReady
+					? '<i class="fa fa-fingerprint"></i> Sign in'
+					: "Sign in") +
 			"</button></form>" +
 			installHint() +
 			"</div></div>";
@@ -793,24 +879,26 @@
 			signIn(document.getElementById("nid").value, document.getElementById("code").value, remembered);
 		});
 
-		var bioBtn = document.getElementById("bioBtn");
-		if (bioBtn) {
-			bioBtn.addEventListener("click", function () {
-				bioBtn.disabled = true;
-				bioBtn.innerHTML = '<span class="ep-spin"></span> Waiting for you';
-				unlockWithBiometric()
-					.then(enterPortal)
-					.catch(function (err) {
-						bioBtn.disabled = false;
-						bioBtn.innerHTML =
-							'<i class="fa fa-fingerprint"></i> Sign in biometrically';
-						fail(err);
-					});
+		Array.prototype.forEach.call(host.querySelectorAll("[data-identity]"), function (el) {
+			el.addEventListener("click", function () {
+				var entry = state.identities[Number(el.dataset.identity)];
+				if (!entry) return;
+				var tick = document.getElementById("rememberMe");
+				signIn(entry.nationalId, entry.employeeCode || "", !!(tick && tick.checked));
 			});
-		}
+		});
+
+		Array.prototype.forEach.call(host.querySelectorAll("[data-forget]"), function (el) {
+			el.addEventListener("click", function () {
+				var entry = state.identities[Number(el.dataset.forget)];
+				if (!entry) return;
+				forgetIdentity(entry.nationalId);
+				renderLogin();
+			});
+		});
 
 		var first = document.getElementById("nid");
-		if (first && !bio) first.focus();
+		if (first) first.focus();
 	}
 
 	// Running as an installed app, on either engine that reports it.
@@ -831,21 +919,48 @@
 	}
 
 	function signIn(nationalId, employeeCode, remembered) {
+		nationalId = String(nationalId || "").trim();
+		employeeCode = String(employeeCode || "").trim();
+		if (!nationalId || !employeeCode) {
+			state.error = "Enter both your National ID and Employee Number.";
+			render();
+			return;
+		}
+
 		state.loading = true;
+		state.error = "";
 		// Kept through the re-render this call triggers, so the ticked box is still
 		// ticked if the numbers turn out to be wrong and the card is drawn again.
 		state.remembered = !!remembered;
 		render();
-		call({
-			action: "sign_in",
-			national_id: nationalId,
-			employee_code: employeeCode,
-			remember_me: !!remembered,
-		})
+
+		// Asked afresh rather than read from the boot probe: whether this tablet has a
+		// reader decides which door opens, and a sign-in that beat the probe to the form
+		// must not take the numbers door on a device that has one.
+		platformAuthenticator()
+			.then(function (available) {
+				state.bioReady = available;
+				if (!available) {
+					// The server refuses this for an enrolled account, so it can only ever
+					// be the first sign-in on a device with no reader.
+					return call({
+						action: "sign_in",
+						national_id: nationalId,
+						employee_code: employeeCode,
+						remember_me: !!remembered,
+					}).then(function (session) {
+						session.enrolled = false;
+						return session;
+					});
+				}
+				return biometricSignIn(nationalId, employeeCode, remembered);
+			})
 			.then(function (d) {
 				rememberToken(d.token, remembered);
+				rememberIdentity(nationalId, employeeCode);
 				state.employee = d;
 				state.directory = null;
+				state.biometricEnrolled = !!d.enrolled;
 				show("dashboard");
 				// The profile carries what the sign-in reply does not - department,
 				// employee number, join date - and the header and tiles read from one
@@ -856,37 +971,27 @@
 						updateHeader();
 					})
 					.catch(function () {});
-				if (remembered) state.suggestBiometric = true;
-			})
-			.catch(fail);
-	}
-
-	// Shared by both ways in: a remembered session and a biometric one arrive at the same
-	// place, and it would be a strange portal whose two doors showed different screens.
-	function enterPortal() {
-		state.directory = null;
-		state.suggestBiometric = false;
-		show("dashboard");
-		return call({ action: "my_profile", token: state.token })
-			.then(function (p) {
-				state.employee = p;
-				updateHeader();
 			})
 			.catch(function (err) {
-				if (expired(err && err.message)) return;
+				state.loading = false;
+				state.biometricWaiting = false;
 				fail(err);
 			});
 	}
 
 	function renderDashboard() {
 		var e = state.employee || {};
-		call({ action: "my_notifications", token: state.token })
-			.then(function (d) {
-				renderDashboardWithNotifications(e, d.items || []);
-			})
-			.catch(function () {
-				renderDashboardWithNotifications(e, []);
-			});
+		Promise.all([
+			call({ action: "my_notifications", token: state.token }).catch(function () {
+				return { items: [] };
+			}),
+			call({ action: "approvals", token: state.token }).catch(function () {
+				return [];
+			}),
+		]).then(function (both) {
+			state.approvalCount = Array.isArray(both[1]) ? both[1].length : 0;
+			renderDashboardWithNotifications(e, (both[0] && both[0].items) || []);
+		});
 	}
 
 	function renderDashboardWithNotifications(e, notifications) {
@@ -941,7 +1046,6 @@
 				: "") +
 			"</div>" +
 			alertHtml() +
-			biometricOfferHtml() +
 			(notifications.length ? renderNotificationStrip(notifications) : "") +
 			groups +
 			"</div>";
@@ -956,7 +1060,7 @@
 	}
 
 	function countNotificationsByScreen(items) {
-		var counts = { balances: 0, time_off: 0, expenses: 0, payslips: 0, attendance: 0, performance: 0, colleagues: 0, org_chart: 0, timesheets: 0, overtime: 0, leave_calendar: 0, assets: 0 };
+		var counts = { balances: 0, time_off: 0, expenses: 0, payslips: 0, attendance: 0, performance: 0, colleagues: 0, org_chart: 0, approvals: state.approvalCount || 0, timesheets: 0, overtime: 0, leave_calendar: 0, assets: 0 };
 		items.forEach(function (item) {
 			if (counts.hasOwnProperty(item.screen)) {
 				counts[item.screen]++;
@@ -1021,19 +1125,6 @@
 				show(el.dataset.tile);
 			});
 		});
-		var offer = document.getElementById("bioEnable");
-		if (offer) {
-			offer.addEventListener("click", function () {
-				runBiometric(offer);
-			});
-		}
-		var later = document.getElementById("bioOfferNo");
-		if (later) {
-			later.addEventListener("click", function () {
-				state.suggestBiometric = false;
-				render();
-			});
-		}
 		Array.prototype.forEach.call(host2.querySelectorAll(".ep-attn[data-screen]"), function (el) {
 			el.addEventListener("click", function () {
 				show(el.dataset.screen);
@@ -1223,13 +1314,40 @@
 		});
 	}
 
+	function currentPosition() {
+		if (!navigator.geolocation) return Promise.resolve(null);
+		return new Promise(function (resolve) {
+			navigator.geolocation.getCurrentPosition(
+				function (pos) {
+					resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+				},
+				function () {
+					// A refused or unavailable fix is not a refused punch: the server
+					// records the tap and its own verdict. Making the employee fight the
+					// browser's location prompt would hide the button behind a permission.
+					resolve(null);
+				},
+				{ timeout: 8000, maximumAge: 60000, enableHighAccuracy: true }
+			);
+		});
+	}
+
 	function doPunch(button) {
 		// Disabled for the round trip, not merely styled: the server collapses a
 		// double-tap, but a button that stays live while the first request is in flight
 		// invites the employee to wonder whether it worked.
 		button.disabled = true;
-		button.innerHTML = '<span class="ep-spin"></span> Recording';
-		call({ action: "punch", token: state.token })
+		button.innerHTML = '<span class="ep-spin"></span> Locating';
+		currentPosition()
+			.then(function (position) {
+				button.innerHTML = '<span class="ep-spin"></span> Recording';
+				var payload = { action: "punch", token: state.token };
+				if (position) {
+					payload.latitude = position.latitude;
+					payload.longitude = position.longitude;
+				}
+				return call(payload);
+			})
 			.then(function (result) {
 				// The screen is rebuilt from the server rather than patched from the
 				// result: `punch` returns what it just did, but what the employee
@@ -1643,93 +1761,43 @@
 				saveDetails(d);
 			});
 		}
-
-		var enable = document.getElementById("bioEnable");
-		if (enable) {
-			enable.addEventListener("click", function () {
-				runBiometric(enable);
-			});
-		}
-
-		var disable = document.getElementById("bioDisable");
-		if (disable) {
-			disable.addEventListener("click", function () {
-				dropCredential();
-				renderDetails("Biometric sign-in turned off on this tablet.");
-			});
-		}
 	}
 
-	// The whole point of remembering a session on a shared floor is that nobody else can
-	// use it, and a ticked box alone does not achieve that. This card is where the choice
-	// is offered, undone, and explained - rather than being decided silently at sign-in.
+	// Two separate promises are kept here, because they are not the same thing: a
+	// remembered session survives a tab close, and an enrolled reader is what the server
+	// asks for before the next sign-in. The card says which of them is true here rather
+	// than offering a switch, because enrollment happens in the same prompt as sign-in.
 	function deviceCardHtml() {
 		var html = '<div class="ep-card"><p class="ep-card-title">On this tablet</p>';
 
 		if (!state.remembered) {
 			return (
 				html +
-				'<p class="ep-quiet">You chose not to stay signed in, so this session ends with '+
+				'<p class="ep-quiet">You chose not to stay signed in, so this session ends with ' +
 				"the tab - the right setting for a tablet that several people pick up. Tick " +
-				"<strong>Keep me signed in</strong> at the next sign-in and this card will " +
-				"then offer a fingerprint or face unlock.</p></div>"
+				"<strong>Keep me signed in</strong> at the next sign-in to have this tablet " +
+				"remember you.</p></div>"
 			);
 		}
 
 		html += '<p class="ep-quiet">This session stays on this tablet until you sign out.</p>';
 
-		if (state.credentialId) {
+		if (state.biometricEnrolled) {
 			html +=
-				'<p class="ep-quiet ep-device-on"><i class="fa fa-check-circle"></i> Sign-in asks '+
-				"this tablet for your fingerprint or face before it opens.</p>" +
-				'<button type="button" class="ep-btn ep-btn-ghost ep-mt-9" id="bioDisable">' +
-				'<i class="fa fa-times"></i> Stop using biometric sign-in</button>';
+				'<p class="ep-quiet ep-device-on"><i class="fa fa-check-circle"></i> Signing in ' +
+				"asks this tablet for your fingerprint or face, and the server checks it before " +
+				"the session opens.</p>";
 		} else if (state.bioReady) {
 			html +=
-				'<button type="button" class="ep-btn ep-btn-ghost ep-mt-9" id="bioEnable">' +
-				'<i class="fa fa-fingerprint"></i> Unlock with fingerprint or face</button>' +
-				'<p class="ep-hint">This tablet will ask for your fingerprint before it hands over '+
-				"the saved session. It does not replace your National ID and Employee Number - " +
-				"those stay the way in whenever the reader says no.</p>";
+				'<p class="ep-quiet ep-device-on"><i class="fa fa-shield"></i> This tablet has a ' +
+				"fingerprint or face reader. The next sign-in here sets it up.</p>";
 		} else {
 			html +=
-				'<p class="ep-hint">No fingerprint or face reader is reaching this browser. The '+
-				"reader is only available to a page served over https.</p>";
+				'<p class="ep-hint">No fingerprint or face reader is reaching this browser, so ' +
+				"sign-in stays with your National ID and Employee Number.</p>";
 		}
 
 		return html + installHint() + "</div>";
-	}
-
-	function runBiometric(button) {
-		button.disabled = true;
-		button.innerHTML = '<span class="ep-spin"></span> Follow the prompt on screen';
-		enrollBiometric()
-			.then(function () {
-				state.suggestBiometric = false;
-				renderDetails("Ready. This tablet will ask for your fingerprint or face before it signs you in.");
-			})
-			.catch(function (err) {
-				if (expired(err && err.message)) return;
-				button.disabled = false;
-				button.innerHTML = '<i class="fa fa-fingerprint"></i> Unlock with fingerprint or face';
-				state.error = (err && err.message) || "The tablet would not agree.";
-				render();
-			});
-	}
-
-	// Offered on the screen a person is already looking at after ticking the box, rather
-	// than as a dialog that interrupts the dashboard they came for.
-	function biometricOfferHtml() {
-		if (!state.suggestBiometric || !state.remembered) return "";
-		if (state.credentialId || !state.bioReady) return "";
-		return (
-			'<div class="ep-alert ep-alert--info ep-device-offer">' +
-			'<i class="fa fa-fingerprint"></i><span>Next time, unlock this tablet with your ' +
-			"fingerprint instead of typing your numbers.</span>" +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="bioEnable">Turn on</button>' +
-			'<button type="button" class="ep-btn ep-btn-ghost" id="bioOfferNo">Not now</button>' +
-			"</div>"
-		);
 	}
 
 	function saveDetails(d) {
@@ -3456,9 +3524,39 @@
 		);
 	}
 
-	// ---------------------------------------------------------- compensatory approvals
-
-
+	// ------------------------------------------------------------------ approvals
+	// Read-only, and deliberately so: the decision is recorded in HRMS's own workflow
+	// at the desk, and this screen exists to tell an approver there is something waiting
+	// rather than to become a second place where a leave application can be approved.
+	function approvalsHtml(rows) {
+		rows = rows || [];
+		if (!rows.length) {
+			return emptyBlock(
+				"fa-inbox",
+				"Nothing to approve",
+				"Requests waiting for your approval will appear here."
+			);
+		}
+		var html =
+			'<p class="ep-quiet ep-mb-9">Approve or reject these from the HR desk ' +
+			"(Leave Application).</p>";
+		rows.forEach(function (row) {
+			var span = dateOnly(row.from_date);
+			if (row.to_date && row.to_date !== row.from_date) span += " to " + dateOnly(row.to_date);
+			html +=
+				'<div class="ep-row"><div class="ep-row-main">' +
+				'<div class="ep-row-title">' +
+				esc(row.employee_name || row.employee || row.name) +
+				"</div>" +
+				'<div class="ep-row-meta">' +
+				esc(row.leave_type || "") +
+				(span ? " &middot; " + esc(span) : "") +
+				(row.total_leave_days ? " &middot; " + esc(row.total_leave_days) + " days" : "") +
+				"</div></div>" +
+				'<span class="ep-badge ep-badge--warn">Open</span></div>';
+		});
+		return html;
+	}
 
 	// -------------------------------------------------------------- chrome
 	function initLangMenu() {
@@ -3573,11 +3671,46 @@
 				state.employee = null;
 				state.directory = null;
 				state.notifCounts = {};
+				state.approvalCount = 0;
+				state.biometricEnrolled = false;
 				show("login");
 				// The row is deleted server-side, not expired, so a tablet left signed in
 				// at the reception desk cannot be handed on as-is.
 				if (token) call({ action: "sign_out", token: token }).catch(function () {});
 			});
+		});
+	}
+
+	// ------------------------------------------------------------ idle timeout
+	// A wall tablet is left signed in between people. The old page cleared itself after
+	// thirty seconds; the server's window is ten minutes, long enough to read a payslip
+	// without being signed out mid-sentence. Any tap, key or scroll restarts it, and an
+	// expiry ends the session on the server rather than merely covering the screen.
+	var idleTimer = null;
+
+	function armIdle() {
+		if (idleTimer) clearTimeout(idleTimer);
+		idleTimer = null;
+		if (!state.token || state.screen === "login") return;
+		idleTimer = window.setTimeout(idleSignOut, IDLE_MS);
+	}
+
+	function idleSignOut() {
+		var token = state.token;
+		forgetToken();
+		state.employee = null;
+		state.directory = null;
+		state.notifCounts = {};
+		state.approvalCount = 0;
+		state.biometricEnrolled = false;
+		state.notice = "You were signed out after a period of inactivity.";
+		show("login");
+		if (token) call({ action: "sign_out", token: token }).catch(function () {});
+	}
+
+	function initIdle() {
+		["click", "mousedown", "keydown", "touchstart", "scroll"].forEach(function (event) {
+			document.addEventListener(event, armIdle, { passive: true });
 		});
 	}
 
@@ -3587,36 +3720,42 @@
 		initTheme();
 		initLangMenu();
 		initSignOut();
+		initIdle();
 		initInstall();
 		initPWA();
 		restoreRemembered();
-		askAuthenticator();
 
 		var token = restoreToken();
 		if (!token) {
+			askAuthenticator();
 			show("login");
 			return;
 		}
-		// A remembered session that a finger was put in front of is not walked into on
-		// the employee's behalf. The token is here, and it stays unread until the reader
-		// agrees - which is the entire reason anyone would tick the box on a shared floor.
-		if (state.credentialId) {
-			show("login");
-			return;
-		}
-		// A stored token is not trusted on its own: the profile call is what proves it
-		// is still live, and an expired one is discarded here rather than on the first
-		// screen the employee opens.
-		state.token = token;
-		call({ action: "my_profile", token: token })
-			.then(function (d) {
-				state.employee = d;
-				show("dashboard");
-			})
-			.catch(function () {
-				forgetToken();
-				render();
-			});
+		// A remembered session on a tablet with a reader is not walked into on the
+		// employee's behalf: the reader asks, through the server, before the stored token
+		// is used. The probe has to settle first, because its answer decides the door.
+		platformAuthenticator().then(function (available) {
+			state.bioReady = available;
+			if (state.remembered && available) {
+				// The stored token stays where it is - the next successful sign-in
+				// replaces it - but it is not used until a person proves they are here.
+				show("login");
+				return;
+			}
+			// A stored token is not trusted on its own: the profile call is what proves
+			// it is still live, and an expired one is discarded here rather than on the
+			// first screen the employee opens.
+			state.token = token;
+			call({ action: "my_profile", token: token })
+				.then(function (d) {
+					state.employee = d;
+					show("dashboard");
+				})
+				.catch(function () {
+					forgetToken();
+					show("login");
+				});
+		});
 	}
 
 	// Asked once at boot, because whether this tablet has a reader is a fact about the

@@ -21,45 +21,80 @@
  */
 
 .ep-root {
-	/* Light theme (default) */
-	--ep-bg: #f4f6f8;
+	/* Light theme (default).
+	   The palette is the Frappe desk's own: greys from 50 to 900 for surfaces, ink
+	   and borders; the one saturated colour is Frappe blue, used for the things the
+	   desk itself tints blue - a selected item, an icon, a focus ring. The primary
+	   action is the desk's: near-black ground, light ink on it - colour marks what
+	   is interactive, not what is merely confirmed. */
+	--ep-bg: #f8f8f8;
 	--ep-card: #ffffff;
-	--ep-ink: #1f2933;
-	--ep-muted: #6b7280;
-	--ep-line: #e2e8f0;
-	--ep-accent: #2563eb;
+	--ep-ink: #171717;
+	--ep-muted: #7c7c7c;
+	--ep-line: #e2e2e2;
+	--ep-accent: #0d8ef8;
 	--ep-accent-ink: #ffffff;
-	--ep-good: #059669;
-	--ep-warn: #b45309;
-	--ep-bad: #b91c1c;
+	--ep-action: #171717;
+	--ep-action-ink: #f8f8f8;
+	--ep-good: #268c5c;
+	--ep-warn: #ca7e0c;
+	--ep-bad: #e03434;
 	--ep-gap: 1rem;
 
+	/* Fill states — the desk's subtle-button contract (surface-gray-2/3/4 with
+	   ink-gray-8 text). Secondary buttons, active nav items and icon buttons all
+	   read from these instead of retyping hexes. */
+	--ep-fill: #f3f3f3;
+	--ep-fill-hover: #ededed;
+	--ep-fill-active: #e2e2e2;
+	--ep-fill-ink: #383838;
+
+	/* Badge / notice pairs — the desk's surface-*-2 fill + ink-*-8 text. Flat
+	   tinted grounds, never gradients; the same pairs color the avatars. */
+	--ep-info-bg: #e6f4ff;  --ep-info-ink: #005cad;
+	--ep-good-bg: #e4faeb;  --ep-good-ink: #075e35;
+	--ep-warn-bg: #fff4d3;  --ep-warn-ink: #91400d;
+	--ep-bad-bg: #ffe7e7;   --ep-bad-ink: #941f1f;
+	--ep-mute-bg: #f3f3f3;  --ep-mute-ink: #525252;
+	--ep-avatar-bg: var(--ep-info-bg);
+	--ep-avatar-ink: var(--ep-info-ink);
+
+	/* Solid-button hover/active (gray-10 → 9 → 8), disabled fill, the desk's
+	   gray focus ring, and the danger solid red. */
+	--ep-solid-hover: #383838;
+	--ep-solid-active: #525252;
+	--ep-disabled-bg: #f3f3f3;
+	--ep-disabled-ink: #999999;
+	--ep-ring: #c9c9c9e5;
+	--ep-danger: #b41d1d;
+
 	/* Shape and elevation, so "the same card" means the same radius and the same
-	   shadow in every screen rather than a value retyped per rule. */
-	--ep-r: 0.85rem;
-	--ep-r-sm: 0.55rem;
-	--ep-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.06);
-	--ep-shadow-lg: 0 12px 34px rgba(15, 23, 42, 0.14);
+	   shadow in every screen rather than a value retyped per rule. These are the
+	   desk's numbers: an 8px card, a 6px control, and its two elevation steps. */
+	--ep-r: 8px;
+	--ep-r-sm: 6px;
+	--ep-shadow: inset 0px 0.25px 1.5px 0px #ffffff29, 0px 0px 1px 0px #00000033,
+		0px 1px 3px 0px #00000024;
+	--ep-shadow-lg: inset 0px 0.25px 1.5px 0px #ffffff29, 0px 0px 1.5px 0px #00000026,
+		0px 0px 6px 2px #0000000a, 0px 6px 12px -2px #00000014;
 	--ep-tint: color-mix(in srgb, var(--ep-muted) 10%, transparent);
 
-	/* Dark theme overrides (applied via .ep-root.dark) */
-	--ep-bg-dark: #0f172a;
-	--ep-card-dark: #1e293b;
-	--ep-ink-dark: #f1f5f9;
-	--ep-muted-dark: #94a3b8;
-	--ep-line-dark: #334155;
-	--ep-accent-dark: #3b82f6;
-	--ep-accent-ink-dark: #ffffff;
-	--ep-good-dark: #10b981;
-	--ep-warn-dark: #f59e0b;
-	--ep-bad-dark: #ef4444;
-
-	/* Elevation on a dark ground reads as a lighter edge, not as a black shadow - the
-	   shadow a card casts on #0f172a is invisible, and what separates the two is a
-	   brighter border and a shadow with more presence. */
-	--ep-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.45);
-	--ep-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
-	--ep-tint: color-mix(in srgb, var(--ep-muted) 16%, transparent);
+	/* Dark theme overrides (applied via .ep-root.dark).
+	   Same scale, flipped: the desk's dark greys are darker than they look in the
+	   light pairs, and the saturated colours lighten so they keep their contrast
+	   on a dark ground. */
+	--ep-bg-dark: #171717;
+	--ep-card-dark: #1f1f1f;
+	--ep-ink-dark: #d9d9d9;
+	--ep-muted-dark: #999999;
+	--ep-line-dark: #383838;
+	--ep-accent-dark: #349bef;
+	--ep-accent-ink-dark: #171717;
+	--ep-action-dark: #d9d9d9;
+	--ep-action-ink-dark: #171717;
+	--ep-good-dark: #359768;
+	--ep-warn-dark: #e9a144;
+	--ep-bad-dark: #eb4c4c;
 
 	position: fixed;
 	inset: 0;
@@ -67,7 +102,8 @@
 	flex-direction: column;
 	background: var(--ep-bg);
 	color: var(--ep-ink);
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font-family: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+		Roboto, "Helvetica Neue", Arial, sans-serif;
 	font-size: 16px;
 	line-height: 1.45;
 	overflow: hidden;
@@ -83,9 +119,33 @@
 	--ep-line: var(--ep-line-dark);
 	--ep-accent: var(--ep-accent-dark);
 	--ep-accent-ink: var(--ep-accent-ink-dark);
+	--ep-action: var(--ep-action-dark);
+	--ep-action-ink: var(--ep-action-ink-dark);
 	--ep-good: var(--ep-good-dark);
 	--ep-warn: var(--ep-warn-dark);
 	--ep-bad: var(--ep-bad-dark);
+	--ep-tint: color-mix(in srgb, var(--ep-muted) 18%, transparent);
+
+	/* Same component contracts on the dark ground: fills flip to the desk's
+	   gray-700/600/500, badge pairs to surface-*-900 + ink-*-200, the ring and
+	   the danger red lighten to keep contrast. */
+	--ep-fill: #292929;
+	--ep-fill-hover: #383838;
+	--ep-fill-active: #424242;
+	--ep-fill-ink: #d9d9d9;
+	--ep-info-bg: #0a2e5c;  --ep-info-ink: #76bef9;
+	--ep-good-bg: #0e3521;  --ep-good-ink: #7dc5a2;
+	--ep-warn-bg: #452608;  --ep-warn-ink: #e9a144;
+	--ep-bad-bg: #592222;   --ep-bad-ink: #ff7575;
+	--ep-mute-bg: #292929;  --ep-mute-ink: #999999;
+	--ep-avatar-bg: var(--ep-info-bg);
+	--ep-avatar-ink: var(--ep-info-ink);
+	--ep-solid-hover: #afafaf;
+	--ep-solid-active: #999999;
+	--ep-disabled-bg: #292929;
+	--ep-disabled-ink: #7a7a7a;
+	--ep-ring: #464646cc;
+	--ep-danger: #c23838;
 }
 
 /* ------------------------------------------------------------------ header */
@@ -101,7 +161,7 @@
 }
 
 .ep-brand { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
-.ep-brand-name { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+.ep-brand-name { font-weight: 600; font-size: 1.05rem; white-space: nowrap; }
 .ep-head-right { display: flex; align-items: center; gap: 0.75rem; }
 .ep-user-info {
 	display: inline-flex;
@@ -110,18 +170,19 @@
 	padding: 0.35rem 0.6rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: var(--ep-r-sm);
 }
 .ep-user-avatar {
 	width: 2.2rem;
 	height: 2.2rem;
 	border-radius: 50%;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	text-transform: uppercase;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-weight: 700;
+	font-weight: 600;
 	font-size: 0.85rem;
 	flex-shrink: 0;
 }
@@ -137,12 +198,13 @@
 	justify-content: center;
 	gap: 0.4rem;
 	padding: 0.45rem 0.7rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
-	background: var(--ep-card);
-	color: var(--ep-ink);
+	border: 1px solid transparent;
+	border-radius: var(--ep-r-sm);
+	background: var(--ep-fill);
+	color: var(--ep-fill-ink);
 	font-size: 0.9rem;
 	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .ep-theme-btn {
@@ -151,23 +213,31 @@
 	padding: 0;
 }
 
-.ep-theme-btn:hover { background: var(--ep-line); }
+.ep-lang-btn:hover,
+.ep-signout:hover,
+.ep-theme-btn:hover { background: var(--ep-fill-hover); }
 
-.ep-lang-btn.active { border-color: var(--ep-accent); color: var(--ep-accent); }
+.ep-lang-btn:active,
+.ep-signout:active,
+.ep-theme-btn:active { background: var(--ep-fill-active); }
+
+.ep-lang-btn.active { background: var(--ep-fill-active); color: var(--ep-ink); }
 
 .ep-btn-secondary {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
 	padding: 0.45rem 0.7rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
-	background: var(--ep-card);
-	color: var(--ep-ink);
+	border: 1px solid transparent;
+	border-radius: var(--ep-r-sm);
+	background: var(--ep-fill);
+	color: var(--ep-fill-ink);
 	font-size: 0.9rem;
 	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.ep-btn-secondary:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
+.ep-btn-secondary:hover { background: var(--ep-fill-hover); }
+.ep-btn-secondary:active { background: var(--ep-fill-active); }
 
 .ep-divider {
 	display: flex;
@@ -203,8 +273,8 @@
 	min-width: 11rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.6rem;
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+	border-radius: var(--ep-r);
+	box-shadow: var(--ep-shadow-lg);
 	padding: 0.35rem;
 	z-index: 30;
 }
@@ -232,8 +302,8 @@
 	cursor: pointer;
 }
 
-.ep-lang-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
-.ep-lang-item.active { color: var(--ep-accent); font-weight: 600; }
+.ep-lang-item:hover { background: var(--ep-fill-hover); }
+.ep-lang-item.active { background: var(--ep-fill); color: var(--ep-ink); font-weight: 600; }
 
 /* -------------------------------------------------------------------- shell
  *
@@ -258,7 +328,7 @@
 	gap: 0.25rem;
 	width: 5rem;
 	padding: 0.75rem 0.5rem;
-	background: var(--ep-card);
+	background: var(--ep-bg);
 	border-inline-end: 1px solid var(--ep-line);
 	overflow-y: auto;
 	z-index: 30;
@@ -272,8 +342,8 @@
 	gap: 0.25rem;
 	min-height: 3.5rem;
 	padding: 0.5rem 0.2rem;
-	border: 0;
-	border-radius: 0.7rem;
+	border: 1px solid transparent;
+	border-radius: var(--ep-r);
 	background: transparent;
 	color: var(--ep-muted);
 	font: inherit;
@@ -281,13 +351,18 @@
 	line-height: 1.15;
 	text-align: center;
 	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .ep-dock-item i { font-size: 1.2rem; }
-.ep-dock-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); color: var(--ep-ink); }
+.ep-dock-item:hover { background: var(--ep-fill-hover); color: var(--ep-ink); }
+/* The active item is elevated, not tinted — the desk's own pattern: a card
+   lifted off the rail by border and shadow, ink rather than accent. */
 .ep-dock-item[aria-current="page"] {
-	background: color-mix(in srgb, var(--ep-accent) 14%, transparent);
-	color: var(--ep-accent);
+	background: var(--ep-card);
+	border-color: var(--ep-line);
+	box-shadow: var(--ep-shadow);
+	color: var(--ep-ink);
 	font-weight: 600;
 }
 
@@ -310,7 +385,7 @@
 	flex-direction: column;
 	width: 15.5rem;
 	padding: 1rem 0.75rem 0.75rem;
-	background: color-mix(in srgb, var(--ep-card) 55%, var(--ep-bg));
+	background: var(--ep-bg);
 	border-inline-end: 1px solid var(--ep-line);
 	overflow-y: auto;
 	z-index: 30;
@@ -335,7 +410,7 @@
 	min-height: 2.9rem;
 	padding: 0.5rem 0.65rem;
 	border: 1px solid transparent;
-	border-radius: 0.65rem;
+	border-radius: var(--ep-r-sm);
 	background: transparent;
 	color: var(--ep-ink);
 	font: inherit;
@@ -346,14 +421,15 @@
 
 .ep-nav-item i:first-child { width: 1.2rem; text-align: center; color: var(--ep-muted); flex-shrink: 0; }
 .ep-nav-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ep-nav-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
+.ep-nav-item:hover { background: var(--ep-fill-hover); }
 .ep-nav-item[aria-current="page"] {
 	background: var(--ep-card);
 	border-color: var(--ep-line);
-	color: var(--ep-accent);
+	box-shadow: var(--ep-shadow);
+	color: var(--ep-ink);
 	font-weight: 600;
 }
-.ep-nav-item[aria-current="page"] i:first-child { color: var(--ep-accent); }
+.ep-nav-item[aria-current="page"] i:first-child { color: var(--ep-ink); }
 
 /* The foot holds the way out, pinned to the end of the column however short the list
    above it is. */
@@ -377,8 +453,8 @@
 	min-width: 1.4rem;
 	padding: 0.1rem 0.4rem;
 	border-radius: 999px;
-	background: var(--ep-warn);
-	color: var(--ep-accent-ink);
+	background: var(--ep-action);
+	color: var(--ep-action-ink);
 	font-size: 0.72rem;
 	font-weight: 700;
 	text-align: center;
@@ -406,7 +482,7 @@
 		display: none;
 		width: 16rem;
 		background: var(--ep-card);
-		box-shadow: 0 0 24px rgba(2, 6, 23, 0.18);
+		box-shadow: var(--ep-shadow-lg);
 	}
 	.ep-root.ep-nav-open .ep-sidebar { display: flex; }
 	.ep-root.ep-nav-open .ep-nav-scrim {
@@ -490,7 +566,7 @@
 .ep-card {
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r);
 	padding: 1rem 1.1rem;
 	margin-bottom: var(--ep-gap);
 }
@@ -530,7 +606,7 @@
 	align-items: center;
 	padding: 0.9rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r);
 	background: var(--ep-card);
 	color: inherit;
 	font-size: 1rem;
@@ -539,7 +615,7 @@
 	cursor: pointer;
 }
 
-.ep-tile:hover { border-color: var(--ep-accent); }
+.ep-tile:hover { border-color: var(--ep-line); }
 
 /* ------------------------------------------------------------------ inputs */
 .ep-label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; }
@@ -549,13 +625,18 @@
 	width: 100%;
 	padding: 0.7rem 0.8rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: var(--ep-r-sm);
 	font-size: 1rem;
 	background: var(--ep-card);
 	color: inherit;
 }
 
-.ep-input:focus { outline: 2px solid var(--ep-accent); outline-offset: 1px; }
+.ep-input:focus {
+	outline: 2px solid var(--ep-ring);
+	outline-offset: 0;
+	border-color: var(--ep-ink);
+	box-shadow: none;
+}
 
 .ep-field { margin-bottom: 0.9rem; }
 
@@ -567,15 +648,21 @@
 	width: 100%;
 	padding: 0.8rem 1rem;
 	border: 0;
-	border-radius: 0.6rem;
-	background: var(--ep-accent);
-	color: var(--ep-accent-ink);
+	border-radius: var(--ep-r);
+	background: var(--ep-action);
+	color: var(--ep-action-ink);
 	font-size: 1rem;
 	font-weight: 600;
 	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
-.ep-btn:disabled { opacity: 0.6; cursor: default; }
+.ep-btn:disabled {
+	cursor: default;
+	background: var(--ep-disabled-bg);
+	color: var(--ep-disabled-ink);
+	box-shadow: none;
+}
 
 .ep-checkbox-field {
 	display: flex;
@@ -585,7 +672,7 @@
 .ep-checkbox-field input[type="checkbox"] {
 	width: 1.1rem;
 	height: 1.1rem;
-	accent-color: var(--ep-accent);
+	accent-color: var(--ep-action);
 	cursor: pointer;
 }
 .ep-checkbox-label {
@@ -594,7 +681,7 @@
 	cursor: pointer;
 	user-select: none;
 }
-.ep-btn-ghost { background: transparent; color: var(--ep-accent); border: 1px solid var(--ep-line); }
+.ep-btn-ghost { background: transparent; color: var(--ep-fill-ink); border: 1px solid transparent; }
 
 /* Each screen announces where it is: the section it belongs to and its own name. The
    back control rides along for the widths where the sidebar is a drawer; once the
@@ -615,7 +702,7 @@
 	flex-shrink: 0;
 }
 .ep-screen-actions .ep-btn { width: auto; min-height: 2.75rem; padding: 0.5rem 0.95rem; font-size: 0.92rem; }
-.ep-screen-title { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
+.ep-screen-title { margin: 0; font-size: 1.2rem; font-weight: 600; line-height: 1.25; }
 .ep-screen-sub { margin: 0; color: var(--ep-muted); font-size: 0.82rem; }
 
 .ep-back {
@@ -634,7 +721,7 @@
 	cursor: pointer;
 }
 
-.ep-back:hover { color: var(--ep-accent); border-color: var(--ep-accent); }
+.ep-back:hover { color: var(--ep-ink); background: var(--ep-fill-hover); }
 
 @media (min-width: 68rem) {
 	.ep-back { display: none; }
@@ -675,13 +762,13 @@
 .ep-bar {
 	position: relative;
 	height: 0.5rem;
-	border-radius: 0.25rem;
-	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
+	border-radius: 999px;
+	background: var(--ep-fill-active);
 	overflow: hidden;
 	margin-top: 0.45rem;
 }
 
-.ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 0.25rem; }
+.ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 999px; }
 
 /* ---------------------------------------------------------- notifications */
 /* Outstanding items, shown only when there are some. Each row opens the screen the
@@ -702,7 +789,7 @@
 }
 
 .ep-attn:first-of-type { border-top: 0; }
-.ep-attn:hover { background: var(--ep-line); border-radius: 0.35rem; }
+.ep-attn:hover { background: var(--ep-fill-hover); border-radius: 0.35rem; }
 
 .ep-attn-icon {
 	flex: none;
@@ -714,9 +801,9 @@
 	font-size: 0.85rem;
 }
 
-.ep-attn-icon--warn { background: color-mix(in srgb, var(--ep-warn) 18%, transparent); color: var(--ep-warn); }
-.ep-attn-icon--bad { background: color-mix(in srgb, var(--ep-bad) 18%, transparent); color: var(--ep-bad); }
-.ep-attn-icon--good { background: color-mix(in srgb, var(--ep-accent) 18%, transparent); color: var(--ep-accent); }
+.ep-attn-icon--warn { background: var(--ep-warn-bg); color: var(--ep-warn-ink); }
+.ep-attn-icon--bad { background: var(--ep-bad-bg); color: var(--ep-bad-ink); }
+.ep-attn-icon--good { background: var(--ep-info-bg); color: var(--ep-info-ink); }
 
 .ep-attn-text { display: flex; flex-direction: column; min-width: 0; }
 .ep-attn-head { font-size: 0.92rem; font-weight: 600; }
@@ -739,23 +826,24 @@
 }
 
 .ep-attn-strip .ep-attn:first-of-type { border-top: 0; }
-.ep-attn-strip .ep-attn:hover { background: var(--ep-line); }
+.ep-attn-strip .ep-attn:hover { background: var(--ep-fill-hover); }
 
-/* Tile badge */
+/* Tile badge: a solid count pill, the desk's own (near-black ground, light ink). */
 .ep-tile-badge {
 	flex-shrink: 0;
 	min-width: 1.5rem;
 	padding: 0.1rem 0.45rem;
 	border-radius: 999px;
-	background: var(--ep-warn);
-	color: var(--ep-accent-ink);
+	background: var(--ep-action);
+	color: var(--ep-action-ink);
 	font-size: 0.75rem;
 	font-weight: 700;
 	text-align: center;
 }
-.ep-tile-badge--bad { background: var(--ep-bad); }
+.ep-tile-badge--bad { background: var(--ep-danger); color: #fff; }
 
-/* Tiles: the icon is a tinted disc, so the label and the icon read as one object. */
+/* Tiles: the icon is a flat tinted square, the desk's avatar/badge idiom —
+   a -2 fill with its -8 ink, not a gradient. */
 .ep-tile-icon {
 	display: flex;
 	align-items: center;
@@ -763,9 +851,9 @@
 	width: 2.6rem;
 	height: 2.6rem;
 	flex-shrink: 0;
-	border-radius: 50%;
-	background: color-mix(in srgb, var(--ep-accent) 12%, transparent);
-	color: var(--ep-accent);
+	border-radius: var(--ep-r);
+	background: var(--ep-info-bg);
+	color: var(--ep-info-ink);
 	font-size: 1.25rem;
 }
 
@@ -782,14 +870,15 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	text-transform: uppercase;
+	font-weight: 600;
 	font-size: 1.1rem;
 }
 .ep-hero-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .ep-hero-text { min-width: 0; }
-.ep-hero-name { margin: 0; font-size: 1.3rem; font-weight: 700; }
+.ep-hero-name { margin: 0; font-size: 1.3rem; font-weight: 600; }
 .ep-hero-sub { margin: 0.15rem 0 0; color: var(--ep-muted); font-size: 0.9rem; }
 .ep-hero-meta { margin-inline-start: auto; text-align: end; color: var(--ep-muted); font-size: 0.82rem; }
 
@@ -816,10 +905,10 @@
 	flex: 1 1 8rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r);
 	padding: 0.7rem 0.85rem;
 }
-.ep-stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ep-stat-value { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .ep-stat-label { color: var(--ep-muted); font-size: 0.78rem; margin-top: 0.1rem; }
 
 /* --------------------------------------------------------------- directory
@@ -878,11 +967,11 @@
 	align-items: flex-start;
 	padding: 0.9rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.85rem;
+	border-radius: var(--ep-r);
 	background: var(--ep-card);
 	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: color-mix(in srgb, var(--ep-accent) 45%, var(--ep-line)); }
+.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: var(--ep-shadow-lg); }
 .ep-colleague-card--me { border-color: var(--ep-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ep-accent) 30%, transparent); }
 
 .ep-colleague-avatar {
@@ -894,9 +983,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	text-transform: uppercase;
+	font-weight: 600;
 	font-size: 0.95rem;
 	letter-spacing: 0.02em;
 }
@@ -905,7 +995,7 @@
 .ep-colleague-body { flex: 1 1 auto; min-width: 0; }
 .ep-colleague-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.98rem; }
 .ep-colleague-name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ep-colleague-desig { color: var(--ep-accent); font-size: 0.83rem; margin-top: 0.1rem; }
+.ep-colleague-desig { color: var(--ep-muted); font-size: 0.83rem; margin-top: 0.1rem; }
 .ep-colleague-desig:empty { display: none; }
 
 /* A record's facts, one per line: number, mobile, manager, date. Used by the
@@ -931,14 +1021,14 @@
 	text-decoration: none;
 	cursor: pointer;
 }
-.ep-dir-act:hover { border-color: var(--ep-accent); color: var(--ep-accent); background: color-mix(in srgb, var(--ep-accent) 8%, transparent); }
+.ep-dir-act:hover { border-color: var(--ep-line); color: var(--ep-ink); background: var(--ep-fill-hover); }
 
 .ep-you-badge {
 	flex-shrink: 0;
 	padding: 0.05rem 0.45rem;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--ep-accent) 15%, transparent);
-	color: var(--ep-accent);
+	background: var(--ep-info-bg);
+	color: var(--ep-info-ink);
 	font-size: 0.68rem;
 	font-weight: 700;
 	letter-spacing: 0.04em;
@@ -969,12 +1059,12 @@
 	padding: 0.75rem 1rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r);
 	position: relative;
 	z-index: 1;
 	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.ep-org-card:hover { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: var(--ep-accent); }
+.ep-org-card:hover { box-shadow: var(--ep-shadow-lg); }
 .ep-org-card.ep-org-me { border-color: var(--ep-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
 .ep-org-me-badge {
 	background: var(--ep-accent);
@@ -999,7 +1089,7 @@
 	align-items: center;
 	justify-content: center;
 }
-.ep-org-toggle:hover { background: var(--ep-line); color: var(--ep-ink); }
+.ep-org-toggle:hover { background: var(--ep-fill-hover); color: var(--ep-ink); }
 .ep-org-toggle-placeholder { width: 2rem; flex-shrink: 0; }
 .ep-org-avatar {
 	width: 2.5rem;
@@ -1010,9 +1100,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	text-transform: uppercase;
+	font-weight: 600;
 	font-size: 0.8rem;
 }
 .ep-org-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1053,7 +1144,7 @@
 	display: flex;
 	flex-direction: column;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: var(--ep-r-sm);
 	background: var(--ep-card);
 	overflow: hidden;
 }
@@ -1063,7 +1154,7 @@
 .ep-cal-day.ep-cal-today { border-color: var(--ep-accent); }
 .ep-cal-day.ep-cal-today .ep-cal-date { background: var(--ep-accent); color: var(--ep-accent-ink); }
 .ep-cal-date { font-weight: 600; text-align: center; padding: 0.35rem 0.5rem; border-radius: 0.35rem 0.35rem 0 0; }
-.ep-cal-leave { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); border-radius: 0.25rem; padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-cal-leave { background: var(--ep-info-bg); color: var(--ep-info-ink); border-radius: 0.25rem; padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* PWA: Offline & Install banners */
 .ep-offline-banner {
@@ -1077,18 +1168,18 @@
 	gap: 1rem;
 	padding: 0.75rem 1rem;
 	background: var(--ep-warn);
-	color: white;
+	color: var(--ep-accent-ink);
 	font-size: 0.9rem;
 	font-weight: 500;
 	z-index: 1000;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+	box-shadow: var(--ep-shadow);
 	animation: ep-slide-down 0.3s ease;
 }
 .ep-offline-banner i { font-size: 1.1rem; }
 .ep-offline-dismiss {
 	background: none;
 	border: none;
-	color: white;
+	color: inherit;
 	font-size: 1.5rem;
 	line-height: 1;
 	padding: 0;
@@ -1105,7 +1196,7 @@
 /* Assets */
 .ep-asset-card {
 	border: 1px solid var(--ep-line);
-	border-radius: 0.85rem;
+	border-radius: var(--ep-r);
 	padding: 1rem 1.1rem;
 	margin-bottom: 0.8rem;
 	background: var(--ep-card);
@@ -1113,7 +1204,7 @@
 }
 .ep-asset-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .ep-asset-name { font-weight: 600; font-size: 1.05rem; }
-.ep-asset-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-asset-card:hover { transform: translateX(4px); box-shadow: var(--ep-shadow-lg); }
 
 .ep-field {
 	display: block;
@@ -1131,29 +1222,40 @@
 	width: 100%;
 	padding: 0.5rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.4rem;
+	border-radius: var(--ep-r-sm);
 	background: var(--ep-card);
 	color: var(--ep-ink);
 	font: inherit;
 }
 
+.ep-field input:focus,
+.ep-field select:focus,
+.ep-field textarea:focus {
+	outline: 2px solid var(--ep-ring);
+	outline-offset: 0;
+	border-color: var(--ep-ink);
+	box-shadow: none;
+}
+
 .ep-field textarea { resize: vertical; }
 
 /* ----------------------------------------------------------------- status */
+/* Badges are the desk's subtle variant: a flat -2 fill with its matching -8 ink,
+   a full pill, regular weight. */
 .ep-badge {
 	display: inline-block;
 	padding: 0.15rem 0.5rem;
 	border-radius: 999px;
 	font-size: 0.78rem;
 	font-weight: 600;
-	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
-	color: var(--ep-muted);
+	background: var(--ep-mute-bg);
+	color: var(--ep-mute-ink);
 }
 
-.ep-badge--good { background: color-mix(in srgb, var(--ep-good) 15%, transparent); color: var(--ep-good); }
-.ep-badge--info { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); }
-.ep-badge--warn { background: color-mix(in srgb, var(--ep-warn) 15%, transparent); color: var(--ep-warn); }
-.ep-badge--bad { background: color-mix(in srgb, var(--ep-bad) 15%, transparent); color: var(--ep-bad); }
+.ep-badge--good { background: var(--ep-good-bg); color: var(--ep-good-ink); }
+.ep-badge--info { background: var(--ep-info-bg); color: var(--ep-info-ink); }
+.ep-badge--warn { background: var(--ep-warn-bg); color: var(--ep-warn-ink); }
+.ep-badge--bad { background: var(--ep-bad-bg); color: var(--ep-bad-ink); }
 
 .ep-alert {
 	display: flex;
@@ -1165,8 +1267,8 @@
 	font-size: 0.95rem;
 }
 
-.ep-alert--bad { background: color-mix(in srgb, var(--ep-bad) 12%, transparent); color: var(--ep-bad); }
-.ep-alert--info { background: color-mix(in srgb, var(--ep-accent) 12%, transparent); color: var(--ep-accent); }
+.ep-alert--bad { background: var(--ep-bad-bg); color: var(--ep-bad-ink); }
+.ep-alert--info { background: var(--ep-info-bg); color: var(--ep-info-ink); }
 
 .ep-empty { text-align: center; padding: 2rem 1rem; color: var(--ep-muted); }
 .ep-empty-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
@@ -1176,7 +1278,7 @@
 	display: inline-block;
 	width: 1.1rem;
 	height: 1.1rem;
-	border: 2px solid rgba(37, 99, 235, 0.3);
+	border: 2px solid color-mix(in srgb, var(--ep-accent) 30%, transparent);
 	border-top-color: var(--ep-accent);
 	border-radius: 50%;
 	animation: ep-spin 0.7s linear infinite;
@@ -1228,24 +1330,24 @@
 	 * end of a shift when they are in a hurry. */
 	padding: 0.45rem;
 	cursor: pointer;
-	color: var(--ep-muted, #9aa4b2);
+	color: var(--ep-muted, #7c7c7c);
 	font-size: 1.6rem;
 	line-height: 1;
 	border-radius: 0.25rem;
 }
 
-.ep-star:hover { color: #f0b429; }
+.ep-star:hover { color: var(--ep-warn); }
 
 /* `--on` rather than a hover-only style, so what is currently saved stays visible
    after the pointer moves away. */
-.ep-star--on { color: #f0b429; }
+.ep-star--on { color: var(--ep-warn); }
 
-.ep-star:focus-visible { outline: 2px solid var(--ep-accent, #2f6feb); }
+.ep-star:focus-visible { outline: 2px solid var(--ep-ring); }
 
 .ep-star-value {
 	margin-inline-start: 0.5rem;
 	font-size: 0.85rem;
-	color: var(--ep-muted, #6b7280);
+	color: var(--ep-muted, #7c7c7c);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -1308,8 +1410,8 @@
    whole page rather than per component, because a control that inherits the browser
    default is nearly invisible against these cards. */
 .ep-root :focus-visible {
-	outline: 2px solid var(--ep-accent);
-	outline-offset: 2px;
+	outline: 2px solid var(--ep-ring);
+	outline-offset: 0;
 	border-radius: var(--ep-r-sm);
 }
 
@@ -1349,35 +1451,20 @@
 .ep-tile { transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 80ms ease; }
 .ep-tile:hover {
 	box-shadow: var(--ep-shadow-lg);
-	border-color: color-mix(in srgb, var(--ep-accent) 40%, var(--ep-line));
-	background: color-mix(in srgb, var(--ep-accent) 4%, var(--ep-card));
+	background: var(--ep-card);
 }
 
 .ep-head {
 	border-bottom: 1px solid var(--ep-line);
-	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03), 0 4px 14px rgba(15, 23, 42, 0.04);
+	box-shadow: var(--ep-shadow);
 }
 
 .ep-dock { border-inline-end: 1px solid var(--ep-line); }
 .ep-sidebar { border-inline-end: 1px solid var(--ep-line); }
 
-/* A selected entry is marked twice - a tint and a bar at the reading edge - because
-   on a tablet in daylight a colour difference alone is the first thing to go. */
-.ep-dock-item[aria-current="page"]::before,
-.ep-nav-item[aria-current="page"]::before {
-	content: "";
-	position: absolute;
-	inset-inline-start: 0;
-	top: 20%;
-	bottom: 20%;
-	width: 3px;
-	border-radius: 999px;
-	background: var(--ep-accent);
-}
-
 .ep-dock-item,
 .ep-nav-item { position: relative; }
-.ep-nav-item { transition: background-color 0.12s ease, color 0.12s ease; }
+.ep-nav-item { transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease; }
 
 /* ---------------------------------------------------------------- headings */
 .ep-screen-bar {
@@ -1385,7 +1472,7 @@
 	border-bottom: 1px solid var(--ep-line);
 }
 
-.ep-screen-title { font-size: 1.35rem; letter-spacing: -0.01em; }
+.ep-screen-title { font-size: 1.125rem; letter-spacing: -0.01em; }
 
 .ep-section-head::after {
 	content: "";
@@ -1399,7 +1486,7 @@
 /* ------------------------------------------------------------------ rows */
 .ep-row:hover { background: var(--ep-tint); }
 .ep-row--link { cursor: pointer; }
-.ep-row--link:hover .ep-row-title { color: var(--ep-accent); }
+.ep-row--link:hover .ep-row-title { color: var(--ep-ink); }
 
 .ep-row-title { font-size: 0.97rem; }
 
@@ -1427,15 +1514,18 @@
 .ep-alert { border-inline-start: 3px solid currentColor; border-radius: 0 var(--ep-r-sm) var(--ep-r-sm) 0; }
 
 /* --------------------------------------------------------------- buttons */
-.ep-btn { border-radius: var(--ep-r-sm); }
-.ep-btn:not(:disabled) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14); }
-.ep-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-accent) 88%, #000); }
+.ep-btn { border-radius: var(--ep-r); }
+.ep-btn:not(:disabled) { box-shadow: var(--ep-shadow); }
+.ep-btn:hover:not(:disabled) { background: var(--ep-solid-hover); }
+.ep-btn:active:not(:disabled) { background: var(--ep-solid-active); }
+.ep-btn-ghost,
+.ep-btn-ghost:not(:disabled) { box-shadow: none; }
 .ep-btn-ghost:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--ep-accent) 10%, transparent);
-	border-color: var(--ep-accent);
+	background: var(--ep-fill-hover);
+	border-color: transparent;
 }
-.ep-btn-danger { background: var(--ep-bad); color: var(--ep-accent-ink); }
-.ep-btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-bad) 88%, #000); }
+.ep-btn-danger { background: var(--ep-danger); color: #fff; }
+.ep-btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-danger) 85%, var(--ep-ink)); }
 
 .ep-row-withdraw:hover:not([disabled]) {
 	border-color: var(--ep-bad);
@@ -1510,29 +1600,25 @@
 
 .ep-row--link:hover .ep-row-go,
 .ep-row--link:active .ep-row-go {
-	color: var(--ep-accent);
+	color: var(--ep-ink);
 	transform: translateX(3px);
 }
 
 .ep-root[dir="rtl"] .ep-row--link:hover .ep-row-go,
 .ep-root[dir="rtl"] .ep-row--link:active .ep-row-go { transform: translateX(-3px); }
 
-/* The first card on the only screen everybody lands on. It carries the accent so the
-   portal opens on something that is recognisably this employer's, rather than on a
-   grey list like every other one. */
+/* The first card on the only screen everybody lands on. It is the desk's own
+   card - a plain surface raised by shadow, the identity living in the flat
+   tinted avatar inside it rather than in a wash of colour. */
 .ep-hero {
-	border: 1px solid color-mix(in srgb, var(--ep-accent) 22%, var(--ep-line));
-	background: linear-gradient(
-		to bottom right,
-		color-mix(in srgb, var(--ep-accent) 9%, var(--ep-card)),
-		var(--ep-card) 60%
-	);
+	border: 1px solid var(--ep-line);
+	background: var(--ep-card);
 	padding: 1.15rem 1.25rem;
+	box-shadow: var(--ep-shadow);
 }
 
 .ep-hero-avatar {
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-accent) 14%, var(--ep-card)),
-		0 2px 8px rgba(15, 23, 42, 0.14);
+	box-shadow: var(--ep-shadow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1552,15 +1638,15 @@
 
 .ep-cal-day.ep-cal-has-leave .ep-cal-leave {
 	font-weight: 600;
-	background: color-mix(in srgb, var(--ep-accent) 18%, transparent);
+	background: var(--ep-info-bg);
 }
 
 /* A field that is being typed into states so in the colour it is already using, not
    only by the outline: on a bright screen the outline alone is easy to lose. */
 .ep-input:focus,
 .ep-cal-select:focus {
-	border-color: var(--ep-accent);
-	background: color-mix(in srgb, var(--ep-accent) 3%, var(--ep-card));
+	border-color: var(--ep-ink);
+	background: var(--ep-card);
 }
 
 /* --------------------------------------------------------------- utilities
@@ -1622,22 +1708,58 @@
 }
 
 /* ------------------------------------------------- sign-in & this device */
-/* The two doors at the top of the login card: the fingerprint, which is one tap and
-   only appears where a session was left remembered and guarded, and the two numbers
-   under it, which are always there and are the door that never jams. */
-.ep-bio { width: 100%; gap: 0.5rem; margin-bottom: 0.9rem; }
+/* Identities this tablet remembers, as tapped rows above the two fields. The number
+   is the label because it is what the person recognises; the employee number follows
+   quietly, and the cross beside it forgets that row without touching the others. */
+.ep-recent-label { margin-bottom: 0.45rem; }
 
-.ep-or {
+.ep-recent {
 	display: flex;
-	align-items: center;
-	gap: 0.6rem;
+	flex-wrap: wrap;
+	gap: 0.45rem;
 	margin-bottom: 0.9rem;
-	color: var(--ep-muted);
-	font-size: 0.8rem;
 }
 
-.ep-or::before,
-.ep-or::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--ep-line); }
+.ep-recent-chip {
+	display: inline-flex;
+	align-items: center;
+	border: 1px solid var(--ep-line);
+	border-radius: var(--ep-r-sm);
+	background: var(--ep-card);
+	overflow: hidden;
+}
+
+.ep-recent-pick,
+.ep-recent-x {
+	border: 0;
+	background: transparent;
+	color: var(--ep-ink);
+	cursor: pointer;
+	font: inherit;
+}
+
+.ep-recent-pick {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.6rem;
+	font-size: 0.9rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.ep-recent-chip:hover { border-color: var(--ep-muted); }
+.ep-recent-pick:hover { color: var(--ep-ink); background: var(--ep-fill-hover); }
+.ep-recent-code { color: var(--ep-muted); font-size: 0.8rem; }
+
+.ep-recent-x {
+	padding: 0.45rem 0.55rem;
+	color: var(--ep-muted);
+	border-inline-start: 1px solid var(--ep-line);
+}
+
+.ep-recent-x:hover { color: var(--ep-bad); }
+
+.ep-bio-wait { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.9rem; }
 
 .ep-checkbox-field { gap: 0.6rem; }
 .ep-checkbox-field .ep-checkbox-label { font-size: 0.95rem; }
@@ -1648,25 +1770,22 @@
 	gap: 0.4rem;
 	min-height: 2.4rem;
 	padding: 0.4rem 0.75rem;
-	border: 1px solid var(--ep-line);
+	border: 1px solid transparent;
 	border-radius: var(--ep-r-sm);
-	background: var(--ep-card);
-	color: var(--ep-accent);
+	background: var(--ep-fill);
+	color: var(--ep-fill-ink);
 	font-size: 0.85rem;
 	font-weight: 600;
 	cursor: pointer;
+	transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .ep-install:hover {
-	border-color: var(--ep-accent);
-	background: color-mix(in srgb, var(--ep-accent) 8%, transparent);
+	background: var(--ep-fill-hover);
+	color: var(--ep-ink);
 }
 
-.ep-device-on { color: var(--ep-accent); }
-
-.ep-device-offer { align-items: center; flex-wrap: wrap; }
-.ep-device-offer > span { flex: 1 1 12rem; }
-.ep-device-offer .ep-btn { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+.ep-device-on { color: var(--ep-info-ink); }
 
 /* On a phone the header already holds the menu, the name and three controls; the
    install entry keeps its icon and loses the word. */

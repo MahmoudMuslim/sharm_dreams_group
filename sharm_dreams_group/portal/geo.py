@@ -36,7 +36,7 @@ STATUS_UNAVAILABLE = "unavailable"
 # A Select field stores the option text, so the codes used on the wire are mapped
 # to the labels persisted on the checkin. `Employee Checkin.sdg_self_service_geo_status`
 # carries exactly these four options - changing one means changing both, which is
-# what `setup.SELF_SERVICE_GEO_STATUS_OPTIONS` and `self_service.test_self_service` exist to catch.
+# what `setup.SELF_SERVICE_GEO_STATUS_OPTIONS` exists to catch.
 STATUS_LABELS = {
 	STATUS_OK: "Verified",
 	STATUS_OUTSIDE: "Outside allowed zone",

@@ -3,11 +3,10 @@
 
 """The employee portal: sign-in, balances, time off, payslips.
 
-A separate implementation from `self_service`, serving `/employee-portal` while
-`/self-services-employees` stays up, so the two can be compared before the old
-page is retired.
+The single self-service surface at `/employee-portal`; the old
+`/self-services-employees` page and its client are gone.
 
-Three deliberate differences from the module it sits beside.
+Three deliberate differences from the page it replaced.
 
 **Balances are read from `Leave Allocation`, not `Leave Balance`.** HRMS maintains a
 `Leave Balance` per employee per leave type, but the doctype is not installed on this
@@ -15,8 +14,8 @@ site at all - there is no `tabLeave Balance` - so the usual source is absent. Th
 allocation plus the employee's own Leave Applications is the same arithmetic HRMS
 would have done, written out here rather than inherited.
 
-**The entitlements are the allocations, not six custom fields.** The old
-`self_service/vacation.py` read `sdg_vacation_annual_days` and five siblings, which
+**The entitlements are the allocations, not six custom fields.** The retired
+`/self-services-employees` page read `sdg_vacation_annual_days` and five siblings, which
 are 0 for every employee on this site. An allocation now exists for each of the 180
 active employees, so there is a real entitlement to read and the custom fields are
 not needed.
@@ -57,8 +56,10 @@ from sharm_dreams_group.sharm_dreams_group.doctype.employee_self_service_session
 )
 
 __all__ = [
+	"IDLE_TIMEOUT_SECONDS",
 	"SESSION_TTL_HOURS",
 	"activity_types",
+	"approvals",
 	"approve_balance",
 	"cancel_leave",
 	"days_by_code",
@@ -89,6 +90,11 @@ __all__ = [
 # A request in either state is committed time off: an approved one can still be
 # cancelled back to the employee, so it has to stay counted until it is not.
 COMMITTED_STATUSES = ("Approved", "Open")
+
+# How long a signed-in tablet may sit untouched before the portal signs itself out.
+# The old page used 30 seconds; that is hostile outside a kiosk, so the mechanism is
+# kept and the window widened. Shared with the page script through the page context.
+IDLE_TIMEOUT_SECONDS = 600
 
 # The leave types the portal shows a balance for, by the tracker's own codes. Named
 # rather than discovered, because the six compensatory types - `DO`, `PH`, `LLDO`,
@@ -135,6 +141,21 @@ def sign_in(national_id: str, employee_code: str, remember_me: bool = False) -> 
 			exc=frappe.PermissionError,
 		)
 
+	# Once a biometric is enrolled the account is locked to it: the two numbers can
+	# be read off any HR printout, the fingerprint cannot. This is the same policy
+	# the old page enforced, and `webauthn_login` is the way back in.
+	enrolled = frappe.db.count(
+		"Employee Self Service Biometric Credential", {"employee": employee, "active": 1}
+	)
+	if enrolled:
+		frappe.throw(
+			_(
+				"This account is protected by biometric sign-in. "
+				"Please sign in with your fingerprint or face ID."
+			),
+			exc=frappe.PermissionError,
+		)
+
 	# `create_session` puts this straight into a Link field, so it must be the name
 	# and not the document - a document raises `AssertionError: Unexpected value for
 	# field employee` from `_validate_links`.
@@ -169,6 +190,35 @@ def sign_out(token: str) -> dict:
 	resolve_session(token)
 	frappe.db.delete("Employee Self Service Session", {"access_token": token})
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def approvals(token: str) -> list[dict]:
+	"""Leave applications waiting on this employee's approval, as a manager.
+
+	Read-only, as on the old page: the desk is where the decision is recorded in
+	HRMS's own workflow. The portal's job is to tell an approver there is something
+	to look at, not to become a second workflow engine.
+	"""
+	emp = resolve_session(token)
+	approver_user = frappe.db.get_value("Employee", emp.name, "user_id")
+	if not approver_user:
+		return []
+	return frappe.get_all(
+		"Leave Application",
+		filters={"leave_approver": approver_user, "status": "Open", "docstatus": 0},
+		fields=[
+			"name",
+			"employee",
+			"employee_name",
+			"leave_type",
+			"from_date",
+			"to_date",
+			"total_leave_days",
+		],
+		order_by="posting_date asc",
+		limit_page_length=20,
+	)
 
 
 # The fields an employee may correct on their own record, and nothing else.

@@ -4,8 +4,8 @@
 	"description": "Self-service portal for Sharm Dreams Group employees",
 	"start_url": "/employee-portal",
 	"display": "standalone",
-	"background_color": "#f4f6f8",
-	"theme_color": "#2563eb",
+	"background_color": "#f8f8f8",
+	"theme_color": "#0d8ef8",
 	"orientation": "any",
 	"scope": "/employee-portal",
 	"icons": [

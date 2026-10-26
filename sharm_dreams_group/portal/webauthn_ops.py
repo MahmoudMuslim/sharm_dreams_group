@@ -33,7 +33,7 @@ _P256_SPKI_PREFIX = bytes.fromhex("3059301306072a8648ce3d020106082a8648ce3d03010
 class WebAuthnError(Exception):
 	"""Every rejection reason, deliberately indistinguishable to the caller.
 
-	The caller (self_service.webauthn) turns all of these into one generic message: the
+	The caller (`portal.webauthn`) turns all of these into one generic message: the
 	tablet learns that the attempt failed, not which of the six checks failed it.
 	"""
 

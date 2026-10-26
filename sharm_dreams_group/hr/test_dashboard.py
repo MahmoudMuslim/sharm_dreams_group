@@ -1725,20 +1725,17 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 	# every desk file. It is wrong for a file another page loads itself, because
 	# adding those to `app_include_js` would put a second copy on every desk page.
 	#
-	# `self_service.js` is that case: the self-service page page loads it, because the self-service page is a
-	# full-viewport page that must not drag the desk's widgets and patches in with
-	# it. So it is listed here rather than in the bundle, and the exclusion is
+	# `employee_portal.js` is that case: the portal page loads it, because the portal
+	# is a full-viewport page that must not drag the desk's widgets and patches in
+	# with it. So it is listed here rather than in the bundle, and the exclusion is
 	# asserted from the page that claims it - otherwise the next person to read
-	# "every file in public/js is in the bundle" would add it and put the self-service page's
+	# "every file in public/js is in the bundle" would add it and put the portal's
 	# click handling on every List and Form in the desk.
 	#
-	# The needle is the stem, not the filename. `www/self-services-employees.html`
-	# does not write `self_service.js`: it writes `{{ self_service_js }}`, a context variable the
-	# page's Python resolves to the hashed asset URL. Looking for the literal
-	# filename would fail on a page that is loading it perfectly well.
+	# The needle is the stem, not the filename. A page could write a context variable
+	# the controller resolves to the hashed asset URL; looking for the literal filename
+	# would fail on a page that is loading it perfectly well.
 	NOT_ON_THE_DESK = {
-		# loaded by www/self-services-employees.html as `{{ self_service_js }}`
-		"self_service.js": ("www/self-services-employees.html", "self_service_js"),
 		# loaded by www/employee-portal.html as a literal <script src>. The portal
 		# writes the path rather than a context variable - it has no asset-hashing
 		# step, and a cache-busting `?v=` is what a wall tablet needs instead.

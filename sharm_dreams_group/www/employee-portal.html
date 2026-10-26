@@ -15,7 +15,7 @@
 	<title>Employee Portal</title>
 	<link rel="icon" href="/assets/sharm_dreams_group/images/logo.png" />
 	<link rel="manifest" href="/assets/sharm_dreams_group/manifest.json" />
-	<meta name="theme-color" content="#2563eb" />
+	<meta name="theme-color" content="#0d8ef8" />
 	{# The standards-track name first, the Apple one beside it: `apple-mobile-web-app-capable`
 	   is what iOS still reads, `mobile-web-app-capable` is what Chrome asks for. #}
 	<meta name="mobile-web-app-capable" content="yes" />
@@ -25,7 +25,7 @@
 	<link rel="apple-touch-icon" href="/assets/sharm_dreams_group/images/logo.png" />
 	<link rel="stylesheet"
 		href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css?v=4.7.0" />
-	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=27" />
+	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=31" />
 </head>
 <body>
 	<div class="ep-root ep-locked" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
@@ -131,10 +131,11 @@
 			lang: {{ portal_lang | tojson }},
 			langApi: {{ portal_lang_api | tojson }},
 			sw: {{ portal_sw | tojson }},
+			idleMs: {{ portal_idle_ms }},
 			csrf: {{ portal_csrf | tojson }}
 		};
 	</script>
-	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=42"></script>
+	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=43"></script>
 	<script>
 		// The pieces of chrome around the app: the worker, the offline banner, and the
 		// install entry point. Each is looked up before it is used - a banner that is

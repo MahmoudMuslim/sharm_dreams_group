@@ -31,6 +31,7 @@ from sharm_dreams_group.portal import (
 	notifications,
 	performance,
 	portal,
+	webauthn,
 )
 from sharm_dreams_group.www.employee_portal import (
 	API_ROUTE,
@@ -65,6 +66,11 @@ ACTIONS = {
 	"sign_in": portal.sign_in,
 	"sign_out": portal.sign_out,
 	"my_profile": portal.my_profile,
+	# biometric sign-in (server-verified WebAuthn)
+	"webauthn_login": webauthn.webauthn_login,
+	"webauthn_verify": webauthn.webauthn_verify,
+	# approvals awaiting this employee as a leave approver
+	"approvals": portal.approvals,
 	# details
 	"my_details": portal.my_details,
 	"update_my_details": portal.update_my_details,

@@ -3,10 +3,10 @@
 
 """The employee portal, at `/employee-portal`.
 
-A second front door to the same employees, built alongside `/self-services-employees`
-so the two can be compared before the old page is retired. Nothing here changes or
-depends on the old page: its own route, its own renderer, its own template, and its
-own JavaScript. The one thing shared is `Employee Self Service Session`, because a
-token does not care which page minted it and forking that doctype would mean two
-login histories for one tablet.
+The single self-service surface for employees. The old `/self-services-employees`
+page and its client were removed once their remaining features - biometric sign-in,
+remembered identities, geofenced punching, approvals and the idle timeout - were
+carried over here. `Employee Self Service Session` is still shared, because a token
+does not care which page minted it and forking that doctype would mean two login
+histories for one tablet.
 """
