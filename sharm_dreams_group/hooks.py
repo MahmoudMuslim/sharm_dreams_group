@@ -19,17 +19,17 @@ required_apps = ["frappe/erpnext/hrms"]
 # ------------------------------------------------------------------------------
 # Employee portal
 # ------------------------------------------------------------------------------
-# The employee portal at `/employee-portal` is the single self-service surface.
-# It uses page renderers (not `/api/method`) so it works on benches running the
-# `press` app, which rejects `/api/` paths for non-system users.
+# The employee portal at `/employee-portal` is the only self-service surface: the
+# older page beside it, `/self-services-employees`, is retired. It uses page
+# renderers (not `/api/method`) so it works on benches running the `press` app,
+# which rejects `/api/` paths for non-system users.
 #
-# Two routes: `/employee-portal-api` for actions, `/employee-portal/setlang` for language.
-# Both are defined in `sharm_dreams_group.portal.renderers.PortalApiRenderer` and
-# `PortalLangRenderer`. Authorisation is via the `Employee Self Service Session`
-# token minted at sign-in (National ID + Employee Number).
 # Three routes: `/employee-portal-api` for actions, `/employee-portal/setlang` for
 # language, and `/employee-portal-sw.js` for the offline worker - the last one served
-# from the root so its scope reaches the page itself.
+# from the root so its scope reaches the page itself. Authorisation on the first is
+# the `Employee Self Service Session` token minted at sign-in (National ID +
+# Employee Number); the session doctype keeps its name because the retired page
+# minted rows from the same table.
 page_renderer = [
 	"sharm_dreams_group.portal.renderers.PortalApiRenderer",
 	"sharm_dreams_group.portal.renderers.PortalLangRenderer",
@@ -92,6 +92,25 @@ app_include_css = [
 	"sharm_dreams_group.bundle.css",
 	"sharm_sidebar.bundle.css",
 ]
+
+# `suite` declares `home_page = "suite"`, so the site root opened the Frappe Suite SPA.
+#
+# A `home_page = "desk"` here would not beat it.  `website.utils.get_home_page_via_hooks()`
+# takes `frappe.get_hooks("home_page")[-1]`, and that list is built in the order of the
+# `installed_apps` value in the database - `frappe, erpnext, hrms, sharm_dreams_group,
+# suite` - which is not apps.txt order, and leaves suite last.  Reordering that row to
+# put our app after it would decide this one string by rearranging every hook the site
+# has, including `doc_events` and `override_doctype_class`, so it is not a trade worth
+# making.
+#
+# `get_website_user_home_page` is consulted before that chain and no other app registers
+# it, so a callable wins on merit rather than on ordering.  It only speaks for a session
+# that reaches the hook stage at all: a `Role.home_page` (the two Helpdesk roles use
+# `/helpdesk`), `Portal Settings`, and a personal `default_workspace` are all resolved
+# first, so portal users and every employee land exactly where they always did.  What
+# changes is the anonymous visit and anyone with no workspace of their own - both now go
+# to `/desk`, which sends a Guest on to the login page.
+get_website_user_home_page = "sharm_dreams_group.workspace.home_page_for_user"
 
 # There is deliberately no `override_whitelisted_methods` entry for
 # `query_report.run`, although widening a report's company filter server-side

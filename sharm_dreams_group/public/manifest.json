@@ -4,11 +4,23 @@
 	"description": "Self-service portal for Sharm Dreams Group employees",
 	"start_url": "/employee-portal",
 	"display": "standalone",
-	"background_color": "#f4f6f8",
-	"theme_color": "#2563eb",
+	"background_color": "#f8f8f8",
+	"theme_color": "#f8f8f8",
 	"orientation": "any",
 	"scope": "/employee-portal",
 	"icons": [
+		{
+			"src": "/assets/sharm_dreams_group/images/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/assets/sharm_dreams_group/images/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
 		{
 			"src": "/assets/sharm_dreams_group/images/logo.png",
 			"sizes": "500x500",

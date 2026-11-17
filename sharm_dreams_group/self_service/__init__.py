@@ -1,14 +1,20 @@
-"""Employee Self Service: a wall tablet that employees sign in on with no user account.
+"""Shared machinery behind the employee portal.
 
-The self-service has three parts and they are deliberately in separate modules:
+What lives here is used by `sharm_dreams_group.portal`, not by a page of its own:
 
-* `api`, `time_off`, `approval`, `webauthn` - the guest-callable actions, all
-  authorised by the token minted in `doctype.employee_self_service_session`.
-* `geo`, `vacation` - the two read models those actions need (punch zones,
-  leave balances), kept out so they can be tested without a session.
-* `renderers` - the two website routes the browser talks to.
-* `webauthn_ops` - pure crypto, no Frappe imports at all.
+* `geo` - the punch fence, read by `portal.attendance`.
+* `webauthn`, `webauthn_ops` - the WebAuthn server, read by `portal.biometrics`.
+  `webauthn_ops` is pure crypto and imports no Frappe at all, which is what lets it
+  be tested without a site.
 
-`www/self-service.py` and `www/self-service.html` sit at the app root because Frappe maps
-`<app>/www/<name>` to the route `/<name>`.
+`api`, `approval`, `time_off`, `vacation`, `vacation_spec` are the older
+implementation of the same employee-facing actions. The page that reached them over
+HTTP - `/self-services-employees`, with its `renderers` and its own JS and CSS - is
+retired; those files are parked in `backups/retired-self-services-employees-2026-10-26`
+beside the bench rather than deleted. The modules stay because `vacation_spec` is the
+generated table `setup.py` describes, because `geo` and `vacation` are read by `api`,
+and because `self_service.test_self_service` covers all of it. Nothing on the network
+can reach them: with `renderers` gone there is no route that maps an action onto
+`api`.
+
 """

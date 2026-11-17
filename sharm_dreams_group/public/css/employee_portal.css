@@ -21,45 +21,95 @@
  */
 
 .ep-root {
-	/* Light theme (default) */
-	--ep-bg: #f4f6f8;
+	/* Frappe v16 "Espresso" tokens. Copied as literal values rather than aliased to
+	   `--surface-*`: the portal does not load desk's stylesheet, so those semantic
+	   variables would be undefined here. Values come from
+	   `frappe/public/css/espresso/colors.css`, `effects.css`, `radius.css` and
+	   `typography.css`; keep them in step with that scale rather than inventing
+	   close-enough colours.
+
+	   The one deliberate departure from the old palette: primary is near-black
+	   (Espresso's `$primary` is gray-900), not blue. Blue is reserved for
+	   informational states, exactly as it is in desk - and desk's focus ring is not
+	   blue either. */
+	--ep-bg: #f8f8f8;              /* surface-gray-1 */
 	--ep-card: #ffffff;
-	--ep-ink: #1f2933;
-	--ep-muted: #6b7280;
-	--ep-line: #e2e8f0;
-	--ep-accent: #2563eb;
+	--ep-card-soft: #f3f3f3;       /* surface-gray-2 */
+	--ep-ink: #171717;             /* ink-gray-8 */
+	--ep-ink-strong: #0f0f0f;      /* ink-gray-9 */
+	--ep-muted: #525252;           /* ink-gray-6, which is desk's `--text-muted` */
+	--ep-line: #ededed;            /* outline-gray-1 (gray-200) */
+	--ep-line-strong: #e2e2e2;     /* outline-gray-2 (gray-300) */
+	--ep-line-hover: #c7c7c7;      /* outline-gray-3 (gray-400): an outlined control deepens
+	   its line when pointed at - the hover changes the border, not the fill */
+	--ep-accent: #171717;
+	--ep-accent-hover: #383838;
+	--ep-accent-active: #525252;   /* surface-gray-8: what Espresso holds a solid button at */
 	--ep-accent-ink: #ffffff;
-	--ep-good: #059669;
-	--ep-warn: #b45309;
-	--ep-bad: #b91c1c;
+	--ep-info: #0375d3;            /* ink-blue-8 */
+	--ep-info-soft: #e6f4ff;       /* surface-blue-2 */
+	--ep-good: #14804d;            /* ink-green-8 */
+	--ep-good-soft: #e4faeb;       /* surface-green-2 */
+	--ep-warn: #91400d;            /* ink-amber-9: two steps darker than -8, for badge contrast */
+	--ep-warn-soft: #f6eac0;       /* amber-200, paired with that ink */
+	--ep-warn-solid: #ca7e0c;      /* surface-amber-7 */
+	--ep-bad: #b41d1d;             /* ink-red-8 */
+	--ep-bad-soft: #ffe7e7;        /* surface-red-2 */
+	--ep-bad-solid: #ce2c2c;       /* surface-red-7 */
+	--ep-star: #df9311;            /* amber-500 */
 	--ep-gap: 1rem;
 
-	/* Shape and elevation, so "the same card" means the same radius and the same
-	   shadow in every screen rather than a value retyped per rule. */
-	--ep-r: 0.85rem;
-	--ep-r-sm: 0.55rem;
-	--ep-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 18px rgba(15, 23, 42, 0.06);
-	--ep-shadow-lg: 0 12px 34px rgba(15, 23, 42, 0.14);
-	--ep-tint: color-mix(in srgb, var(--ep-muted) 10%, transparent);
+	/* Second layer: the tokens the component contracts below need, and which the
+	   first pass had no component to ask for.
 
-	/* Dark theme overrides (applied via .ep-root.dark) */
-	--ep-bg-dark: #0f172a;
-	--ep-card-dark: #1e293b;
-	--ep-ink-dark: #f1f5f9;
-	--ep-muted-dark: #94a3b8;
-	--ep-line-dark: #334155;
-	--ep-accent-dark: #3b82f6;
-	--ep-accent-ink-dark: #ffffff;
-	--ep-good-dark: #10b981;
-	--ep-warn-dark: #f59e0b;
-	--ep-bad-dark: #ef4444;
+	   The eight `-icon`/`-toast` colours are one colour word at two steps, because
+	   Espresso tints an icon by what is behind it. On the near-black toast pill the
+	   icon is `--ink-*-5`, a pastel on black; on a pastel alert it is `--ink-*-6`,
+	   one step deeper, because a pastel on a pastel is invisible.
 
-	/* Elevation on a dark ground reads as a lighter edge, not as a black shadow - the
-	   shadow a card casts on #0f172a is invisible, and what separates the two is a
-	   brighter border and a shadow with more presence. */
-	--ep-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.45);
-	--ep-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
-	--ep-tint: color-mix(in srgb, var(--ep-muted) 16%, transparent);
+	   `--ep-press` is `--surface-gray-4`, the state a subtle control is in while it
+	   is held or its menu is open. A tint one step deeper than the hover -
+	   `--ep-tint-strong` is the hover, and is not the same thing. */
+	--ep-toast-bg: #383838;        /* surface-gray-9 */
+	--ep-toast-ink: #ffffff;       /* ink-base */
+	--ep-press: #e2e2e2;           /* surface-gray-4 */
+	--ep-disabled-ink: #999999;    /* ink-gray-4 */
+	--ep-menu-ink: #383838;        /* ink-gray-7 */
+	--ep-track: #f3f3f3;           /* surface-gray-2 */
+	--ep-info-icon: #0d8ef8;       /* ink-blue-6 */
+	--ep-good-icon: #43ac79;       /* ink-green-6 */
+	--ep-warn-icon: #df9311;       /* ink-amber-6 */
+	--ep-bad-icon: #e03434;        /* ink-red-6 */
+	--ep-toast-info: #61afef;      /* ink-blue-5 */
+	--ep-toast-good: #7edaa1;      /* ink-green-5 */
+	--ep-toast-warn: #f4cd80;      /* ink-amber-5 */
+	--ep-toast-bad: #f79596;       /* ink-red-5 */
+
+	/* Shape and elevation. 8px controls / 10px cards is Espresso's split; the
+	   elevation tokens are its multi-layer `--elevation-*` values, not a flat
+	   drop shadow. */
+	--ep-r: 8px;
+	--ep-r-sm: 4px;
+	--ep-r-md: 10px;
+	--ep-r-lg: 12px;               /* radius-lg: the corner a menu or popover carries */
+	--ep-tint: #f3f3f3;
+	--ep-tint-strong: #ededed;
+	--ep-avatar-bg: #f3f3f3;
+	--ep-avatar-ink: #7c7c7c;      /* ink-gray-5, the initials colour in `es-avatar` */
+	--ep-selected: #ffffff;
+	/* Espresso gives every focused control the same neutral ring - buttons, tabs,
+	   breadcrumbs, menu rows, a toast's close button - and swaps to the red one only on
+	   a destructive control or an invalid field. `--focus-outline-blue` is in the
+	   palette and no desk component draws with it. */
+	--ep-focus-outline: 2px solid #c9c9c9e5;   /* focus-outline-default */
+	--ep-focus-danger: 2px solid #fa9c9de5;    /* focus-outline-red */
+	--ep-shadow-sm: inset 0 0.25px 1.5px 0 #ffffff29, 0 0 1px 0 #00000033, 0 1px 3px 0 #00000024;
+	--ep-shadow-lg: inset 0 0.25px 1.5px 0 #ffffff29, 0 0 1.5px 0 #0000002e, 0 0 6px 3px #00000008, 0 18px 22px -6px #0000001a;
+	--ep-shadow-2xl: inset 0 0.25px 2px 0 #ffffff29, 0 0 1.5px 0 #00000040, 0 0 10px 2px #00000008, 0 44px 52px -10px #0000001a;
+
+	/* `es-menu` is the only Espresso surface that raises itself twice: a faint 1px
+	   ring so an edge survives on a white card, under the largest elevation. */
+	--ep-menu-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), var(--ep-shadow-2xl);
 
 	position: fixed;
 	inset: 0;
@@ -67,25 +117,81 @@
 	flex-direction: column;
 	background: var(--ep-bg);
 	color: var(--ep-ink);
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	color-scheme: light;
+	font-family: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+		Roboto, "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+		"Helvetica Neue", sans-serif;
 	font-size: 16px;
+	font-weight: 420;
 	line-height: 1.45;
 	overflow: hidden;
 	-webkit-text-size-adjust: 100%;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark theme */
+/* Dark theme. Espresso's dark scale is not the same colours at lower lightness: the
+   semantic aliases invert (surface-gray-1 becomes gray-900, surface-gray-10 becomes
+   gray-50), so the pairs below are the aliases' actual dark values. Elevations stay
+   the same in both themes - their inset white edge is what makes them read on a dark
+   ground - and only the focus ring changes. */
 .ep-root.dark {
-	--ep-bg: var(--ep-bg-dark);
-	--ep-card: var(--ep-card-dark);
-	--ep-ink: var(--ep-ink-dark);
-	--ep-muted: var(--ep-muted-dark);
-	--ep-line: var(--ep-line-dark);
-	--ep-accent: var(--ep-accent-dark);
-	--ep-accent-ink: var(--ep-accent-ink-dark);
-	--ep-good: var(--ep-good-dark);
-	--ep-warn: var(--ep-warn-dark);
-	--ep-bad: var(--ep-bad-dark);
+	--ep-bg: #171717;              /* surface-base (gray-950) */
+	--ep-card: #1f1f1f;            /* surface-elevation-1 */
+	--ep-card-soft: #242424;       /* surface-elevation-2 */
+	--ep-ink: #d9d9d9;             /* ink-gray-8 dark = gray-100 */
+	--ep-ink-strong: #f8f8f8;      /* ink-gray-9 dark = gray-50 */
+	--ep-muted: #999999;
+	--ep-line: #242424;            /* outline-gray-1 dark */
+	--ep-line-strong: #383838;     /* outline-gray-2 dark */
+	--ep-line-hover: #424242;      /* outline-gray-3 dark = gray-500 */
+	--ep-accent: #f8f8f8;          /* surface-gray-10 dark = gray-50 */
+	--ep-accent-hover: #d9d9d9;    /* surface-gray-9 dark = gray-100 */
+	--ep-accent-active: #afafaf;   /* surface-gray-8 dark = gray-200 */
+	--ep-accent-ink: #171717;
+	--ep-info: #76bef9;            /* ink-blue-8 dark */
+	--ep-info-soft: #0a2e5c;       /* surface-blue-2 dark */
+	--ep-good: #7dc5a2;
+	--ep-good-soft: #0e3521;
+	--ep-warn: #e9a144;
+	--ep-warn-soft: #452608;
+	--ep-warn-solid: #bd660f;
+	--ep-bad: #ff7575;
+	--ep-bad-soft: #592222;
+	--ep-bad-solid: #c23838;
+	--ep-star: #e9a144;            /* amber-200 dark */
+	--ep-tint: #292929;            /* surface-gray-2 dark */
+	--ep-tint-strong: #383838;     /* surface-gray-3 dark */
+	--ep-avatar-bg: #292929;
+	--ep-avatar-ink: #7a7a7a;      /* ink-gray-5 dark = gray-400, not the light value */
+	--ep-selected: #383838;        /* surface-elevation-3 dark */
+
+	/* The second layer, inverted. The toast pill is the one that surprises: it is
+	 * `--surface-gray-9` under a 1:1 alias rule, so in dark it becomes a light pill
+	 * carrying `--ink-base` = gray-950 - the same inversion desk shows, where the
+	 * pill always contrasts the page rather than matching it. The `-toast` icons
+	 * invert with it: `--ink-*-5` dark is the 500 step, one deeper than the 400 the
+	 * alert uses, because the ground behind them is light in this theme. */
+	--ep-toast-bg: #d9d9d9;
+	--ep-toast-ink: #171717;
+	--ep-press: #424242;           /* surface-gray-4 dark = gray-500 */
+	--ep-disabled-ink: #7a7a7a;    /* ink-gray-4 dark = gray-400 */
+	--ep-menu-ink: #afafaf;        /* ink-gray-7 dark = gray-200 */
+	--ep-track: #292929;           /* surface-gray-2 dark = gray-700 */
+	--ep-info-icon: #2480cc;       /* ink-blue-6 dark = blue-400 */
+	--ep-good-icon: #128251;       /* ink-green-6 dark = green-400 */
+	--ep-warn-icon: #bd660f;       /* ink-amber-6 dark = amber-400 */
+	--ep-bad-icon: #c23838;        /* ink-red-6 dark = red-400 */
+	--ep-toast-info: #1c6ec4;      /* ink-blue-5 dark = blue-500 */
+	--ep-toast-good: #117846;
+	--ep-toast-warn: #af5e0e;
+	--ep-toast-bad: #b03030;
+
+	/* Dark rings are one step thicker than light ones, which is Espresso's own
+	   difference between the two themes rather than a portal choice. */
+	--ep-focus-outline: 3px solid #464646cc;
+	--ep-focus-danger: 3px solid #751819cc;
+	color-scheme: dark;
 }
 
 /* ------------------------------------------------------------------ header */
@@ -94,41 +200,62 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--ep-gap);
-	padding: 0.75rem 1.25rem;
-	background: var(--ep-card);
+	padding: 0.65rem 1.25rem;
+	background: var(--ep-bg);
 	border-bottom: 1px solid var(--ep-line);
 	flex: 0 0 auto;
 }
 
 .ep-brand { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
-.ep-brand-name { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
-.ep-head-right { display: flex; align-items: center; gap: 0.75rem; }
+.ep-brand-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: 600;
+	font-size: 1rem;
+	letter-spacing: -0.01em;
+	color: var(--ep-ink-strong);
+	white-space: nowrap;
+}
+.ep-head-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .ep-user-info {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.75rem;
-	padding: 0.35rem 0.6rem;
-	background: var(--ep-card);
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	gap: 0.7rem;
+	padding: 0.2rem 0.4rem;
+	background: transparent;
+	border: 0;
+	border-radius: var(--ep-r);
 }
+/* `es-avatar`'s initials nearly fill the disc - 14px of text in a 24px box, 20px in a
+   40px one - and carry no weight of their own, because the shape is doing the emphasis
+   and bold initials read as a label rather than a face. The four avatar sizes in the
+   portal are larger than any step in the component, so their type follows the same
+   roughly-half-the-box ratio rather than a named step. Uppercase is the component's own
+   rule; `initialsOf()` already returns caps, and it is what makes a one-letter fallback
+   read as an initial rather than a stray character. */
 .ep-user-avatar {
-	width: 2.2rem;
-	height: 2.2rem;
+	width: 2.25rem;
+	height: 2.25rem;
 	border-radius: 50%;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-weight: 700;
-	font-size: 0.85rem;
+	font-size: 1.125rem;
+	line-height: 1;
+	text-transform: uppercase;
 	flex-shrink: 0;
 }
 .ep-user-meta { display: flex; flex-direction: column; min-width: 0; }
 .ep-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.ep-user-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-user-name { font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-user-role { font-size: 0.75rem; color: var(--ep-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The header's controls are Espresso ghost buttons: no chrome until they are
+   pointed at, then a gray-100 surface. Nothing here turns blue - in this design
+   language blue carries information, and a control's states are carried by grays. */
 .ep-lang-btn,
 .ep-signout,
 .ep-theme-btn {
@@ -136,55 +263,45 @@
 	align-items: center;
 	justify-content: center;
 	gap: 0.4rem;
-	padding: 0.45rem 0.7rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
-	background: var(--ep-card);
-	color: var(--ep-ink);
-	font-size: 0.9rem;
+	min-height: 2.75rem;
+	padding: 0.45rem 0.6rem;
+	border: 1px solid transparent;
+	border-radius: var(--ep-r);
+	background: transparent;
+	color: var(--ep-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
 	cursor: pointer;
+	transition: background-color 120ms, color 120ms;
 }
 
+/* Gated on `hover: hover` because a touchscreen keeps the last tapped state: without
+   the gate, the button the employee just pressed stays lit after they have put the
+   tablet down. `:active` is left ungated - it only holds while the finger is down. */
+@media (hover: hover) {
+	.ep-lang-btn:hover,
+	.ep-signout:hover,
+	.ep-theme-btn:hover {
+		background: var(--ep-tint);
+		color: var(--ep-ink);
+	}
+}
+
+.ep-lang-btn:active,
+.ep-signout:active,
+.ep-theme-btn:active { background: var(--ep-press); }
+
 .ep-theme-btn {
-	width: 2.4rem;
-	height: 2.4rem;
+	width: 2.75rem;
+	height: 2.75rem;
 	padding: 0;
 }
 
-.ep-theme-btn:hover { background: var(--ep-line); }
-
-.ep-lang-btn.active { border-color: var(--ep-accent); color: var(--ep-accent); }
-
-.ep-btn-secondary {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	padding: 0.45rem 0.7rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
-	background: var(--ep-card);
+.ep-lang-btn.active {
+	background: var(--ep-tint);
+	border-color: transparent;
 	color: var(--ep-ink);
-	font-size: 0.9rem;
-	cursor: pointer;
 }
-.ep-btn-secondary:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
-
-.ep-divider {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	margin: 0.75rem 0;
-	color: var(--ep-muted);
-	font-size: 0.8rem;
-}
-.ep-divider::before,
-.ep-divider::after {
-	content: "";
-	flex: 1;
-	height: 1px;
-	background: var(--ep-line);
-}
-.ep-divider span { padding: 0 0.5rem; white-space: nowrap; }
 
 /* An author `display` beats the user-agent's `[hidden] { display: none }` - the
    classes above set `display` on both buttons, so without this the Sign out button
@@ -196,25 +313,28 @@
 
 .ep-lang-wrap { position: relative; }
 
+/* `es-menu` raises itself rather than drawing a border: a 1px ring of 5% black under
+   the largest elevation, so the panel keeps an edge on a white card without a gray
+   line that would disappear on the dark one. Radius is `--radius-lg`, one step above
+   the cards under it, because a menu is the topmost surface on the screen. */
 .ep-lang-dd {
 	position: absolute;
 	inset-inline-end: 0;
-	top: calc(100% + 0.35rem);
-	min-width: 11rem;
+	top: calc(100% + 0.4rem);
+	min-width: 11.5rem;
 	background: var(--ep-card);
-	border: 1px solid var(--ep-line);
-	border-radius: 0.6rem;
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-	padding: 0.35rem;
+	border-radius: var(--ep-r-lg);
+	box-shadow: var(--ep-menu-shadow);
+	padding: 0.375rem;
 	z-index: 30;
 }
 
 .ep-dropdown-title {
-	font-size: 0.7rem;
-	letter-spacing: 0.06em;
+	font-size: 0.6875rem;
+	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	color: var(--ep-muted);
-	padding: 0.3rem 0.5rem;
+	padding: 0.4rem 0.6rem 0.3rem;
 }
 
 .ep-lang-item {
@@ -222,18 +342,32 @@
 	align-items: center;
 	gap: 0.5rem;
 	width: 100%;
-	padding: 0.5rem;
+	min-height: 2.5rem;
+	padding: 0.375rem 0.5rem;
 	border: 0;
-	border-radius: 0.4rem;
+	border-radius: var(--ep-r);
 	background: transparent;
-	color: inherit;
-	font-size: 0.95rem;
+	color: var(--ep-menu-ink);
+	font-size: 0.875rem;
+	line-height: 1rem;
 	text-align: start;
 	cursor: pointer;
 }
 
-.ep-lang-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
-.ep-lang-item.active { color: var(--ep-accent); font-weight: 600; }
+/* A menu row lights up when it is pointed at, and the current choice is a deeper fill
+   carrying medium text - `es-menu__item[data-state="checked"]` is `surface-gray-3`
+   plus `ink-gray-8`, and the weight change is one step, not the heading step. */
+@media (hover: hover) {
+	.ep-lang-item:hover { background: var(--ep-tint); }
+	/* A row that is both the current choice and pointed at takes the next step down the
+	   ramp, which is `es-menu__item[data-state="checked"][data-highlighted]`. */
+	.ep-lang-item.active:hover { background: var(--ep-press); }
+}
+.ep-lang-item.active {
+	background: var(--ep-tint-strong);
+	color: var(--ep-ink);
+	font-weight: 500;
+}
 
 /* -------------------------------------------------------------------- shell
  *
@@ -258,7 +392,7 @@
 	gap: 0.25rem;
 	width: 5rem;
 	padding: 0.75rem 0.5rem;
-	background: var(--ep-card);
+	background: var(--ep-bg);
 	border-inline-end: 1px solid var(--ep-line);
 	overflow-y: auto;
 	z-index: 30;
@@ -273,22 +407,30 @@
 	min-height: 3.5rem;
 	padding: 0.5rem 0.2rem;
 	border: 0;
-	border-radius: 0.7rem;
+	border-radius: var(--ep-r);
 	background: transparent;
 	color: var(--ep-muted);
 	font: inherit;
-	font-size: 0.68rem;
+	font-size: 0.6875rem;
+	font-weight: 500;
 	line-height: 1.15;
 	text-align: center;
 	cursor: pointer;
 }
 
-.ep-dock-item i { font-size: 1.2rem; }
-.ep-dock-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); color: var(--ep-ink); }
+.ep-dock-item i { font-size: 1.25rem; }
+@media (hover: hover) {
+	.ep-dock-item:hover { background: var(--ep-tint); color: var(--ep-ink); }
+}
+.ep-dock-item:active { background: var(--ep-press); }
+/* The selected item is a raised surface, and medium rather than semibold: desk marks
+   the current entry in a list with `font-medium` over a fill, and keeps 600 for
+   headings. Two kinds of emphasis on one row would shout. */
 .ep-dock-item[aria-current="page"] {
-	background: color-mix(in srgb, var(--ep-accent) 14%, transparent);
-	color: var(--ep-accent);
-	font-weight: 600;
+	background: var(--ep-selected);
+	box-shadow: var(--ep-shadow-sm);
+	color: var(--ep-ink-strong);
+	font-weight: 500;
 }
 
 .ep-dock-dot {
@@ -298,8 +440,8 @@
 	width: 0.5rem;
 	height: 0.5rem;
 	border-radius: 50%;
-	background: var(--ep-warn);
-	border: 1px solid var(--ep-card);
+	background: var(--ep-warn-solid);
+	border: 1px solid var(--ep-bg);
 }
 
 .ep-dock-item { position: relative; }
@@ -310,77 +452,94 @@
 	flex-direction: column;
 	width: 15.5rem;
 	padding: 1rem 0.75rem 0.75rem;
-	background: color-mix(in srgb, var(--ep-card) 55%, var(--ep-bg));
+	background: var(--ep-bg);
 	border-inline-end: 1px solid var(--ep-line);
 	overflow-y: auto;
 	z-index: 30;
 }
 
 .ep-sidebar-title {
-	font-size: 0.72rem;
-	letter-spacing: 0.08em;
+	font-size: 0.6875rem;
+	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--ep-muted);
+	font-weight: 600;
 	margin: 0 0 0.6rem;
-	padding-inline-start: 0.5rem;
+	padding-inline-start: 0.65rem;
 }
 
-.ep-nav { display: flex; flex-direction: column; gap: 0.2rem; }
+.ep-nav { display: flex; flex-direction: column; gap: 0.15rem; }
 
 .ep-nav-item {
 	display: flex;
 	align-items: center;
 	gap: 0.6rem;
 	width: 100%;
-	min-height: 2.9rem;
-	padding: 0.5rem 0.65rem;
-	border: 1px solid transparent;
-	border-radius: 0.65rem;
+	min-height: 2.75rem;
+	padding: 0.45rem 0.65rem;
+	border: 0;
+	border-radius: var(--ep-r);
 	background: transparent;
 	color: var(--ep-ink);
 	font: inherit;
-	font-size: 0.95rem;
+	font-size: 0.875rem;
+	font-weight: 420;
 	text-align: start;
 	cursor: pointer;
 }
 
 .ep-nav-item i:first-child { width: 1.2rem; text-align: center; color: var(--ep-muted); flex-shrink: 0; }
 .ep-nav-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ep-nav-item:hover { background: color-mix(in srgb, var(--ep-muted) 12%, transparent); }
-.ep-nav-item[aria-current="page"] {
-	background: var(--ep-card);
-	border-color: var(--ep-line);
-	color: var(--ep-accent);
-	font-weight: 600;
+@media (hover: hover) {
+	.ep-nav-item:hover { background: var(--ep-tint); }
 }
-.ep-nav-item[aria-current="page"] i:first-child { color: var(--ep-accent); }
+.ep-nav-item:active { background: var(--ep-press); }
+.ep-nav-item[aria-current="page"] {
+	background: var(--ep-selected);
+	box-shadow: var(--ep-shadow-sm);
+	color: var(--ep-ink-strong);
+	font-weight: 500;
+}
+.ep-nav-item[aria-current="page"] i:first-child { color: var(--ep-ink-strong); }
 
 /* The foot holds the way out, pinned to the end of the column however short the list
    above it is. */
 .ep-sidebar-foot {
 	margin-top: auto;
 	padding-top: 1rem;
+	border-top: 1px solid var(--ep-line);
 	display: flex;
 	flex-direction: column;
 	gap: 0.3rem;
 }
 
 .ep-signout-item { color: var(--ep-muted); }
-.ep-signout-item:hover {
-	background: color-mix(in srgb, var(--ep-bad) 10%, transparent);
+/* A destructive row is red-tinted only while it is pointed at or held - `es-menu`
+   keeps the row in ink until then, so the way out of the portal is not a red block
+   sitting in the list at rest. */
+@media (hover: hover) {
+	.ep-signout-item:hover {
+		background: var(--ep-bad-soft);
+		color: var(--ep-bad);
+	}
+	.ep-signout-item:hover i { color: var(--ep-bad); }
+}
+.ep-signout-item:active {
+	background: var(--ep-bad-soft);
 	color: var(--ep-bad);
 }
-.ep-signout-item:hover i { color: var(--ep-bad); }
+.ep-signout-item:active i { color: var(--ep-bad); }
 
-.ep-nav-count {	margin-inline-start: auto;
+.ep-nav-count {
+	margin-inline-start: auto;
 	flex-shrink: 0;
-	min-width: 1.4rem;
+	min-width: 1.35rem;
 	padding: 0.1rem 0.4rem;
 	border-radius: 999px;
-	background: var(--ep-warn);
-	color: var(--ep-accent-ink);
-	font-size: 0.72rem;
-	font-weight: 700;
+	background: var(--ep-warn-solid);
+	color: #ffffff;
+	font-size: 0.6875rem;
+	font-weight: 500;
 	text-align: center;
 }
 
@@ -406,14 +565,14 @@
 		display: none;
 		width: 16rem;
 		background: var(--ep-card);
-		box-shadow: 0 0 24px rgba(2, 6, 23, 0.18);
+		box-shadow: var(--ep-shadow-lg);
 	}
 	.ep-root.ep-nav-open .ep-sidebar { display: flex; }
 	.ep-root.ep-nav-open .ep-nav-scrim {
 		display: block;
 		position: absolute;
 		inset: 0;
-		background: rgba(2, 6, 23, 0.35);
+		background: rgba(15, 15, 15, 0.35);
 		border: 0;
 		z-index: 25;
 		cursor: pointer;
@@ -422,14 +581,21 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 2.4rem;
-		height: 2.4rem;
-		border: 1px solid var(--ep-line);
-		border-radius: 0.5rem;
-		background: var(--ep-card);
-		color: var(--ep-ink);
+		flex-shrink: 0;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: 1px solid transparent;
+		border-radius: var(--ep-r);
+		background: transparent;
+		color: var(--ep-muted);
 		cursor: pointer;
 	}
+	/* Nested because the widths where the hamburger exists are mostly the widths with
+	   no pointer: this is the one control that is only ever drawn on a touchscreen. */
+	@media (hover: hover) {
+		.ep-nav-toggle:hover { background: var(--ep-tint); color: var(--ep-ink); }
+	}
+	.ep-nav-toggle:active { background: var(--ep-press); }
 }
 
 /* On a phone there is no room for a vertical rail either: the dock becomes a bottom
@@ -451,7 +617,7 @@
 	}
 	.ep-dock-item { flex: 1 0 auto; min-width: 3.4rem; min-height: 3rem; }
 	.ep-dock-label { display: none; }
-	.ep-dock-item i { font-size: 1.15rem; }
+	.ep-dock-item i { font-size: 1.125rem; }
 	.ep-sidebar { inset-inline-start: 0; top: 0; }
 	.ep-main { padding: 1rem 0.9rem 1.25rem; }
 	/* The header has to hold a hamburger, the name and three controls in roughly
@@ -490,31 +656,33 @@
 .ep-card {
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
-	padding: 1rem 1.1rem;
+	border-radius: var(--ep-r-md);
+	padding: 1.1rem 1.25rem;
 	margin-bottom: var(--ep-gap);
 }
 
 .ep-card-title {
-	font-size: 0.78rem;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	font-size: 0.875rem;
+	font-weight: 500;
+	letter-spacing: 0;
+	text-transform: none;
 	color: var(--ep-muted);
-	margin: 0 0 0.6rem;
+	margin: 0 0 0.75rem;
 }
 
-.ep-card-sub { margin: -0.3rem 0 0.8rem; color: var(--ep-muted); font-size: 0.9rem; }
+.ep-card-sub { margin: -0.3rem 0 0.8rem; color: var(--ep-muted); font-size: 0.875rem; }
 
 /* A calendar, an org chart: content wider than the card it sits in, which must scroll
    inside the card rather than push the page sideways off the screen. */
 .ep-card-scroll { overflow: auto; }
 
 .ep-toolbar-spacer { flex: 1 1 auto; }
-.ep-toolbar-stat { color: var(--ep-muted); font-size: 0.85rem; white-space: nowrap; }
+.ep-toolbar-stat { color: var(--ep-muted); font-size: 0.8125rem; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ login */
-.ep-login-title { margin: 0 0 0.3rem; font-size: 1.3rem; }
-.ep-login-sub { margin: 0 0 1.1rem; color: var(--ep-muted); font-size: 0.95rem; }
+.ep-login { padding: 1.75rem; }
+.ep-login-title { margin: 0 0 0.3rem; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--ep-ink-strong); }
+.ep-login-sub { margin: 0 0 1.25rem; color: var(--ep-muted); font-size: 1rem; }
 .ep-login .ep-field { border-bottom: 0; padding: 0 0 0.9rem; }
 
 /* ------------------------------------------------------------------ tiles */
@@ -528,73 +696,169 @@
 .ep-tile {
 	display: flex;
 	align-items: center;
-	padding: 0.9rem;
+	gap: 0.85rem;
+	padding: 1rem 1.1rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r-md);
 	background: var(--ep-card);
-	color: inherit;
+	color: var(--ep-ink);
+	font-family: inherit;
 	font-size: 1rem;
-	font-weight: 600;
+	font-weight: 500;
 	text-align: start;
 	cursor: pointer;
+	transition: background-color 120ms, border-color 120ms, box-shadow 120ms;
 }
 
-.ep-tile:hover { border-color: var(--ep-accent); }
+/* A tile is a button, so it takes the card treatment desk gives one: nothing at rest,
+   a line and a shadow once it is pointed at, and the deeper fill while it is held -
+   the pressed state is the only feedback a finger gets. */
+@media (hover: hover) {
+	.ep-tile:hover {
+		border-color: var(--ep-line-strong);
+		background: var(--ep-card);
+		box-shadow: var(--ep-shadow-sm);
+	}
+}
+.ep-tile:active { background: var(--ep-press); }
 
 /* ------------------------------------------------------------------ inputs */
-.ep-label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; }
+.ep-label {
+	display: block;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	color: var(--ep-ink);
+	margin-bottom: 0.35rem;
+}
 
 .ep-input {
 	box-sizing: border-box;
 	width: 100%;
-	padding: 0.7rem 0.8rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	min-height: 2.75rem;
+	padding: 0 0.8rem;
+	border: 1px solid var(--ep-line-strong);
+	border-radius: var(--ep-r);
+	font-family: inherit;
 	font-size: 1rem;
 	background: var(--ep-card);
-	color: inherit;
+	color: var(--ep-ink);
+	transition: border-color 120ms;
 }
 
-.ep-input:focus { outline: 2px solid var(--ep-accent); outline-offset: 1px; }
+.ep-input:focus {
+	outline: var(--ep-focus-outline);
+	outline-offset: 0;
+	border-color: transparent;
+}
+
+/* `ink-gray-4` at full opacity, which is what desk's placeholder resolves to. The
+   0.8 was doubling the fade: a gray that is already light, drawn translucent, is the
+   difference between a hint a kiosk reader can read and one they cannot. */
+.ep-input::placeholder { color: var(--ep-disabled-ink); opacity: 1; }
 
 .ep-field { margin-bottom: 0.9rem; }
 
+/* Espresso's controls are flat: elevation belongs to surfaces that float above the
+   page - cards, menus, toasts - and never to a button, whose own colour step is the
+   feedback. `es-button` carries no shadow at any size, variant or state. */
 .ep-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 0.5rem;
-	width: 100%;
-	padding: 0.8rem 1rem;
-	border: 0;
-	border-radius: 0.6rem;
+	width: auto;
+	min-height: 2.75rem;
+	padding: 0.55rem 1.1rem;
+	border: 1px solid transparent;
+	border-radius: var(--ep-r);
 	background: var(--ep-accent);
 	color: var(--ep-accent-ink);
-	font-size: 1rem;
-	font-weight: 600;
+	font-family: inherit;
+	font-size: 0.875rem;             /* --text-base, `es-button`'s own size */
+	font-weight: 500;
+	line-height: 1.2;
 	cursor: pointer;
+	transition: background-color 120ms, border-color 120ms, color 120ms, transform 80ms;
 }
 
-.ep-btn:disabled { opacity: 0.6; cursor: default; }
+/* Forms keep a full-width primary action: on a tablet it is pressed with a thumb,
+   and a wide target at the end of a column is easier to hit than a short one. */
+form .ep-btn,
+.ep-login > .ep-btn,
+.ep-bio { width: 100%; }
+
+/* Hover is a promise about a pointer, and a tablet does not have one: left un-gated,
+   `:hover` sticks on whatever was last tapped and the screen carries a button that
+   looks perpetually about to be pressed. Espresso gates every hover rule behind
+   `@media (hover: hover)` for exactly this reason and answers a tap with `:active`
+   instead - at a colour a step deeper than the hover rather than the same value,
+   which is what `--ep-accent-active` is for. */
+@media (hover: hover) {
+	.ep-btn:hover:not(:disabled) { background: var(--ep-accent-hover); }
+}
+
+.ep-btn:active:not(:disabled) { background: var(--ep-accent-active); }
+
+/* The in-flight state is `aria-busy`, not `disabled`. A disabled button dims its own
+   label to `--ep-disabled-ink`, so a form that is merely submitting reads as a form
+   that is broken; Frappe blocks the pointer and swaps the icon for a spinner and
+   leaves the words alone. */
+.ep-btn[aria-busy="true"] {
+	cursor: default;
+	pointer-events: none;
+}
+
+.ep-btn:disabled {
+	background: var(--ep-tint);
+	color: var(--ep-disabled-ink);   /* ink-gray-4, the disabled ink in `es-button` */
+	border-color: transparent;
+	cursor: not-allowed;
+}
 
 .ep-checkbox-field {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 0.6rem;
 }
 .ep-checkbox-field input[type="checkbox"] {
-	width: 1.1rem;
-	height: 1.1rem;
+	width: 1.15rem;
+	height: 1.15rem;
 	accent-color: var(--ep-accent);
 	cursor: pointer;
 }
 .ep-checkbox-label {
-	font-size: 0.9rem;
+	font-size: 0.875rem;
 	color: var(--ep-ink);
 	cursor: pointer;
 	user-select: none;
 }
-.ep-btn-ghost { background: transparent; color: var(--ep-accent); border: 1px solid var(--ep-line); }
+
+/* Secondary actions are Espresso's "subtle" button (default): a gray-100 fill,
+   no border, no blue. Its hover is surface-gray-3 and its press is surface-gray-4 -
+   three steps of one ramp, not three different colours. `--ep-tint` is that ramp's
+   first step in both themes; `--ep-card-soft` is a *surface* alias and lands on
+   gray-800 in dark, one step below where the ramp starts. */
+.ep-btn-ghost {
+	width: auto;
+	background: var(--ep-tint);
+	color: var(--ep-ink);
+	border: 1px solid transparent;
+}
+@media (hover: hover) {
+	.ep-btn-ghost:hover:not(:disabled) { background: var(--ep-tint-strong); }
+}
+.ep-btn-ghost:active:not(:disabled),
+.ep-btn-ghost[aria-expanded="true"] { background: var(--ep-press); }
+
+/* A correction rather than a way forward, so it keeps the width of its own words instead
+   of the full-width block `form .ep-btn` would otherwise give a button in the login form.
+   `.ep-login` is what outvotes that rule's `form` term; `.ep-card` handles the same button
+   standing alone in the device card, where nothing else sets a width. */
+.ep-login .ep-btn-quiet {
+	width: auto;
+	display: block;
+	margin: -0.3rem auto 0.9rem;
+}
 
 /* Each screen announces where it is: the section it belongs to and its own name. The
    back control rides along for the widths where the sidebar is a drawer; once the
@@ -614,27 +878,42 @@
 	flex-wrap: wrap;
 	flex-shrink: 0;
 }
-.ep-screen-actions .ep-btn { width: auto; min-height: 2.75rem; padding: 0.5rem 0.95rem; font-size: 0.92rem; }
-.ep-screen-title { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.25; }
-.ep-screen-sub { margin: 0; color: var(--ep-muted); font-size: 0.82rem; }
+.ep-screen-actions .ep-btn { width: auto; min-height: 2.75rem; padding: 0.45rem 0.95rem; font-size: 0.875rem; }
+.ep-screen-title {
+	margin: 0;
+	font-size: 1.5rem;
+	font-weight: 600;
+	letter-spacing: -0.015em;
+	line-height: 1.25;
+	color: var(--ep-ink-strong);
+}
+.ep-screen-sub { margin: 0.1rem 0 0; color: var(--ep-muted); font-size: 0.8125rem; }
 
 .ep-back {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	width: 2.5rem;
-	height: 2.5rem;
+	width: 2.75rem;
+	height: 2.75rem;
 	padding: 0;
-	border: 1px solid var(--ep-line);
-	border-radius: 50%;
+	border: 1px solid var(--ep-line-strong);
+	border-radius: var(--ep-r);
 	background: var(--ep-card);
 	color: var(--ep-muted);
-	font-size: 0.95rem;
+	font-size: 1rem;
 	cursor: pointer;
+	transition: background-color 120ms, border-color 120ms, color 120ms;
 }
 
-.ep-back:hover { color: var(--ep-accent); border-color: var(--ep-accent); }
+/* An outlined control answers a pointer with a deeper line, not a fill - that is
+   `es-button[data-variant="outline"]`, whose background only changes once the control
+   is held or it opens something. The chevron gains ink on hover because it is the
+   portal's only unlabelled control and the icon alone has to carry the meaning. */
+@media (hover: hover) {
+	.ep-back:hover { color: var(--ep-ink); border-color: var(--ep-line-hover); }
+}
+.ep-back:active { background: var(--ep-press); color: var(--ep-ink); border-color: var(--ep-line-hover); }
 
 @media (min-width: 68rem) {
 	.ep-back { display: none; }
@@ -652,36 +931,72 @@
 
 .ep-row:last-child { border-bottom: 0; }
 .ep-row-main { min-width: 0; }
-.ep-row-title { font-weight: 600; }
-.ep-row-meta { color: var(--ep-muted); font-size: 0.85rem; margin-top: 0.15rem; }
-.ep-row-value { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.ep-row-title { font-weight: 500; }
+.ep-row-meta { color: var(--ep-muted); font-size: 0.8125rem; margin-top: 0.15rem; }
+.ep-row-value { font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 .ep-row-withdraw {
 	flex-shrink: 0;
 	font: inherit;
-	font-size: 0.8rem;
+	font-size: 0.75rem;
+	font-weight: 500;
 	padding: 0.35rem 0.7rem;
-	border-radius: 0.5rem;
-	border: 1px solid var(--ep-line);
-	background: transparent;
+	border-radius: var(--ep-r);
+	border: 1px solid var(--ep-line-strong);
+	background: var(--ep-card);
 	color: var(--ep-muted);
 	cursor: pointer;
+	transition: background-color 120ms, border-color 120ms, color 120ms;
 }
-.ep-row-withdraw[disabled] { opacity: 0.5; cursor: default; }
+/* Red is the promise, not the label: the row is quiet until it is pointed at or held,
+   which is how `es-menu__item[data-theme="red"]` treats a destructive choice. */
+@media (hover: hover) {
+	.ep-row-withdraw:hover:not([disabled]) {
+		border-color: var(--ep-bad);
+		color: var(--ep-bad);
+		background: var(--ep-bad-soft);
+	}
+}
+.ep-row-withdraw:active:not([disabled]) {
+	border-color: var(--ep-bad);
+	color: var(--ep-bad);
+	background: var(--ep-bad-soft);
+}
+.ep-row-withdraw[disabled] {
+	opacity: 1;
+	cursor: not-allowed;
+	background: var(--ep-tint);
+	color: var(--ep-disabled-ink);
+	border-color: transparent;
+}
 
 /* --------------------------------------------------------------- balances */
 .ep-balance { padding: 0.75rem 0; border-bottom: 1px solid var(--ep-line); }
 .ep-balance:last-child { border-bottom: 0; }
 
+/* `es-progress__track` at its `xl` size, which is the thickest bar the component has
+   and still the right one here: the portal's bars carry a whole leave balance, read
+   at arm's length on a tablet rather than glanced at inside a desk dialog. Track is
+   `surface-gray-2`, fill `surface-gray-10`, and the fill animates to its width so a
+   balance that arrives after a fetch slides in rather than snapping. */
 .ep-bar {
 	position: relative;
-	height: 0.5rem;
-	border-radius: 0.25rem;
-	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
+	height: 0.75rem;
+	border-radius: var(--ep-r-lg);
+	background: var(--ep-track);
 	overflow: hidden;
 	margin-top: 0.45rem;
 }
 
-.ep-bar-fill { height: 100%; background: var(--ep-accent); border-radius: 0.25rem; }
+.ep-bar-fill {
+	height: 100%;
+	background: var(--ep-accent);
+	border-radius: var(--ep-r-lg);
+	transition: width 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-bar-fill { transition: none; }
+}
 
 /* ---------------------------------------------------------- notifications */
 /* Outstanding items, shown only when there are some. Each row opens the screen the
@@ -689,9 +1004,9 @@
 .ep-attn {
 	display: flex;
 	align-items: center;
-	gap: 0.65rem;
+	gap: 0.75rem;
 	width: 100%;
-	padding: 0.6rem 0.25rem;
+	padding: 0.65rem 0.4rem;
 	border: 0;
 	border-top: 1px solid var(--ep-line);
 	background: none;
@@ -699,28 +1014,32 @@
 	cursor: pointer;
 	color: inherit;
 	font: inherit;
+	border-radius: var(--ep-r);
 }
 
 .ep-attn:first-of-type { border-top: 0; }
-.ep-attn:hover { background: var(--ep-line); border-radius: 0.35rem; }
+@media (hover: hover) {
+	.ep-attn:hover { background: var(--ep-tint); }
+}
+.ep-attn:active { background: var(--ep-press); }
 
 .ep-attn-icon {
 	flex: none;
-	width: 1.9rem;
-	height: 1.9rem;
-	line-height: 1.9rem;
+	width: 2rem;
+	height: 2rem;
+	line-height: 2rem;
 	text-align: center;
 	border-radius: 50%;
-	font-size: 0.85rem;
+	font-size: 0.8125rem;
 }
 
-.ep-attn-icon--warn { background: color-mix(in srgb, var(--ep-warn) 18%, transparent); color: var(--ep-warn); }
-.ep-attn-icon--bad { background: color-mix(in srgb, var(--ep-bad) 18%, transparent); color: var(--ep-bad); }
-.ep-attn-icon--good { background: color-mix(in srgb, var(--ep-accent) 18%, transparent); color: var(--ep-accent); }
+.ep-attn-icon--warn { background: var(--ep-warn-soft); color: var(--ep-warn); }
+.ep-attn-icon--bad { background: var(--ep-bad-soft); color: var(--ep-bad); }
+.ep-attn-icon--good { background: var(--ep-good-soft); color: var(--ep-good); }
 
 .ep-attn-text { display: flex; flex-direction: column; min-width: 0; }
-.ep-attn-head { font-size: 0.92rem; font-weight: 600; }
-.ep-attn-detail { color: var(--ep-muted); font-size: 0.82rem; }
+.ep-attn-head { font-size: 0.875rem; font-weight: 500; }
+.ep-attn-detail { color: var(--ep-muted); font-size: 0.8125rem; }
 
 /* Notification strip on dashboard */
 .ep-attn-strip {
@@ -732,41 +1051,44 @@
 
 .ep-attn-strip .ep-attn {
 	border-top: 0;
-	border-radius: 0.6rem;
+	border-radius: var(--ep-r-md);
 	border: 1px solid var(--ep-line);
 	background: var(--ep-card);
 	padding: 0.75rem 0.9rem;
 }
 
 .ep-attn-strip .ep-attn:first-of-type { border-top: 0; }
-.ep-attn-strip .ep-attn:hover { background: var(--ep-line); }
+@media (hover: hover) {
+	.ep-attn-strip .ep-attn:hover { background: var(--ep-card-soft); }
+}
+.ep-attn-strip .ep-attn:active { background: var(--ep-press); }
 
 /* Tile badge */
 .ep-tile-badge {
 	flex-shrink: 0;
-	min-width: 1.5rem;
-	padding: 0.1rem 0.45rem;
+	min-width: 1.35rem;
+	padding: 0.1rem 0.4rem;
 	border-radius: 999px;
-	background: var(--ep-warn);
-	color: var(--ep-accent-ink);
-	font-size: 0.75rem;
-	font-weight: 700;
+	background: var(--ep-warn-solid);
+	color: #ffffff;
+	font-size: 0.6875rem;
+	font-weight: 500;
 	text-align: center;
 }
-.ep-tile-badge--bad { background: var(--ep-bad); }
+.ep-tile-badge--bad { background: var(--ep-bad-solid); }
 
 /* Tiles: the icon is a tinted disc, so the label and the icon read as one object. */
 .ep-tile-icon {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 2.6rem;
-	height: 2.6rem;
+	width: 2.75rem;
+	height: 2.75rem;
 	flex-shrink: 0;
-	border-radius: 50%;
-	background: color-mix(in srgb, var(--ep-accent) 12%, transparent);
-	color: var(--ep-accent);
-	font-size: 1.25rem;
+	border-radius: var(--ep-r);
+	background: var(--ep-tint);
+	color: var(--ep-ink-strong);
+	font-size: 1.125rem;
 }
 
 .ep-tile-text { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; }
@@ -774,53 +1096,60 @@
 /* ------------------------------------------------------------------- hero */
 .ep-hero { display: flex; align-items: center; gap: 1rem; }
 .ep-hero-avatar {
-	width: 3.25rem;
-	height: 3.25rem;
+	width: 3.5rem;
+	height: 3.5rem;
 	border-radius: 50%;
 	overflow: hidden;
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
-	font-size: 1.1rem;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	font-size: 1.75rem;
+	line-height: 1;
+	text-transform: uppercase;
 }
 .ep-hero-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .ep-hero-text { min-width: 0; }
-.ep-hero-name { margin: 0; font-size: 1.3rem; font-weight: 700; }
-.ep-hero-sub { margin: 0.15rem 0 0; color: var(--ep-muted); font-size: 0.9rem; }
-.ep-hero-meta { margin-inline-start: auto; text-align: end; color: var(--ep-muted); font-size: 0.82rem; }
+.ep-hero-name {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	color: var(--ep-ink-strong);
+}
+.ep-hero-sub { margin: 0.2rem 0 0; color: var(--ep-muted); font-size: 0.875rem; }
+.ep-hero-meta { margin-inline-start: auto; text-align: end; color: var(--ep-muted); font-size: 0.75rem; }
 
 /* ---------------------------------------------------------------- sections */
 .ep-section-head {
 	display: flex;
 	align-items: baseline;
 	gap: 0.5rem;
-	margin: 1.5rem 0 0.6rem;
+	margin: 1.6rem 0 0.7rem;
 	padding-inline-start: 0.15rem;
 }
 .ep-section-head h2 {
 	margin: 0;
 	font-size: 0.75rem;
-	letter-spacing: 0.08em;
+	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--ep-muted);
 	font-weight: 600;
 }
-.ep-section-head span { color: var(--ep-muted); font-size: 0.78rem; }
+.ep-section-head span { color: var(--ep-muted); font-size: 0.75rem; }
 
 .ep-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: var(--ep-gap); }
 .ep-stat {
 	flex: 1 1 8rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
-	padding: 0.7rem 0.85rem;
+	border-radius: var(--ep-r-md);
+	padding: 0.8rem 1rem;
 }
-.ep-stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.ep-stat-label { color: var(--ep-muted); font-size: 0.78rem; margin-top: 0.1rem; }
+.ep-stat-value { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ep-stat-label { color: var(--ep-muted); font-size: 0.75rem; margin-top: 0.15rem; }
 
 /* --------------------------------------------------------------- directory
  *
@@ -843,7 +1172,7 @@
 }
 
 .ep-dir-toolbar .ep-field { margin-bottom: 0; padding: 0; border-bottom: 0; }
-.ep-dir-count { color: var(--ep-muted); font-size: 0.82rem; white-space: nowrap; padding-bottom: 0.55rem; }
+.ep-dir-count { color: var(--ep-muted); font-size: 0.8125rem; white-space: nowrap; padding-bottom: 0.55rem; }
 
 .ep-dir-group { margin-bottom: 1.35rem; }
 .ep-dir-group:last-child { margin-bottom: 0; }
@@ -857,15 +1186,15 @@
 	gap: 0.45rem;
 	margin: 0 0 0.5rem;
 	padding: 0.3rem 0.5rem;
-	background: color-mix(in srgb, var(--ep-bg) 88%, transparent);
+	background: var(--ep-bg);
 	backdrop-filter: blur(2px);
-	font-size: 0.74rem;
-	letter-spacing: 0.07em;
+	font-size: 0.6875rem;
+	letter-spacing: 0.05em;
 	text-transform: uppercase;
 	color: var(--ep-muted);
 	font-weight: 600;
 }
-.ep-dir-group-title span { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.ep-dir-group-title span { font-weight: 420; letter-spacing: 0; text-transform: none; }
 
 .ep-colleagues-grid { display: grid; grid-template-columns: 1fr; gap: 0.7rem; }
 @media (min-width: 48rem) {
@@ -876,71 +1205,81 @@
 	display: flex;
 	gap: 0.85rem;
 	align-items: flex-start;
-	padding: 0.9rem;
+	padding: 1rem;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.85rem;
+	border-radius: var(--ep-r-md);
 	background: var(--ep-card);
-	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.ep-colleague-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: color-mix(in srgb, var(--ep-accent) 45%, var(--ep-line)); }
-.ep-colleague-card--me { border-color: var(--ep-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ep-accent) 30%, transparent); }
+@media (hover: hover) {
+	.ep-colleague-card:hover { box-shadow: var(--ep-shadow-sm); border-color: var(--ep-line-strong); }
+}
+.ep-colleague-card--me {
+	border-color: var(--ep-ink);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ep-ink) 25%, transparent);
+}
 
 .ep-colleague-avatar {
-	width: 2.9rem;
-	height: 2.9rem;
+	width: 2.75rem;
+	height: 2.75rem;
 	border-radius: 50%;
 	overflow: hidden;
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
-	font-size: 0.95rem;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	font-size: 1.25rem;
+	line-height: 1;
+	text-transform: uppercase;
 	letter-spacing: 0.02em;
 }
 .ep-colleague-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .ep-colleague-body { flex: 1 1 auto; min-width: 0; }
-.ep-colleague-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.98rem; }
+.ep-colleague-name { display: flex; align-items: center; gap: 0.4rem; font-weight: 500; font-size: 1rem; }
 .ep-colleague-name span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ep-colleague-desig { color: var(--ep-accent); font-size: 0.83rem; margin-top: 0.1rem; }
+.ep-colleague-desig { color: var(--ep-muted); font-size: 0.8125rem; margin-top: 0.1rem; }
 .ep-colleague-desig:empty { display: none; }
 
 /* A record's facts, one per line: number, mobile, manager, date. Used by the
    directory and the asset list alike, which is why it is not named after either. */
 .ep-meta { list-style: none; margin: 0.45rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
-.ep-meta li { display: flex; align-items: center; gap: 0.4rem; min-width: 0; color: var(--ep-muted); font-size: 0.8rem; }
+.ep-meta li { display: flex; align-items: center; gap: 0.4rem; min-width: 0; color: var(--ep-muted); font-size: 0.8125rem; }
 .ep-meta i { width: 0.95rem; text-align: center; flex-shrink: 0; }
 .ep-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ep-meta--warn, .ep-meta--warn i, .ep-meta--warn span { color: var(--ep-warn); }
 
-.ep-colleague-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.65rem; }
+.ep-colleague-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
 .ep-dir-act {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
-	min-height: 2.3rem;
-	padding: 0.35rem 0.75rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 999px;
-	background: transparent;
+	min-height: 2.25rem;
+	padding: 0.3rem 0.7rem;
+	border: 1px solid var(--ep-line-strong);
+	border-radius: var(--ep-r);
+	background: var(--ep-card);
 	color: var(--ep-muted);
-	font-size: 0.8rem;
+	font-size: 0.75rem;
+	font-weight: 500;
 	text-decoration: none;
 	cursor: pointer;
 }
-.ep-dir-act:hover { border-color: var(--ep-accent); color: var(--ep-accent); background: color-mix(in srgb, var(--ep-accent) 8%, transparent); }
+@media (hover: hover) {
+	.ep-dir-act:hover { border-color: var(--ep-line-strong); color: var(--ep-ink); background: var(--ep-tint); }
+}
+.ep-dir-act:active { background: var(--ep-press); color: var(--ep-ink); }
 
 .ep-you-badge {
 	flex-shrink: 0;
 	padding: 0.05rem 0.45rem;
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--ep-accent) 15%, transparent);
-	color: var(--ep-accent);
-	font-size: 0.68rem;
-	font-weight: 700;
+	background: var(--ep-tint);
+	color: var(--ep-muted);
+	font-size: 0.6875rem;
+	font-weight: 600;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
 }
@@ -969,18 +1308,20 @@
 	padding: 0.75rem 1rem;
 	background: var(--ep-card);
 	border: 1px solid var(--ep-line);
-	border-radius: 0.8rem;
+	border-radius: var(--ep-r-md);
 	position: relative;
 	z-index: 1;
-	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.ep-org-card:hover { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); border-color: var(--ep-accent); }
-.ep-org-card.ep-org-me { border-color: var(--ep-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 20%, transparent); }
+@media (hover: hover) {
+	.ep-org-card:hover { box-shadow: var(--ep-shadow-sm); border-color: var(--ep-line-strong); }
+}
+.ep-org-card.ep-org-me { border-color: var(--ep-ink); box-shadow: 0 0 0 1px var(--ep-ink); }
 .ep-org-me-badge {
 	background: var(--ep-accent);
 	color: var(--ep-accent-ink);
-	font-size: 0.65rem;
-	font-weight: 700;
+	font-size: 0.6875rem;
+	font-weight: 600;
 	padding: 0.1rem 0.4rem;
 	border-radius: 999px;
 	margin-inline-start: 0.5rem;
@@ -991,7 +1332,7 @@
 	padding: 0.25rem;
 	color: var(--ep-muted);
 	cursor: pointer;
-	border-radius: 0.35rem;
+	border-radius: var(--ep-r-sm);
 	flex-shrink: 0;
 	width: 2rem;
 	height: 2rem;
@@ -999,7 +1340,13 @@
 	align-items: center;
 	justify-content: center;
 }
-.ep-org-toggle:hover { background: var(--ep-line); color: var(--ep-ink); }
+@media (hover: hover) {
+	.ep-org-toggle:hover { background: var(--ep-tint); color: var(--ep-ink); }
+}
+/* Held, or open and showing the branch below it — the same deeper fill either way,
+   which is `es-menu`'s rule for a submenu whose panel is on screen. */
+.ep-org-toggle:active,
+.ep-org-toggle[aria-expanded="true"] { background: var(--ep-press); color: var(--ep-ink); }
 .ep-org-toggle-placeholder { width: 2rem; flex-shrink: 0; }
 .ep-org-avatar {
 	width: 2.5rem;
@@ -1010,15 +1357,16 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, var(--ep-accent), var(--ep-accent-dark));
-	color: var(--ep-accent-ink);
-	font-weight: 700;
-	font-size: 0.8rem;
+	background: var(--ep-avatar-bg);
+	color: var(--ep-avatar-ink);
+	font-size: 1.25rem;
+	line-height: 1;
+	text-transform: uppercase;
 }
 .ep-org-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .ep-org-info { flex: 1; min-width: 0; }
-.ep-org-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ep-org-desig { color: var(--ep-muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-org-name { font-weight: 500; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-org-desig { color: var(--ep-muted); font-size: 0.8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ep-org-dept, .ep-org-empnum { color: var(--ep-muted); font-size: 0.75rem; margin-top: 0.15rem; }
 .ep-org-dept i, .ep-org-empnum i { width: 1rem; text-align: center; margin-inline-end: 0.25rem; }
 .ep-org-children {
@@ -1040,8 +1388,8 @@
 .ep-cal-select { width: auto; min-width: 8rem; }
 .ep-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
 .ep-cal-dow {
-	font-size: 0.7rem;
-	letter-spacing: 0.05em;
+	font-size: 0.6875rem;
+	letter-spacing: 0.04em;
 	text-transform: uppercase;
 	color: var(--ep-muted);
 	text-align: center;
@@ -1053,17 +1401,17 @@
 	display: flex;
 	flex-direction: column;
 	border: 1px solid var(--ep-line);
-	border-radius: 0.5rem;
+	border-radius: var(--ep-r);
 	background: var(--ep-card);
 	overflow: hidden;
 }
 .ep-cal-day.ep-cal-blank { border: 0; background: transparent; min-height: 0; padding: 0; }
-.ep-cal-day.ep-cal-weekend { background: color-mix(in srgb, var(--ep-muted) 8%, var(--ep-card)); }
-.ep-cal-day.ep-cal-has-leave { border-color: color-mix(in srgb, var(--ep-accent) 45%, var(--ep-line)); }
+.ep-cal-day.ep-cal-weekend { background: var(--ep-card-soft); }
+.ep-cal-day.ep-cal-has-leave { border-color: var(--ep-info); }
 .ep-cal-day.ep-cal-today { border-color: var(--ep-accent); }
 .ep-cal-day.ep-cal-today .ep-cal-date { background: var(--ep-accent); color: var(--ep-accent-ink); }
-.ep-cal-date { font-weight: 600; text-align: center; padding: 0.35rem 0.5rem; border-radius: 0.35rem 0.35rem 0 0; }
-.ep-cal-leave { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); border-radius: 0.25rem; padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-cal-date { font-weight: 500; text-align: center; padding: 0.35rem 0.5rem; border-radius: var(--ep-r-sm) var(--ep-r-sm) 0 0; }
+.ep-cal-leave { background: var(--ep-info-soft); color: var(--ep-info); border-radius: var(--ep-r-sm); padding: 0.15rem 0.35rem; margin: 0.15rem 0; font-size: 0.6875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* PWA: Offline & Install banners */
 .ep-offline-banner {
@@ -1076,118 +1424,268 @@
 	justify-content: space-between;
 	gap: 1rem;
 	padding: 0.75rem 1rem;
-	background: var(--ep-warn);
-	color: white;
-	font-size: 0.9rem;
+	background: var(--ep-warn-soft);
+	color: var(--ep-warn);
+	border-bottom: 1px solid color-mix(in srgb, var(--ep-warn) 20%, transparent);
+	font-size: 0.875rem;
 	font-weight: 500;
 	z-index: 1000;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+	box-shadow: var(--ep-shadow-sm);
 	animation: ep-slide-down 0.3s ease;
 }
-.ep-offline-banner i { font-size: 1.1rem; }
+.ep-offline-banner i { font-size: 1rem; }
 .ep-offline-dismiss {
 	background: none;
 	border: none;
-	color: white;
+	color: inherit;
 	font-size: 1.5rem;
 	line-height: 1;
 	padding: 0;
 	cursor: pointer;
-	opacity: 0.8;
+	opacity: 0.7;
 }
-.ep-offline-dismiss:hover { opacity: 1; }
+/* The × is deliberately faint, so the press is what tells a finger it landed; on a
+   touchscreen there is no hover to lean on and `opacity` is the only channel. */
+@media (hover: hover) {
+	.ep-offline-dismiss:hover { opacity: 1; }
+}
+.ep-offline-dismiss:active { opacity: 1; }
 .ep-root.ep-offline .ep-offline-banner { display: flex; }
 @keyframes ep-slide-down {
 	from { transform: translateY(-100%); opacity: 0; }
 	to { transform: translateY(0); opacity: 1; }
 }
 
+/* An uncaught error, where the employee can see it. A wall tablet has no console and no
+   developer, so a screen that quietly stopped working has no witness at all; this is the
+   net under whatever escapes. Bottom-left, because the offline banner already owns the
+   top, and both need to be readable at once. */
+.ep-fatal {
+	position: fixed;
+	left: 1rem;
+	bottom: 1rem;
+	z-index: 1100;
+	max-width: 26rem;
+	animation: ep-slide-up 0.3s ease;
+}
+.ep-fatal .ep-alert { box-shadow: var(--ep-shadow-lg); }
+.ep-fatal-detail { font-size: 0.75rem; font-weight: 420; opacity: 0.85; }
+.ep-fatal-x {
+	background: none;
+	border: none;
+	color: inherit;
+	font-size: 1.25rem;
+	line-height: 1;
+	padding: 0 0.25rem;
+	cursor: pointer;
+	opacity: 0.7;
+	align-self: flex-start;
+}
+@media (hover: hover) {
+	.ep-fatal-x:hover { opacity: 1; }
+}
+.ep-fatal-x:active { opacity: 1; }
+@keyframes ep-slide-up {
+	from { transform: translateY(100%); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
 /* Assets */
 .ep-asset-card {
 	border: 1px solid var(--ep-line);
-	border-radius: 0.85rem;
+	border-radius: var(--ep-r-md);
 	padding: 1rem 1.1rem;
 	margin-bottom: 0.8rem;
 	background: var(--ep-card);
-	transition: transform 0.15s ease, box-shadow 0.15s ease;
+	transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .ep-asset-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.ep-asset-name { font-weight: 600; font-size: 1.05rem; }
-.ep-asset-card:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1); }
+.ep-asset-name { font-weight: 500; font-size: 1rem; }
+@media (hover: hover) {
+	.ep-asset-card:hover { box-shadow: var(--ep-shadow-sm); border-color: var(--ep-line-strong); }
+}
 
 .ep-field {
 	display: block;
-	padding: 0.6rem 0;
-	border-bottom: 1px solid var(--ep-line);
-	font-size: 0.9rem;
+	padding: 0;
+	border-bottom: 0;
+	font-size: 0.875rem;
+	margin-bottom: 0.9rem;
 }
 
-.ep-field > span { display: block; color: var(--ep-muted); margin-bottom: 0.25rem; }
+.ep-field > span { display: block; color: var(--ep-muted); font-size: 0.8125rem; margin-bottom: 0.25rem; }
 .ep-field em { font-style: normal; opacity: 0.8; }
 
 .ep-field input,
 .ep-field select,
 .ep-field textarea {
 	width: 100%;
-	padding: 0.5rem;
-	border: 1px solid var(--ep-line);
-	border-radius: 0.4rem;
+	min-height: 2.75rem;
+	padding: 0 0.8rem;
+	border: 1px solid var(--ep-line-strong);
+	border-radius: var(--ep-r);
 	background: var(--ep-card);
 	color: var(--ep-ink);
-	font: inherit;
+	font-family: inherit;
+	font-size: 1rem;
+	transition: border-color 120ms;
 }
 
-.ep-field textarea { resize: vertical; }
+.ep-field select { padding-inline-end: 0.5rem; }
+.ep-field textarea { padding: 0.6rem 0.8rem; resize: vertical; }
+.ep-field input:focus,
+.ep-field select:focus,
+.ep-field textarea:focus {
+	outline: var(--ep-focus-outline);
+	outline-offset: 0;
+	border-color: transparent;
+}
 
 /* ----------------------------------------------------------------- status */
+/* `es-badge` at its `lg` step: a fixed height rather than padding-around-text, so a
+   column of pills lines up however the words inside them differ; regular weight, because
+   the colour and the dot already say what the badge says; and a transparent border held
+   in place of the outline variant's line, so the box never shifts when a variant does. */
 .ep-badge {
-	display: inline-block;
-	padding: 0.15rem 0.5rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.25rem;
+	width: fit-content;
+	height: 1.5rem;
+	padding-inline: 0.5rem;
+	border: 1px solid transparent;
 	border-radius: 999px;
-	font-size: 0.78rem;
-	font-weight: 600;
-	background: color-mix(in srgb, var(--ep-muted) 12%, transparent);
+	background: var(--ep-tint);
 	color: var(--ep-muted);
+	font-size: 0.8125rem;
+	line-height: 1;
+	letter-spacing: 0.02em;
+	font-weight: 420;
+	white-space: nowrap;
+	overflow: clip;
+	flex-shrink: 0;
+	user-select: none;
 }
 
-.ep-badge--good { background: color-mix(in srgb, var(--ep-good) 15%, transparent); color: var(--ep-good); }
-.ep-badge--info { background: color-mix(in srgb, var(--ep-accent) 15%, transparent); color: var(--ep-accent); }
-.ep-badge--warn { background: color-mix(in srgb, var(--ep-warn) 15%, transparent); color: var(--ep-warn); }
-.ep-badge--bad { background: color-mix(in srgb, var(--ep-bad) 15%, transparent); color: var(--ep-bad); }
+.ep-badge--good { background: var(--ep-good-soft); color: var(--ep-good); }
+.ep-badge--info { background: var(--ep-info-soft); color: var(--ep-info); }
+.ep-badge--warn { background: var(--ep-warn-soft); color: var(--ep-warn); }
+.ep-badge--bad { background: var(--ep-bad-soft); color: var(--ep-bad); }
 
+/* `es-alert`: the tint carries the theme and the text does not. Desk colours the icon
+   `ink-*-6` and leaves the words in the page's own ink, because a paragraph you have to
+   read is not a label you have to recognise - and red text on a red wash is the least
+   legible pairing in the palette. */
 .ep-alert {
 	display: flex;
 	align-items: flex-start;
-	gap: 0.6rem;
-	padding: 0.8rem 0.9rem;
-	border-radius: 0.6rem;
+	gap: 0.75rem;
+	padding: 0.875rem 1rem;
+	border-radius: var(--ep-r-md);
 	margin-bottom: var(--ep-gap);
-	font-size: 0.95rem;
+	font-size: 0.875rem;
+	color: var(--ep-ink);
 }
 
-.ep-alert--bad { background: color-mix(in srgb, var(--ep-bad) 12%, transparent); color: var(--ep-bad); }
-.ep-alert--info { background: color-mix(in srgb, var(--ep-accent) 12%, transparent); color: var(--ep-accent); }
+.ep-alert i { flex-shrink: 0; margin-top: 0.1rem; color: var(--ep-muted); }
+.ep-alert--bad { background: var(--ep-bad-soft); }
+.ep-alert--bad i { color: var(--ep-bad-icon); }
+.ep-alert--info { background: var(--ep-info-soft); }
+.ep-alert--info i { color: var(--ep-info-icon); }
+.ep-alert--good { background: var(--ep-good-soft); }
+.ep-alert--good i { color: var(--ep-good-icon); }
+.ep-alert--warn { background: var(--ep-warn-soft); }
+.ep-alert--warn i { color: var(--ep-warn-icon); }
 
 .ep-empty { text-align: center; padding: 2rem 1rem; color: var(--ep-muted); }
-.ep-empty-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
-.ep-empty-title { font-weight: 600; margin-bottom: 0.25rem; }
+.ep-empty-icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+.ep-empty-title { font-weight: 500; margin-bottom: 0.25rem; }
+
+/* Espresso's spinner is a comet rather than a ring with one bright side: a conic
+   gradient that fades up to a solid head, capped by a round dot where the head is, all
+   of it clipped to a ring by a mask. The colour is whatever it sits in, because a fixed
+   one vanishes on half the surfaces, and the size is `es-button`'s md icon step.
+
+   What spins is the gradient's angle, not the element. A rotated box is rasterized once
+   and then turned, so any sub-device-pixel offset inside that bitmap orbits the centre
+   and the circle wobbles visibly at 18px; an element that stays put and is repainted
+   around a fixed centre every frame cannot wobble at all. Interpolating an angle needs
+   a *registered* property, which is the same browser floor this file already draws on
+   for `color-mix`. The literal `0deg` below is what leaves a static arc rather than an
+   invisible one on a browser that has never heard of `@property`. */
+@property --ep-spin-angle {
+	syntax: "<angle>";
+	inherits: false;
+	initial-value: 0deg;
+}
 
 .ep-spin {
 	display: inline-block;
-	width: 1.1rem;
-	height: 1.1rem;
-	border: 2px solid rgba(37, 99, 235, 0.3);
-	border-top-color: var(--ep-accent);
-	border-radius: 50%;
+	flex-shrink: 0;
+	width: 1.125rem;
+	height: 1.125rem;
+	--ep-spin-angle: 0deg;
+
+	/* One thickness, two rulers: a percentage resolves against the paint radius in the
+	   mask gradient but against the paint box in the cap gradient, so the mask value is
+	   twice the cap value. These are `es-spinner`'s md proportions. */
+	--ep-spin-thickness: 14.7%;
+	--ep-spin-mask-thickness: 29.4%;
+	--ep-spin-inset: 7.5%;
+	--ep-spin-paint: calc(100% - 2 * var(--ep-spin-inset));
+
+	background-image:
+		radial-gradient(
+			calc(var(--ep-spin-thickness) / 2) calc(var(--ep-spin-thickness) / 2)
+			at
+			calc(50% + (50% - var(--ep-spin-thickness) / 2) * sin(var(--ep-spin-angle)))
+			calc(50% - (50% - var(--ep-spin-thickness) / 2) * cos(var(--ep-spin-angle))),
+			currentColor 92%,
+			transparent
+		),
+		conic-gradient(
+			from var(--ep-spin-angle),
+			transparent 32%,
+			currentColor 92%,
+			currentColor 100%
+		);
+	background-size: var(--ep-spin-paint) var(--ep-spin-paint);
+	background-position: center;
+	background-repeat: no-repeat;
+
+	/* The outer transparent stop bounds the ring - the corners of the square mask image
+	   sit beyond `farthest-side` and would show otherwise - and the half-pixel fade is
+	   the antialiasing. */
+	-webkit-mask: radial-gradient(
+			farthest-side,
+			transparent calc(100% - var(--ep-spin-mask-thickness)),
+			#000 calc(100% - var(--ep-spin-mask-thickness)),
+			#000 calc(100% - 0.5px),
+			transparent 100%
+		)
+		center / var(--ep-spin-paint) var(--ep-spin-paint) no-repeat;
+	mask: radial-gradient(
+			farthest-side,
+			transparent calc(100% - var(--ep-spin-mask-thickness)),
+			#000 calc(100% - var(--ep-spin-mask-thickness)),
+			#000 calc(100% - 0.5px),
+			transparent 100%
+		)
+		center / var(--ep-spin-paint) var(--ep-spin-paint) no-repeat;
+
 	animation: ep-spin 0.7s linear infinite;
 }
 
 @keyframes ep-spin {
-	to { transform: rotate(360deg); }
+	to { --ep-spin-angle: 360deg; }
 }
 
+/* Reduced motion slows the arc instead of stopping it. A frozen arc in an otherwise
+   empty button reads as a broken control, which is the opposite of what the element is
+   there to say. */
 @media (prefers-reduced-motion: reduce) {
-	.ep-spin { animation: none; }
+	.ep-spin { animation-duration: 1.6s; }
 }
 
 /* Only for screen readers: the page swaps whole screens, so without this nothing
@@ -1228,66 +1726,84 @@
 	 * end of a shift when they are in a hurry. */
 	padding: 0.45rem;
 	cursor: pointer;
-	color: var(--ep-muted, #9aa4b2);
-	font-size: 1.6rem;
+	color: var(--ep-muted);
+	font-size: 1.625rem;
 	line-height: 1;
-	border-radius: 0.25rem;
+	border-radius: var(--ep-r-sm);
 }
 
-.ep-star:hover { color: #f0b429; }
+@media (hover: hover) {
+	.ep-star:hover { color: var(--ep-star); }
+}
 
 /* `--on` rather than a hover-only style, so what is currently saved stays visible
    after the pointer moves away. */
-.ep-star--on { color: #f0b429; }
+.ep-star--on { color: var(--ep-star); }
 
-.ep-star:focus-visible { outline: 2px solid var(--ep-accent, #2f6feb); }
+/* A saved rating on a submitted appraisal: visible, but not a control. */
+.ep-star:disabled { pointer-events: none; cursor: default; opacity: 1; }
+
+.ep-star:focus-visible { outline: var(--ep-focus-outline); outline-offset: 0; }
 
 .ep-star-value {
 	margin-inline-start: 0.5rem;
-	font-size: 0.85rem;
-	color: var(--ep-muted, #6b7280);
+	font-size: 0.8125rem;
+	color: var(--ep-muted);
 	font-variant-numeric: tabular-nums;
 }
 
 [dir="rtl"] .ep-stars { flex-direction: row-reverse; }
 
+
 /* ------------------------------------------------------- wall-tablet sizing
  *
  * Everything above is sized for a browser window. This is a tablet on a wall, read at
- * arm's length, often by someone wearing gloves, and measured after it was built: the
- * six dashboard tiles came out 363x51 with 21px icons, which is a browser-sized target
- * for a surface you tap with a whole hand.
+ * arm's length, often by someone wearing gloves. The floor is 3rem (48px) on anything
+ * tappable, which is the smallest target that is reliably hittable without looking
+ * directly at it.
  *
  * These are appended rather than folded into the rules above so the sizes they change
- * are all in one place, and so nothing above has to be re-read to see what a tap target
- * now measures. Equal specificity, later in the file, so these win.
- *
- * The floor is 3rem (48px) on anything tappable, which is the smallest target that is
- * reliably hittable without looking directly at it. Where a rule above used a smaller
- * padding, it is the padding that grows - not the font, except for the tile labels,
- * which are read at a distance and so are scaled with the target.
+ * are all in one place. Equal specificity, later in the file, so these win.
  */
-.ep-tile { min-height: 5.5rem; padding: 1.1rem 1.25rem; gap: 0.9rem; font-size: 1.15rem; }
-.ep-tile-icon { font-size: 2.1rem; width: 2.9rem; height: 2.9rem; }
-.ep-btn { min-height: 3.25rem; padding: 0.7rem 1.1rem; font-size: 1.05rem; }
+.ep-tile {
+	min-height: 5.5rem;
+	padding: 1rem 1.15rem;
+	gap: 0.85rem;
+	font-size: 1.0625rem;
+}
+.ep-tile-icon { width: 2.75rem; height: 2.75rem; font-size: 1.25rem; }
+
+.ep-btn { min-height: 3rem; padding: 0.7rem 1.1rem; font-size: 1rem; }
+
 .ep-back,
 .ep-lang-btn,
-.ep-signout { min-height: 3rem; padding: 0.6rem 0.9rem; }
-.ep-back { width: 3rem; height: 3rem; padding: 0; }
+.ep-theme-btn,
+.ep-signout,
+.ep-install { min-height: 3rem; }
+.ep-back,
+.ep-theme-btn,
+.ep-nav-toggle { width: 3rem; height: 3rem; }
+.ep-back,
+.ep-theme-btn { padding: 0; }
 
-/* Rows are tapped to open a payslip or a claim, so they need the same floor even
- * though they read as list items rather than buttons. */
+.ep-screen-actions .ep-btn { min-height: 3rem; }
+
+/* Rows that open something are tapped like buttons, so they need the same floor even
+   though they read as list items. Detail and summary rows reset it below. */
 .ep-row { min-height: 3.5rem; padding-top: 0.85rem; padding-bottom: 0.85rem; }
+.ep-row-withdraw { min-height: 3rem; }
+.ep-nav-item,
+.ep-lang-item { min-height: 3rem; }
 
 /* Three columns where there is room. Two columns at 875px wide left each tile 363px
- * across and 51px tall - a wide, thin target. Wider and taller is easier to hit and
- * stops the label wrapping on the longer ones ("Shift & attendance"). */
+   across and 51px tall - a wide, thin target. Wider and taller is easier to hit and
+   stops the label wrapping on the longer ones ("Shift & attendance"). */
 @media (min-width: 60rem) {
 	.ep-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Touch feedback. A tablet gives no hover, so a tap that changes nothing looks broken
- * even when it worked. `:active` is the only state a finger can actually see. */
+   even when it worked. `:active` is the only state a finger can actually see. */
 .ep-tile:active,
 .ep-btn:active,
 .ep-star:active { transform: scale(0.97); }
@@ -1296,21 +1812,30 @@
 .ep-star,
 .ep-row { transition: transform 80ms ease, background-color 80ms ease; }
 
-/* ------------------------------------------------------------------ polish
+/* ---------------------------------------------------------- focus & detail
  *
- * One pass over the shared primitives, at the end of the file so it is the last
- * word without any rule above needing to be re-read. Nothing here changes a size a
- * finger depends on: it changes how the surfaces look - elevation, edges, the
- * states a control has while it is being used.
+ * Espresso's focus ring, its surfaces, and the last refinements that make the
+ * portal read as the same product as the desk: one neutral ring on every control,
+ * the selected navigation entry a raised surface rather than a coloured bar, and
+ * status carried by soft semantic fills rather than by coloured text.
  */
 
 /* The outline a keyboard or a remote gives a focused control. Declared once for the
    whole page rather than per component, because a control that inherits the browser
-   default is nearly invisible against these cards. */
+   default is nearly invisible against these cards. Desk draws it at the control's own
+   edge (`outline-offset: 0`), where it reads as part of the box rather than a halo
+   around it, and only a destructive control swaps the neutral ring for the red one. */
 .ep-root :focus-visible {
-	outline: 2px solid var(--ep-accent);
-	outline-offset: 2px;
-	border-radius: var(--ep-r-sm);
+	outline: var(--ep-focus-outline);
+	outline-offset: 0;
+}
+
+/* The one exception desk makes: a control that destroys something is the only control
+   whose ring is not gray (`es-button[data-theme="red"]` remaps `--bt-focus`). Declared
+   after the rule above so it wins, rather than with a selector that outvotes it. */
+.ep-root .ep-btn-danger:focus-visible,
+.ep-root .ep-row-withdraw:focus-visible {
+	outline: var(--ep-focus-danger);
 }
 
 /* Scrollbars are part of the layout on a wall tablet: the default one is wide,
@@ -1332,140 +1857,71 @@
 	border-radius: 999px;
 }
 
-/* ------------------------------------------------------------ surfaces */
-.ep-card {
-	border-radius: var(--ep-r);
-	box-shadow: var(--ep-shadow);
-}
-
-.ep-tile,
-.ep-colleague-card,
-.ep-asset-card,
-.ep-stat {
-	border-radius: var(--ep-r);
-	box-shadow: var(--ep-shadow);
-}
-
-.ep-tile { transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 80ms ease; }
-.ep-tile:hover {
-	box-shadow: var(--ep-shadow-lg);
-	border-color: color-mix(in srgb, var(--ep-accent) 40%, var(--ep-line));
-	background: color-mix(in srgb, var(--ep-accent) 4%, var(--ep-card));
-}
-
-.ep-head {
-	border-bottom: 1px solid var(--ep-line);
-	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03), 0 4px 14px rgba(15, 23, 42, 0.04);
-}
-
-.ep-dock { border-inline-end: 1px solid var(--ep-line); }
-.ep-sidebar { border-inline-end: 1px solid var(--ep-line); }
-
-/* A selected entry is marked twice - a tint and a bar at the reading edge - because
-   on a tablet in daylight a colour difference alone is the first thing to go. */
-.ep-dock-item[aria-current="page"]::before,
-.ep-nav-item[aria-current="page"]::before {
-	content: "";
-	position: absolute;
-	inset-inline-start: 0;
-	top: 20%;
-	bottom: 20%;
-	width: 3px;
-	border-radius: 999px;
-	background: var(--ep-accent);
-}
-
-.ep-dock-item,
-.ep-nav-item { position: relative; }
-.ep-nav-item { transition: background-color 0.12s ease, color 0.12s ease; }
-
-/* ---------------------------------------------------------------- headings */
+/* The page head in the desk carries a rule under it; a portal screen's title does
+   the same, so the content below reads as the page rather than as part of the title. */
 .ep-screen-bar {
 	padding-bottom: 0.75rem;
 	border-bottom: 1px solid var(--ep-line);
 }
 
-.ep-screen-title { font-size: 1.35rem; letter-spacing: -0.01em; }
-
-.ep-section-head::after {
-	content: "";
-	flex: 1 1 auto;
-	height: 1px;
-	background: var(--ep-line);
-}
-
-.ep-section-head { display: flex; align-items: center; }
-
 /* ------------------------------------------------------------------ rows */
-.ep-row:hover { background: var(--ep-tint); }
+/* Only a row that opens somewhere answers the pointer: the claim and payslip lines.
+   A balance line or a total is read, not pressed, and should sit still. */
 .ep-row--link { cursor: pointer; }
-.ep-row--link:hover .ep-row-title { color: var(--ep-accent); }
-
-.ep-row-title { font-size: 0.97rem; }
+/* The row is a button wearing a list item, so it gets the same two states: lit while
+   pointed at, filled while held. The chevron nudge below is paired the same way. */
+@media (hover: hover) {
+	.ep-row--link:hover { background: var(--ep-tint); }
+	.ep-row--link:hover .ep-row-title { color: var(--ep-ink-strong); }
+}
+.ep-row--link:active { background: var(--ep-press); }
+.ep-row--link:active .ep-row-title { color: var(--ep-ink-strong); }
 
 /* ----------------------------------------------------------------- pills */
 /* A dot in the status colour, so a list of badges can be read by shape as well as
-   by word - and in Arabic as easily as in English. */
+   by word - and in Arabic as easily as in English. Frappe's own status pills carry
+   the same dot. */
 .ep-badge::before {
 	content: "";
 	display: inline-block;
-	width: 0.42rem;
-	height: 0.42rem;
-	margin-inline-end: 0.35rem;
+	width: 0.375rem;
+	height: 0.375rem;
 	border-radius: 50%;
 	background: currentColor;
-	vertical-align: 0.05em;
+	flex-shrink: 0;
 }
-
-.ep-badge {
-	display: inline-flex;
-	align-items: center;
-	padding: 0.18rem 0.55rem;
-	letter-spacing: 0.01em;
-}
-
-.ep-alert { border-inline-start: 3px solid currentColor; border-radius: 0 var(--ep-r-sm) var(--ep-r-sm) 0; }
 
 /* --------------------------------------------------------------- buttons */
-.ep-btn { border-radius: var(--ep-r-sm); }
-.ep-btn:not(:disabled) { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14); }
-.ep-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-accent) 88%, #000); }
-.ep-btn-ghost:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--ep-accent) 10%, transparent);
-	border-color: var(--ep-accent);
+/* Red is Espresso's solid red with white ink in both themes; `--ep-accent-ink`
+   would turn dark in the dark theme and leave dark text on a red fill. */
+.ep-btn-danger { background: var(--ep-bad-solid); color: #ffffff; }
+/* One step darker per state, the same ladder as the primary button: `--ep-accent-hover`
+   and `--ep-accent-active` are two steps apart on the solid scale, and a red that only
+   has one leaves a held Delete button looking unchanged on a tablet. */
+@media (hover: hover) {
+	.ep-btn-danger:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--ep-bad-solid) 88%, #000);
+	}
 }
-.ep-btn-danger { background: var(--ep-bad); color: var(--ep-accent-ink); }
-.ep-btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--ep-bad) 88%, #000); }
-
-.ep-row-withdraw:hover:not([disabled]) {
-	border-color: var(--ep-bad);
-	color: var(--ep-bad);
-	background: color-mix(in srgb, var(--ep-bad) 8%, transparent);
+.ep-btn-danger:active:not(:disabled) {
+	background: color-mix(in srgb, var(--ep-bad-solid) 76%, #000);
 }
-
-.ep-input,
-.ep-cal-select { border-radius: var(--ep-r-sm); }
-.ep-input::placeholder { color: color-mix(in srgb, var(--ep-muted) 75%, transparent); }
 
 /* ---------------------------------------------------------------- states */
 /* Standing in for a screen that has not arrived yet: the shape of what is coming,
-   rather than one spinner in the middle of an empty page. */
+   rather than one spinner in the middle of an empty page. Espresso skeletons pulse
+   their surface colour; they do not sweep a highlight across it. */
 .ep-skeleton {
-	position: relative;
-	overflow: hidden;
+	display: block;
 	height: 0.85rem;
 	margin: 0.55rem 0;
-	border-radius: 999px;
-	background: var(--ep-tint);
+	border-radius: var(--ep-r);
+	background: var(--ep-tint-strong);
+	animation: ep-skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.ep-skeleton::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	transform: translateX(-100%);
-	background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ep-card) 70%, transparent), transparent);
-	animation: ep-shimmer 1.3s ease-in-out infinite;
+@keyframes ep-skeleton-pulse {
+	50% { opacity: 0.5; }
 }
 
 .ep-skeleton--title { height: 1.1rem; width: 45%; }
@@ -1474,12 +1930,8 @@
 .ep-skeleton-row { padding: 0.85rem 0; border-bottom: 1px solid var(--ep-line); }
 .ep-skeleton-row:last-child { border-bottom: 0; }
 
-@keyframes ep-shimmer {
-	100% { transform: translateX(100%); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-	.ep-skeleton::after { animation: none; }
+	.ep-skeleton { animation: none; }
 }
 
 .ep-empty { padding: 2.5rem 1rem; }
@@ -1494,12 +1946,10 @@
 	border-radius: 50%;
 	background: var(--ep-tint);
 	color: var(--ep-muted);
-	font-size: 1.45rem;
+	font-size: 1.5rem;
 }
 
 .ep-empty-title { font-size: 1rem; color: var(--ep-ink); }
-
-.ep-spin { border-color: color-mix(in srgb, var(--ep-accent) 25%, transparent); }
 
 /* The chevron on a row that opens somewhere: quiet until the row is the one being
    looked at, then it leans the way the row will take you. */
@@ -1508,59 +1958,52 @@
 	transition: color 0.15s ease, transform 0.15s ease;
 }
 
-.ep-row--link:hover .ep-row-go,
+@media (hover: hover) {
+	.ep-row--link:hover .ep-row-go {
+		color: var(--ep-ink-strong);
+		transform: translateX(3px);
+	}
+	.ep-root[dir="rtl"] .ep-row--link:hover .ep-row-go { transform: translateX(-3px); }
+}
+
+/* Split from the hover rule rather than shared with it: the lean is the one piece of
+   feedback a row gives a finger, so `:active` stays outside the pointer gate - and a
+   row left leaned after the tap moved on would look like it was still open. */
 .ep-row--link:active .ep-row-go {
-	color: var(--ep-accent);
+	color: var(--ep-ink-strong);
 	transform: translateX(3px);
 }
-
-.ep-root[dir="rtl"] .ep-row--link:hover .ep-row-go,
 .ep-root[dir="rtl"] .ep-row--link:active .ep-row-go { transform: translateX(-3px); }
 
-/* The first card on the only screen everybody lands on. It carries the accent so the
-   portal opens on something that is recognisably this employer's, rather than on a
-   grey list like every other one. */
+/* The first card on the only screen everybody lands on. Espresso's surfaces are a
+   quiet tint of the card, not a coloured panel, so it is recognisable without
+   turning the dashboard into a different product from the desk. */
 .ep-hero {
-	border: 1px solid color-mix(in srgb, var(--ep-accent) 22%, var(--ep-line));
+	padding: 1.15rem 1.25rem;
 	background: linear-gradient(
 		to bottom right,
-		color-mix(in srgb, var(--ep-accent) 9%, var(--ep-card)),
-		var(--ep-card) 60%
+		var(--ep-card-soft),
+		var(--ep-card) 65%
 	);
-	padding: 1.15rem 1.25rem;
-}
-
-.ep-hero-avatar {
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--ep-accent) 14%, var(--ep-card)),
-		0 2px 8px rgba(15, 23, 42, 0.14);
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.ep-tile:active,
+	.ep-btn:active,
+	.ep-star:active { transform: none; }
 	.ep-row--link:hover .ep-row-go,
 	.ep-row--link:active .ep-row-go { transform: none; }
 }
 
-/* A day that holds leave is the one a person is scanning for, so it is marked twice:
-   the cell is tinted and today is ringed as well as coloured. */
+/* A day that holds leave is the one a person is scanning for, so it is tinted in the
+   same blue its leave chips already use, and today is ringed as well as coloured. */
 .ep-cal-day.ep-cal-has-leave {
-	background: color-mix(in srgb, var(--ep-accent) 7%, var(--ep-card));
+	background: color-mix(in srgb, var(--ep-info) 6%, var(--ep-card));
+	border-color: color-mix(in srgb, var(--ep-info) 40%, var(--ep-line));
 }
 
 .ep-cal-day.ep-cal-today {
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--ep-accent) 30%, transparent);
-}
-
-.ep-cal-day.ep-cal-has-leave .ep-cal-leave {
-	font-weight: 600;
-	background: color-mix(in srgb, var(--ep-accent) 18%, transparent);
-}
-
-/* A field that is being typed into states so in the colour it is already using, not
-   only by the outline: on a bright screen the outline alone is easy to lose. */
-.ep-input:focus,
-.ep-cal-select:focus {
-	border-color: var(--ep-accent);
-	background: color-mix(in srgb, var(--ep-accent) 3%, var(--ep-card));
 }
 
 /* --------------------------------------------------------------- utilities
@@ -1574,20 +2017,26 @@
 .ep-mt-7 { margin-top: 0.7rem; }
 .ep-mb-9 { margin-bottom: 0.9rem; }
 
-.ep-quiet { color: var(--ep-muted); font-size: 0.9rem; }
+.ep-quiet { color: var(--ep-muted); font-size: 0.875rem; }
 .ep-quiet--block { display: block; margin-bottom: 0.6rem; }
 
 /* A line of after-thought text: smaller and greyer than the body, but still on the
    measured scale rather than wherever an inline margin happened to put it. */
-.ep-hint { margin-top: 0.75rem; color: var(--ep-muted); font-size: 0.85rem; }
+.ep-hint { margin-top: 0.75rem; color: var(--ep-muted); font-size: 0.875rem; }
 
 /* Rows. A table header keeps its rule even when it is the only row; the lines of a
    claim carry no rule at all, sitting as one tight column inside a card; the total is
-   lifted off the list by a rule and the air above it. */
-.ep-row.ep-row--head { border-bottom: 1px solid var(--ep-line); padding: 0.75rem 0; }
-.ep-row--plain { border-bottom: 0; padding: 0; }
-.ep-row--tight { border-bottom: 0; padding: 0.35rem 0; }
+   lifted off the list by a rule and the air above it. None of these is tappable, so
+   none keeps the tablet's 3.5rem target floor. */
+.ep-row.ep-row--head {
+	min-height: 0;
+	border-bottom: 1px solid var(--ep-line);
+	padding: 0.75rem 0;
+}
+.ep-row--plain { min-height: 0; border-bottom: 0; padding: 0; }
+.ep-row--tight { min-height: 0; border-bottom: 0; padding: 0.35rem 0; }
 .ep-row--total {
+	min-height: 0;
 	margin-top: 0.9rem;
 	border-top: 1px solid var(--ep-line);
 	padding-top: 0.8rem;
@@ -1609,7 +2058,7 @@
 }
 
 .ep-kv-row:last-child { border-bottom: 0; }
-.ep-kv-row dt { color: var(--ep-muted); font-size: 0.88rem; }
+.ep-kv-row dt { color: var(--ep-muted); font-size: 0.875rem; }
 .ep-kv-row dd { margin: 0; font-weight: 600; text-align: end; overflow-wrap: anywhere; }
 
 /* The employee number and the way to the full record, stacked at the reading edge of
@@ -1633,44 +2082,191 @@
 	gap: 0.6rem;
 	margin-bottom: 0.9rem;
 	color: var(--ep-muted);
-	font-size: 0.8rem;
+	font-size: 0.8125rem;
 }
 
+/* The rule a divider draws is `es-divider`'s: one pixel of `outline-gray-2`, not the
+   lightest line in the palette. A hairline that only shows against white disappears on
+   the gray page behind it, which is where this one sits. */
 .ep-or::before,
-.ep-or::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--ep-line); }
+.ep-or::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--ep-line-strong); }
 
-.ep-checkbox-field { gap: 0.6rem; }
-.ep-checkbox-field .ep-checkbox-label { font-size: 0.95rem; }
+.ep-checkbox-field .ep-checkbox-label { font-size: 1rem; }
 
+/* The install entry is a ghost control in the header, like the language and theme
+   controls beside it: no chrome until it is pointed at, and no second primary
+   colour competing with the page. */
 .ep-install {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
-	min-height: 2.4rem;
-	padding: 0.4rem 0.75rem;
-	border: 1px solid var(--ep-line);
-	border-radius: var(--ep-r-sm);
-	background: var(--ep-card);
-	color: var(--ep-accent);
-	font-size: 0.85rem;
-	font-weight: 600;
+	min-height: 2.75rem;
+	padding: 0.45rem 0.6rem;
+	border: 1px solid transparent;
+	border-radius: var(--ep-r);
+	background: transparent;
+	color: var(--ep-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
 	cursor: pointer;
+	transition: background-color 120ms, color 120ms;
 }
 
-.ep-install:hover {
-	border-color: var(--ep-accent);
-	background: color-mix(in srgb, var(--ep-accent) 8%, transparent);
+@media (hover: hover) {
+	.ep-install:hover {
+		background: var(--ep-tint);
+		color: var(--ep-ink);
+	}
 }
+.ep-install:active { background: var(--ep-press); color: var(--ep-ink); }
 
-.ep-device-on { color: var(--ep-accent); }
+.ep-device-on { color: var(--ep-good); }
 
 .ep-device-offer { align-items: center; flex-wrap: wrap; }
 .ep-device-offer > span { flex: 1 1 12rem; }
-.ep-device-offer .ep-btn { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+.ep-device-offer .ep-btn { padding: 0.35rem 0.7rem; font-size: 0.875rem; }
 
 /* On a phone the header already holds the menu, the name and three controls; the
    install entry keeps its icon and loses the word. */
 @media (max-width: 40rem) {
 	.ep-install span { display: none; }
-	.ep-install { padding: 0.4rem 0.55rem; }
+	.ep-install { padding: 0.45rem 0.55rem; }
+}
+
+/* ------------------------------------------------------------------ toasts
+ * `es-toast`, ported: a dark pill in the bottom corner that says what just happened,
+ * for the flows whose only feedback today is a line of text no screen shows. Same
+ * inversion desk uses - the pill contrasts the page rather than matching it, so it is
+ * `--ep-toast-bg` and not `--ep-card`. */
+.ep-toast-container {
+	position: fixed;
+	bottom: 0.75rem;
+	inset-inline-end: 1.25rem;
+	/* above the offline banner (1000) and the fatal bar (1100): a toast is how those
+	   two explain themselves, and it must not be hidden behind what it describes */
+	z-index: 1200;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.5rem;
+	pointer-events: none;
+}
+
+.ep-toast {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	box-sizing: border-box;
+	min-width: 17.5rem;
+	max-width: 25rem;
+	padding: 0.625rem 1rem;
+	border-radius: var(--ep-r-md);
+	background: var(--ep-toast-bg);
+	color: var(--ep-toast-ink);
+	box-shadow: var(--ep-shadow-lg);
+	pointer-events: auto;
+	animation: ep-toast-in 250ms ease-out;
+}
+
+.ep-toast--out {
+	animation: ep-toast-out 200ms ease-in forwards;
+	pointer-events: none;
+}
+
+.ep-toast__icon {
+	flex-shrink: 0;
+	font-size: 1rem;
+	line-height: 1;
+	/* the type recolours the icon and nothing else; the pill's ink stays put */
+	color: var(--ep-toast-ink);
+}
+
+.ep-toast[data-type="info"] .ep-toast__icon { color: var(--ep-toast-info); }
+.ep-toast[data-type="success"] .ep-toast__icon { color: var(--ep-toast-good); }
+.ep-toast[data-type="warning"] .ep-toast__icon { color: var(--ep-toast-warn); }
+.ep-toast[data-type="error"] .ep-toast__icon { color: var(--ep-toast-bad); }
+
+.ep-toast__content {
+	flex-grow: 1;
+	min-width: 0;
+}
+
+.ep-toast__message {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	letter-spacing: 0.015em;
+	font-weight: 500;
+	overflow-wrap: break-word;
+}
+
+/* The second line is the same size in regular weight: the two lines are one thought,
+   and desk separates them by weight rather than by shrinking one of them. */
+.ep-toast__description {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	letter-spacing: 0.015em;
+	font-weight: 420;
+	overflow-wrap: break-word;
+}
+
+.ep-toast__close {
+	flex-shrink: 0;
+	border: 0;
+	background: transparent;
+	padding: 0.25rem 0.35rem;
+	border-radius: var(--ep-r);
+	color: inherit;
+	font-size: 1.125rem;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.65;
+	transition: opacity 120ms;
+}
+
+/* Desk fades the × on hover; fading it *up* from a rest state is the same gesture with
+   a touch equivalent, and a control that is only fully visible under a pointer is not
+   reachable on the device it is mounted on. */
+@media (hover: hover) {
+	.ep-toast__close:hover { opacity: 1; }
+}
+.ep-toast__close:active,
+.ep-toast__close:focus-visible { opacity: 1; }
+
+@keyframes ep-toast-in {
+	from { transform: translateX(120%); opacity: 0.5; }
+	to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes ep-toast-out {
+	to { transform: translateX(120%); opacity: 0; }
+}
+
+/* The pill arrives from the edge it sits against, and in Arabic that edge is the left
+   one; desk's keyframes assume a left-to-right corner. */
+.ep-root[dir="rtl"] .ep-toast { animation-name: ep-toast-in-rtl; }
+.ep-root[dir="rtl"] .ep-toast--out { animation-name: ep-toast-out-rtl; }
+
+@keyframes ep-toast-in-rtl {
+	from { transform: translateX(-120%); opacity: 0.5; }
+	to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes ep-toast-out-rtl {
+	to { transform: translateX(-120%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ep-toast,
+	.ep-toast--out { animation: none; }
+	.ep-toast--out { opacity: 0; }
+}
+
+/* On a phone the corner is not a corner: the pill spans the width it has, and the
+   min-width would hold it off the edge of the screen it is meant to fit. */
+@media (max-width: 40rem) {
+	.ep-toast-container {
+		inset-inline: 0.5rem;
+		align-items: stretch;
+	}
+	.ep-toast { min-width: 0; width: 100%; }
 }

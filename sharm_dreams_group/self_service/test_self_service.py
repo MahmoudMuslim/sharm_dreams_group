@@ -1,12 +1,19 @@
-"""Tests for the employee self-service.
+"""Tests for the machinery behind the employee portal.
+
+The page this suite was written for - `/self-services-employees` - is retired, and with
+it went the checks on its template, its stylesheet and its client: those files are in
+`~/backups/retired-self-services-employees-2026-10-26/`, and the checks that read them
+by name went rather than being left to fail against nothing. What is still tested is
+what the portal still imports (`geo`, `webauthn`) and what still carries the workbook's
+arithmetic (`api`, `vacation`, `vacation_spec`, `approval`, `time_off`).
 
 Grouped by what breaks, not by module:
 
 * `TestWiring` - the failures that raise nothing. A `page_renderer` pointing at a
-  module that does not import leaves the self-service page 404ing with nothing in the bench
-  log; an action missing from `renderers.ACTIONS` is unreachable however correct
-  the client is; the `Employee Checkin` Select drifting from `geo.STATUS_LABELS`
-  makes the punch fail validation at the moment somebody is trying to clock in.
+  module that does not import leaves the portal 404ing with nothing in the bench log;
+  an action missing from `portal.renderers.ACTIONS` is unreachable however correct the
+  client is; the `Employee Checkin` Select drifting from `geo.STATUS_LABELS` makes the
+  punch fail validation at the moment somebody is trying to clock in.
 * `TestSession` / `TestPreauth` - the token lifecycle, on doctypes this app owns.
 * `TestApprovalWorkflow` - the request state machine.
 * `TestAttendance` / `TestGeofence` - the punch path.
@@ -16,17 +23,15 @@ Grouped by what breaks, not by module:
 Deliberately absent: a test that files a real Leave Application.  HRMS validates
 those against a Leave Policy, an allocation period and the employee's balance, so
 such a test would really be testing that fixture chain, and would break on every
-HRMS upgrade.  Whon the self-service page itself owns about leave - the approver resolution
-and the balance arithmetic - is covered below.
+HRMS upgrade.  What the self-service owned of the leave logic - the approver
+resolution and the balance arithmetic - is covered below.
 
 Run with:
     bench --site <site> run-tests --app sharm_dreams_group \\
         --module sharm_dreams_group.self_service.test_self_service
 """
 
-import csv
 import json
-import os
 import pathlib
 import re
 
@@ -34,11 +39,11 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime
 
+from sharm_dreams_group.portal import renderers as portal_renderers
 from sharm_dreams_group.self_service import (
 	api,
 	approval,
 	geo,
-	renderers,
 	time_off,
 	vacation,
 	vacation_spec,
@@ -48,6 +53,7 @@ from sharm_dreams_group.setup import (
 	SELF_SERVICE_DOUBLE_DAY_LEAVE_CODES,
 	SELF_SERVICE_GEO_STATUS_OPTIONS,
 )
+from sharm_dreams_group.www import employee_portal as portal_page
 from sharm_dreams_group.sharm_dreams_group.doctype.employee_self_service_preauth.employee_self_service_preauth import (
 	consume_preauth,
 )
@@ -57,190 +63,6 @@ from sharm_dreams_group.sharm_dreams_group.doctype.employee_self_service_session
 )
 
 APP = "sharm_dreams_group"
-
-
-# --------------------------------------------------------------------------
-# Stylesheet helpers
-#
-# The theme's failures do not raise. A colour that cannot read on a dark surface
-# is a valid declaration on a page that renders; a token holding a whole
-# `inset ...` shadow where a colour belongs is a declaration the browser throws
-# away without a word. So the checks below read the file and reason about it.
-# --------------------------------------------------------------------------
-
-# A token value that is a colour, a gradient, or a font stack - and nothing else.
-# `inset 0 -1px 0 rgba(0, 0, 0, 0.3)` is none of those: it is a fragment of a
-# box-shadow that happens to start with a colour, and splicing it into
-# `background` yields transparent while splicing it into
-# `box-shadow: ..., inset 0 1px 0 <here>` yields an invalid declaration.
-TOKEN_FRAGMENT = re.compile(r"(^|\s)(inset|outset|dense|solid|groove|ridge|outset)\b")
-
-DEEMPHASIS_TOKENS = frozenset(
-	{
-		# `--k-text-4` is held to 3:1 rather than 4.5:1 on purpose. It paints
-		# placeholders, empty-state glyphs and the language dropdown's caption -
-		# none of which carries information the label beside it does not already
-		# carry - and four distinguishable steps of grey cannot all clear 4.5:1
-		# on a near-white surface. It is the quietest thing on screen by design;
-		# the test holds it to the ratio the design actually claims.
-		"--k-text-4",
-	}
-)
-
-AA_TEXT = 4.5
-AA_LARGE = 3.0
-DEEMPHASIS_FLOOR = 3.0
-
-
-def palette_block(css: str, marker: str) -> str:
-	"""The rule whose selector line contains `marker`.
-
-	Anchored on the selector, never on the opening brace. Walking back from a
-	brace to the nearest newline lands *inside* the previous rule for any
-	selector that is not at the start of its own line, and re-emitting from there
-	loses everything in between - which is how a repair script once dropped
-	1,740 lines of this stylesheet. The marker must also begin its line, because
-	this file names both palettes inside the comment that explains why there is
-	no `prefers-color-scheme` rule.
-	"""
-	found = re.search(r"(?m)^[ \t]*" + re.escape(marker), css)
-	if not found:
-		raise AssertionError(f"no line in the stylesheet starts with {marker!r}")
-	start = css.rindex("\n", 0, found.start()) + 1
-	depth = 0
-	for index in range(css.index("{", found.start()), len(css)):
-		if css[index] == "{":
-			depth += 1
-		elif css[index] == "}":
-			depth -= 1
-			if depth == 0:
-				return css[start : index + 1]
-	raise AssertionError(f"unterminated rule for {marker!r}")
-
-
-def palette_tokens(css: str, marker: str) -> dict[str, str]:
-	return dict(re.findall(r"(--k-[a-z0-9-]+)\s*:\s*([^;]+);", palette_block(css, marker)))
-
-
-def srgb(value: str):
-	"""A hex or rgb()/rgba() colour as floats, or None if it is not a colour."""
-	text = value.strip()
-	if text.startswith("#"):
-		digits = text[1:]
-		if len(digits) == 3:
-			digits = "".join(char * 2 for char in digits)
-		if len(digits) not in (6, 8):
-			return None
-		try:
-			return tuple(int(digits[i : i + 2], 16) / 255 for i in (0, 2, 4))
-		except ValueError:
-			return None
-	match = re.match(r"rgba?\(([^)]+)\)", text)
-	if not match:
-		return None
-	parts = [part.strip() for part in match.group(1).split(",")]
-	if len(parts) < 3:
-		return None
-
-	def channel(part: str):
-		try:
-			return float(part.rstrip("%")) / (100 if part.endswith("%") else 255)
-		except ValueError:
-			return None
-
-	values = [channel(part) for part in parts[:3]]
-	return None if any(value is None for value in values) else tuple(values)
-
-
-def luminance(rgb) -> float:
-	def curve(value: float) -> float:
-		return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
-
-	red, green, blue = (curve(value) for value in rgb)
-	return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-
-
-def contrast_ratio(foreground: str, background: str):
-	"""WCAG contrast between two colours, or None if either is not a colour."""
-	first, second = srgb(foreground), srgb(background)
-	if first is None or second is None:
-		return None
-	one, two = luminance(first), luminance(second)
-	return (max(one, two) + 0.05) / (min(one, two) + 0.05)
-
-
-def resolve_tokens(value: str, tokens: dict[str, str], seen=None) -> str:
-	"""Substitute `var(--k-*)` references, or raise KeyError on an unknown one.
-
-	The recursion guard matters: a token that names itself would otherwise
-	substitute until the stack gave out, and a token that is absent has to be
-	distinguishable from one that resolved to nothing.
-	"""
-	seen = set() if seen is None else seen
-
-	def substitute(match):
-		name = match.group(1)
-		if name in seen or name not in tokens:
-			raise KeyError(name)
-		seen.add(name)
-		try:
-			return resolve_tokens(tokens[name], tokens, seen)
-		finally:
-			seen.discard(name)
-
-	return re.sub(r"var\(\s*(--k-[a-z0-9-]+)\s*\)", substitute, value)
-
-
-def darkest_stop(gradient: str):
-	"""The least-luminous colour in a gradient, which is the worst backdrop.
-
-	`--k-bg` is a `radial-gradient` in both palettes, so the surface a rule with
-	no background of its own is painted on varies across the viewport. Grading
-	against the average, or against `--k-surface`, is optimistic; the darkest
-	stop is the one that decides whether the text reads anywhere.
-	"""
-	colours = re.findall(r"#[0-9a-fA-F]{3,8}\b", gradient or "")
-	if not colours:
-		return []
-	return [min(colours, key=lambda c: luminance(srgb(c) or (1, 1, 1)))]
-
-
-def worst_text_contrast(css: str, tokens: dict[str, str], token: str):
-	"""The worst contrast `token` achieves anywhere it is painted as text.
-
-	Returns None when the token is never used as a colour, which is the signal
-	that an exemption naming it has gone stale.
-	"""
-	worst = None
-	bare = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-	for rule in re.finditer(r"([^{}]+)\{([^{}]*)\}", bare):
-		declarations = re.findall(r"([\w-]+)\s*:\s*([^;]+)", rule.group(2))
-		properties = dict(declarations)
-		if "color" not in properties:
-			continue
-		if f"var({token})" not in properties["color"]:
-			continue
-		try:
-			foreground = resolve_tokens(properties["color"], tokens)
-		except KeyError:
-			continue
-		backgrounds = []
-		for name, value in declarations:
-			if name not in ("background", "background-color"):
-				continue
-			try:
-				expanded = resolve_tokens(value, tokens)
-			except KeyError:
-				continue
-			backgrounds += re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", expanded)
-		if not backgrounds:
-			backdrop = darkest_stop(tokens.get("--k-bg", ""))
-			backgrounds = backdrop or [tokens.get("--k-surface", "white")]
-		for background in backgrounds:
-			ratio = contrast_ratio(foreground, background)
-			if ratio is not None and (worst is None or ratio < worst):
-				worst = ratio
-	return worst
 
 
 def purge(doctype, filters=None):
@@ -569,12 +391,16 @@ class TestWiring(SelfServiceTestCase):
 			f"{APP}.self_service.api",
 			f"{APP}.self_service.approval",
 			f"{APP}.self_service.geo",
-			f"{APP}.self_service.renderers",
 			f"{APP}.self_service.time_off",
 			f"{APP}.self_service.vacation",
 			f"{APP}.self_service.webauthn",
 			f"{APP}.self_service.webauthn_ops",
-			f"{APP}.www.self_services_employees",
+			# The portal is what reaches these now, so it is imported here too:
+			# `portal.biometrics` pulls `self_service.webauthn`, and a cycle between
+			# the two packages would only surface at whichever entry point hit it.
+			f"{APP}.portal.renderers",
+			f"{APP}.portal.biometrics",
+			f"{APP}.www.employee_portal",
 		):
 			self.assertIsNotNone(importlib.import_module(name), name)
 
@@ -583,13 +409,14 @@ class TestWiring(SelfServiceTestCase):
 
 		from sharm_dreams_group import hooks
 
-		# Both of this module's own routes, rather than a count: `page_renderer` is
-		# shared with `/employee-portal`, which is built alongside this page and not
-		# replacing it, so asserting a length here would fail for a route that has
-		# nothing to do with self-service.
+		# The three routes the portal is made of, rather than a count of
+		# `page_renderer`: the list is the app's whole website surface now, and a
+		# name that has drifted from the class it points at serves a 404 with
+		# nothing logged and nothing thrown.
 		for path in (
-			"sharm_dreams_group.self_service.renderers.SelfServiceApiRenderer",
-			"sharm_dreams_group.self_service.renderers.SelfServiceLangRenderer",
+			"sharm_dreams_group.portal.renderers.PortalApiRenderer",
+			"sharm_dreams_group.portal.renderers.PortalLangRenderer",
+			"sharm_dreams_group.portal.renderers.PortalServiceWorkerRenderer",
 		):
 			self.assertIn(path, hooks.page_renderer, f"{path} is no longer registered")
 
@@ -601,7 +428,7 @@ class TestWiring(SelfServiceTestCase):
 			)
 
 	def test_every_action_is_callable_and_comes_from_this_app(self):
-		for action, handler in renderers.ACTIONS.items():
+		for action, handler in portal_renderers.ACTIONS.items():
 			self.assertTrue(callable(handler), action)
 			self.assertTrue(
 				getattr(handler, "__module__", "").startswith(APP),
@@ -611,16 +438,19 @@ class TestWiring(SelfServiceTestCase):
 	def test_the_client_only_posts_actions_the_renderer_serves(self):
 		"""Checked from the client's side.
 
-		An action self-service.js sends but ACTIONS lacks comes back as "Unknown self-service
-		action" - a dead screen, not an error, so nothing else would report it.
+		An action `employee_portal.js` sends but `ACTIONS` lacks comes back as
+		"Unknown portal action" - a dead screen, not an error, so nothing else
+		would report it.
 		"""
 		with open(
-			f"{frappe.get_app_path(APP)}/public/js/self_service.js", encoding="utf-8"
+			f"{frappe.get_app_path(APP)}/public/js/employee_portal.js", encoding="utf-8"
 		) as handle:
 			sent = set(re.findall(r'action:\s*"([a-z_]+)"', handle.read()))
 
-		self.assertTrue(sent, "no actions found in self-service.js - the pattern is stale")
-		self.assertEqual(sent - set(renderers.ACTIONS), set())
+		self.assertTrue(
+			sent, "no actions found in employee_portal.js - the pattern is stale"
+		)
+		self.assertEqual(sent - set(portal_renderers.ACTIONS), set())
 
 	def test_webauthn_ops_stays_frappe_free(self):
 		"""The reason it is a separate module: testable without a site."""
@@ -731,75 +561,70 @@ class TestWiring(SelfServiceTestCase):
 		):
 			self.assertIn(app_code, carried, f"no Leave Type carries {app_code!r}")
 
-	def test_every_self_service_string_is_translated(self):
-		"""Every string the server sends needs a source row in both catalogs.
-
-		The client falls back to its own English copy for a missing key, so a missing
-		row shows an English screen to somebody who chose Arabic.
-		"""
-		from sharm_dreams_group.www.self_services_employees import SELF_SERVICE_STRINGS
-
-		for lang in ("ar", "fr"):
-			path = f"{frappe.get_app_path(APP)}/translations/{lang}.csv"
-			self.assertTrue(os.path.exists(path), path)
-			with open(path, encoding="utf-8", newline="") as handle:
-				sources = {row["source"] for row in csv.DictReader(handle)}
-			self.assertEqual(
-				set(SELF_SERVICE_STRINGS.values()) - sources,
-				set(),
-				f"{lang}.csv is missing self-service strings",
-			)
-
 	def test_the_page_and_its_assets_exist(self):
-		"""`asset_url` silently falls back to a hash of "0" on a missing file.
+		"""A missing asset is an unstyled, dead page - and nothing raises.
 
-		That renders as a 404 for the CSS and JS with the self-service page looking unstyled
-		and dead, so the two files are asserted here rather than left to a browser.
+		The portal links its two files by literal `/assets/` path with a `?v=`
+		beside them, so no hashing step resolves them and no error surfaces when
+		one is simply not there. `public/sw.js` belongs in this list for the same
+		reason: `PortalServiceWorkerRenderer` reads it off disk per request and
+		answers 404 when the file is gone, which silently takes offline launch
+		with it.
 
-		The page's two filenames are *derived* from `PAGE_ROUTE` rather than
+		The page's two `www/` names are *derived* from `PAGE_ROUTE` rather than
 		written out, because Frappe derives the route from the template filename and
 		only converts hyphens to underscores for the controller module. Writing the
 		names by hand here is how the three would drift apart and the page would
 		serve a 404 with nothing in any log.
 		"""
-		app = frappe.get_app_path(APP)
-		page = renderers.PAGE_ROUTE
-		# The two `www/` names come from the route; the two asset names do not,
+		root = pathlib.Path(frappe.get_app_path(APP))
+		page = portal_page.PAGE_ROUTE
+		# The two `www/` names come from the route; the three asset names do not,
 		# because they are not routes - they are files the page links to by its own
 		# naming. So they are written out, and a rename has to touch this list.
 		for relative in (
 			f"www/{page}.html",
 			f"www/{page.replace('-', '_')}.py",
-			"public/js/self_service.js",
-			"public/css/self_service.css",
+			"public/js/employee_portal.js",
+			"public/css/employee_portal.css",
+			"public/sw.js",
 		):
-			self.assertTrue(os.path.exists(f"{app}/{relative}"), relative)
+			self.assertTrue((root / relative).exists(), relative)
 
 	def test_the_client_posts_to_the_route_the_renderer_serves(self):
-		"""`self_service.js` hardcodes the API path; the renderer matches on one.
+		"""The client's fallback URL and the renderer's match have to agree.
 
-		Nothing reconciles them at runtime. A client pointing at a route no renderer
-		serves gets a 404 from the desk, so the login screen fails on its first
-		request with nothing logged and nothing thrown - which is the hardest kind
-		of URL mistake to notice. So the client's line is read back here and
-		compared against the constant the renderer actually matches.
+		Nothing reconciles them at runtime. A client pointing at a route no
+		renderer serves gets a 404, so the login screen fails on its first request
+		with nothing logged and nothing thrown - which is the hardest kind of URL
+		mistake to notice. The client reads `window.EMPLOYEE_PORTAL` first and the
+		literal only as a fallback, so both the fallback and the page that injects
+		it are checked here.
 		"""
-		with open(
-			f"{frappe.get_app_path(APP)}/public/js/self_service.js", encoding="utf-8"
-		) as handle:
-			source = handle.read()
+		source = (
+			pathlib.Path(frappe.get_app_path(APP)) / "public/js/employee_portal.js"
+		).read_text(encoding="utf-8")
 
-		found = re.findall(r'var\s+API\s*=\s*"([^"]+)"', source)
+		found = re.findall(r'var\s+API\s*=\s*CFG\.api\s*\|\|\s*"([^"]+)"', source)
 		self.assertEqual(
-			found, [f"/{renderers.API_ROUTE}"], "self-service.js's API route has drifted"
+			found,
+			[f"/{portal_renderers.API_ROUTE}"],
+			"employee_portal.js's API route has drifted",
 		)
 
-		# And nothing anywhere in the client still points at the old address.
-		self.assertNotIn(
-			'"/self-service-api"',
-			source,
-			"self-service.js still posts to /self-service-api",
+		found_lang = re.findall(r'var\s+LANG_API\s*=\s*CFG\.langApi\s*\|\|\s*"([^"]+)"', source)
+		self.assertEqual(
+			found_lang,
+			[portal_renderers.SETLANG_ROUTE],
+			"employee_portal.js's setlang route has drifted",
 		)
+
+		# And the page has to hand the client the same constants, not its own copy.
+		template = (
+			pathlib.Path(frappe.get_app_path(APP)) / "www" / f"{portal_page.PAGE_ROUTE}.html"
+		).read_text(encoding="utf-8")
+		self.assertIn("portal_api", template)
+		self.assertIn("portal_lang_api", template)
 
 
 class TestSession(SelfServiceTestCase):
@@ -1877,533 +1702,3 @@ def der_to_raw(der):
 		parts.append(body[offset + 2 : offset + 2 + length].lstrip(b"\x00"))
 		offset += 2 + length
 	return parts[0].rjust(32, b"\x00") + parts[1].rjust(32, b"\x00")
-
-
-class TestThemeAndWiring(SelfServiceTestCase):
-	"""The failures that produce no exception at all.
-
-	Each of these was a real break during the rename and the theme work, and each
-	one looks fine when the feature is exercised by hand: a stale asset path still
-	serves HTML, a mismatched cookie still stores a preference, and a colour
-	literal left outside the token block still paints the right colour in light
-	mode. So they are checked structurally.
-	"""
-
-	@staticmethod
-	def _app_file(*parts) -> str:
-		return os.path.join(frappe.get_app_path(APP), *parts)
-
-	def _read(self, *parts) -> str:
-		with open(self._app_file(*parts), encoding="utf-8") as handle:
-			return handle.read()
-
-	def test_the_stylesheet_has_no_colour_outside_its_two_palettes(self):
-		"""A literal outside the tokens keeps its light value on a dark surface.
-
-		Nothing reports this - the declaration is valid CSS and the page renders -
-		so it is the one thing about the theme that has to be enforced by reading
-		the file rather than by looking at it.
-		"""
-		css = self._read("public", "css", "self_service.css")
-
-		def block(marker):
-			at = css.index(marker)
-			depth = 0
-			for i in range(css.index("{", at), len(css)):
-				if css[i] == "{":
-					depth += 1
-				elif css[i] == "}":
-					depth -= 1
-					if depth == 0:
-						return css[css.rindex("\n", 0, at) + 1 : i + 1]
-			raise AssertionError(marker)
-
-		light = block(":root {")
-		dark = block(':root[data-k-theme="dark"] {')
-		body = light.join(css.split(light)).replace(dark, "") if dark not in light else ""
-		body = css.replace(light, "").replace(dark, "")
-
-		# comments carry prose with colour names in it
-		body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
-		stray = [
-			line.strip()
-			for line in body.splitlines()
-			if re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", line)
-		]
-		self.assertEqual(stray, [], f"colour outside the token blocks: {stray[:4]}")
-
-	def test_every_token_a_rule_uses_is_declared(self):
-		"""A `var()` with no declaration resolves to nothing, silently."""
-		css = self._read("public", "css", "self_service.css")
-		declared = set(re.findall(r"(--k-[a-z0-9-]+)\s*:", css))
-		used = set(re.findall(r"var\((--k-[a-z0-9-]+)\)", css))
-		self.assertEqual(used - declared, set(), "var() naming an undeclared token")
-
-	def test_both_palettes_declare_the_same_tokens(self):
-		"""A token the dark palette leaves out keeps its light value on dark.
-
-		The exemptions are the documented theme-invariant ones: the font and the
-		confetti colours, which are decoration and identical either way.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = css[: css.index(':root[data-k-theme="dark"] {')]
-		dark = css[css.index(':root[data-k-theme="dark"] {') :]
-
-		def names(text):
-			return set(re.findall(r"(--k-[a-z0-9-]+)\s*:", text))
-
-		invariant = {"--k-font"} | {f"--k-confetti-{n}" for n in range(1, 8)}
-		self.assertEqual(
-			names(light) - names(dark) - invariant,
-			set(),
-			"tokens the dark palette does not override",
-		)
-
-	def test_the_theme_is_settled_before_the_stylesheet_loads(self):
-		"""Order in `<head>` is the whole no-flash guarantee.
-
-		The attribute has to be on <html> before the first paint. If this script
-		runs after the stylesheet link it still works, but a tablet on the dark
-		setting flashes white on every load, which is the symptom people report
-		as "it flickers".
-		"""
-		template = self._read("www", f"{renderers.PAGE_ROUTE}.html")
-		script = template.index("data-k-theme")
-		link = template.index('rel="stylesheet" href="{{ self_service_css }}"')
-		self.assertLess(script, link, "the theme script must precede the stylesheet")
-
-	def test_the_theme_cookie_name_is_injected_not_repeated(self):
-		"""The head script needs the cookie name, and it must be the server's.
-
-		Nothing reconciles a name written into a template by hand with the
-		constant the server reads, so the template is handed the constant instead
-		of repeating it.
-		"""
-		from sharm_dreams_group.www.self_services_employees import THEME_COOKIE_NAME
-
-		template = self._read("www", f"{renderers.PAGE_ROUTE}.html")
-		self.assertIn("self_service_theme_cookie", template)
-		self.assertNotIn(f'"{THEME_COOKIE_NAME}"', template)
-
-	def test_the_server_and_the_client_agree_on_the_cookie_names(self):
-		"""A mismatch writes a preference nothing ever reads back."""
-		from sharm_dreams_group.www.self_services_employees import (
-			LANG_COOKIE_NAME,
-			THEME_COOKIE_NAME,
-		)
-
-		source = self._read("public", "js", "self_service.js")
-		self.assertIn(LANG_COOKIE_NAME, source, "the client never writes the lang cookie")
-		self.assertIn(THEME_COOKIE_NAME, source, "the client never writes the theme cookie")
-
-	def test_the_theme_choices_are_the_ones_the_picker_offers(self):
-		"""The picker is rendered from the server's list; the server reads the cookie."""
-		from sharm_dreams_group.www.self_services_employees import (
-			SELF_SERVICE_THEME_ITEMS,
-			THEME_CHOICES,
-		)
-
-		self.assertEqual(
-			[item["code"] for item in SELF_SERVICE_THEME_ITEMS], list(THEME_CHOICES)
-		)
-		self.assertEqual(SELF_SERVICE_THEME_ITEMS[0]["code"], "light")
-
-	def test_resolve_theme_rejects_anything_it_does_not_offer(self):
-		"""A hand-edited cookie falls back to the device, not to a blank page."""
-		from sharm_dreams_group.www import self_services_employees as page
-
-		self.assertEqual(page.resolve_theme(), "system", "no cookie at all")
-		frappe.local.form_dict.theme = "chartreuse"
-		try:
-			self.assertEqual(page.resolve_theme(), "system")
-		finally:
-			frappe.local.form_dict.pop("theme", None)
-
-	def test_the_stylesheet_has_a_dark_palette_and_the_toggle_is_styled(self):
-		css = self._read("public", "css", "self_service.css")
-		self.assertIn(':root[data-k-theme="dark"]', css)
-		self.assertIn("color-scheme: dark", css)
-		self.assertIn(".k-theme-btn", css)
-
-	# ----------------------------------------------------------------------
-	# Palette invariants
-	#
-	# Every failure below was found by rendering the page, not by reading it, and
-	# every one of them leaves the page looking correct in light mode. They are
-	# grouped here because they share one cause: the dark palette was written as
-	# a list of changes rather than as a palette, so every value it did not
-	# change kept a light-mode meaning that no longer holds.
-	# ----------------------------------------------------------------------
-
-	def test_no_token_holds_a_declaration_instead_of_a_colour(self):
-		"""A token must be a colour, never a fragment of some other declaration.
-
-		`--k-inset-hi` was a bare colour in light and the whole
-		`inset 0 -1px 0 rgba(0, 0, 0, 0.3)` in dark, while its call site already
-		supplied the `inset 0 1px 0` half. Spliced, dark produced
-		`inset 0 1px 0 inset 0 -1px 0 ...`, and a shadow may name `inset` only
-		once - so the declaration was invalid at computed-value time and the
-		*whole* box-shadow was dropped. Every dark button lost its glow and its
-		highlight, silently, and the browser reported nothing.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		for marker in (":root {", ':root[data-k-theme="dark"] {'):
-			offenders = {
-				name: value.strip()
-				for name, value in palette_tokens(css, marker).items()
-				if TOKEN_FRAGMENT.search(value)
-			}
-			self.assertEqual(
-				offenders,
-				{},
-				f"token holding a declaration rather than a colour in {marker}: {offenders}",
-			)
-
-	def test_a_token_keeps_its_shape_across_the_two_palettes(self):
-		"""A value that is a colour in light must be a colour in dark.
-
-		The two palettes disagreed about the *kind* of thing several tokens were,
-		not only its value, which is the failure above seen from the other side.
-		Comparing shapes catches the next one before it ships.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = palette_tokens(css, ":root {")
-		dark = palette_tokens(css, ':root[data-k-theme="dark"] {')
-
-		disagreed = {}
-		for name, light_value in light.items():
-			if name not in dark:
-				continue
-			is_colour = lambda v: srgb(v) is not None  # noqa: E731
-			if is_colour(light_value) != is_colour(dark[name]):
-				disagreed[name] = (light_value.strip(), dark[name].strip())
-		self.assertEqual(
-			disagreed,
-			{},
-			f"token that is a colour in one palette and not the other: {disagreed}",
-		)
-
-	def test_a_shade_is_not_the_light_palettes_base_verbatim(self):
-		"""The bug this replaces a heuristic for: the wrong *value*, not the wrong direction.
-
-		Every dark `-deep` had been set to the light palette's own base - `#dc2626`
-		for `bad`, `#2563eb` for `brand`, `#059669` for `ok` - while the dark base
-		beside it had been lightened. The shade was therefore darker than the base
-		it was supposed to deepen, and it failed both of its jobs at once: as the
-		alert's text colour on its own surface (3.33:1), and as the far stop of the
-		button gradient with `--k-text-inverse` on top (3.62:1).
-
-		Note what is deliberately *not* asserted: that a dark `-deep` be lighter
-		than the dark base. That reads as if it were the rule and it is not -
-		`--k-brand-deep` is `#5888f0` against a `#60a5fa` base, because the
-		contrast requirement at its two call sites is what sets it and neither of
-		them pairs it with the base. `test_every_text_colour_reads_...` holds it to
-		the requirement instead.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = palette_tokens(css, ":root {")
-		dark = palette_tokens(css, ':root[data-k-theme="dark"] {')
-
-		reused = {}
-		for name, dark_value in dark.items():
-			if not name.endswith("-deep"):
-				continue
-			base = name[: -len("-deep")]
-			if base not in light:
-				continue
-			if dark_value.strip().lower() == light[base].strip().lower():
-				reused[name] = light[base].strip()
-		self.assertEqual(
-			reused,
-			{},
-			f"dark `-deep` reusing the light palette's base verbatim: {reused}",
-		)
-
-	def test_inverse_text_is_painted_on_a_fill_it_can_read(self):
-		"""`--k-text-inverse` against the fill its *own* rule declares.
-
-		White in light, near-black in dark, and always sitting on a colour the
-		stylesheet chose: a button gradient, a chip, a tile icon, a badge. So the
-		pairing is checkable here, and it is where the real failures were.
-
-		Two bugs came out of writing it. The first is that a translucent token
-		cannot be a fill for inverse text at all - a 28%-white scrim *lightens*
-		whatever is behind it, which is the wrong direction for white text, and
-		that is how the active chip's count and the language flag and tag ended
-		up at 2.95:1. The second is that a `-soft` tint is usually chosen to look
-		like a highlight rather than to carry text, and several of them were far
-		too light to sit under a white label.
-
-		Scope, stated plainly: this grades rules that declare their own
-		background. `.k-screen-icon`, `.k-group-icon` and `.k-punch-head-date`
-		paint inverse text with no background of their own - they inherit a
-		parent's - and no amount of reading this file can resolve that. They are
-		covered by rendering the page, which is how they were found.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = palette_tokens(css, ":root {")
-		dark = palette_tokens(css, ':root[data-k-theme="dark"] {')
-		palettes = {"light": light, "dark": {**light, **dark}}
-		bare = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-		rules = [
-			(" ".join(selector.split()), declarations)
-			for selector, declarations in (
-				(" ".join(selector.split()), re.findall(r"([\w-]+)\s*:\s*([^;]+)", body))
-				for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", bare)
-			)
-		]
-
-		# A colour declared on the base class and a fill declared on a modifier
-		# reach the same element. `.k-tile-icon` sets inverse text;
-		# `.k-tile-icon--timeoff` repaints its background with an `--ok-soft`
-		# gradient; the label then sits on a tint chosen as a highlight, which is
-		# not the same question as "does white read on green". So a modifier's
-		# fill is graded against the base class's colour.
-		base_colour = {}
-		for selector, declarations in rules:
-			properties = dict(declarations)
-			if "color" not in properties:
-				continue
-			last = selector.split()[-1] if selector.split() else ""
-			if "--" in last:
-				last = last.split("--")[0]
-			base_colour.setdefault(last, properties["color"])
-
-		def colour_for(selector: str):
-			properties = dict(next(d for s, d in rules if s == selector))
-			if "color" in properties:
-				return properties["color"]
-			last = selector.split()[-1] if selector.split() else ""
-			if "--" in last:
-				return base_colour.get(last.split("--")[0])
-			return None
-
-		pairs = []
-		for selector, declarations in rules:
-			foreground = colour_for(selector)
-			if not foreground or "--k-text-inverse" not in foreground:
-				continue
-			own = [
-				value for name, value in declarations
-				if name in ("background", "background-color")
-			]
-			if own:
-				pairs.append((selector, own))
-
-		self.assertTrue(
-			pairs,
-			"no rule pairs inverse text with a fill - the patterns above are "
-			"stale, or every badge lost its background",
-		)
-
-		failures = []
-		for selector, own in pairs:
-			for which, tokens in palettes.items():
-				inverse = tokens["--k-text-inverse"].strip()
-				for value in own:
-					try:
-						expanded = resolve_tokens(value, tokens)
-					except KeyError:
-						continue
-					stops = re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", expanded)
-					for stop in stops:
-						if re.search(r",\s*0?\.\d+\s*\)$", stop.strip()):
-							failures.append(
-								f"{which} {selector[:40]}: inverse text on the "
-								f"TRANSLUCENT fill {stop.strip()} - a wash moves "
-								f"the wrong way for {inverse}"
-							)
-							continue
-						ratio = contrast_ratio(inverse, stop)
-						if ratio is not None and ratio < AA_TEXT:
-							failures.append(
-								f"{which} {ratio:.2f}:1 {selector[:40]}: "
-								f"--k-text-inverse {inverse} on {stop.strip()}"
-							)
-		self.assertEqual(
-			failures,
-			[],
-			"inverse text on a fill it cannot read:\n  " + "\n  ".join(failures[:10]),
-		)
-
-	def test_every_text_colour_reads_on_the_surface_it_is_painted_on(self):
-		"""Contrast, per declaration, against that rule's own background.
-
-		Graded per rule rather than per token, because a token is only as good as
-		the worst surface it lands on: `--k-ok` is fine on the white card and was
-		fine there, and separately unusable as the far stop of the success
-		button's gradient.
-
-		`--k-text-4` is exempt at 3:1 and the exemption is named in
-		`DEEMPHASIS_TOKENS` with the reason, rather than left as a number that
-		someone eventually raises for the wrong reason.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = palette_tokens(css, ":root {")
-		dark = palette_tokens(css, ':root[data-k-theme="dark"] {')
-		merged = {**light, **dark}
-
-		bare = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-		failures = []
-
-		for rule in re.finditer(r"([^{}]+)\{([^{}]*)\}", bare):
-			selector = " ".join(rule.group(1).split())
-			declarations = re.findall(r"([\w-]+)\s*:\s*([^;]+)", rule.group(2))
-			properties = dict(declarations)
-			# `border-color:` and `scrollbar-color:` also match a naive `color:`
-			# search, and grading a 1px border as if it were text is how nine
-			# false positives buried two real ones.
-			if "color" not in properties:
-				continue
-
-			named = re.findall(r"var\((--k-[a-z0-9-]+)\)", properties["color"])
-			# `--k-text-inverse` is graded by the fill test instead: it is
-			# painted on an ancestor's gradient, so falling back to
-			# `--k-surface` here reports sixteen rules at 1.00:1 that are all
-			# perfectly legible.
-			if any(name.startswith("--k-text-inverse") for name in named):
-				continue
-
-			candidates: list[str] = []
-			for name, value in declarations:
-				if name not in ("background", "background-color"):
-					continue
-				try:
-					expanded = resolve_tokens(value, merged)
-				except KeyError:
-					continue
-				# substitute first, split second: splitting a gradient on commas
-				# shreds its argument list and no stop survives
-				candidates += re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", expanded)
-			if not candidates:
-				# A rule that declares no background is sitting on whatever is
-				# behind it, and the worst case for that is the *darkest* stop of
-				# the page gradient - not `--k-surface`. The light `--k-bg` ends at
-				# #e6ecf5, which is darker than the white card, so assuming the
-				# card is how `--k-text-3` cleared every surface the stylesheet
-				# names and still came out at 4.37:1 under "Back to Dashboard".
-				candidates = darkest_stop(merged.get("--k-bg", "")) or [
-					merged.get("--k-surface", "white")
-				]
-
-			try:
-				foreground = resolve_tokens(properties["color"], merged)
-			except KeyError:
-				continue
-			if srgb(foreground) is None:
-				continue
-
-			for name in named:
-				floor = DEEMPHASIS_FLOOR if name in DEEMPHASIS_TOKENS else AA_TEXT
-				for background in candidates:
-					ratio = contrast_ratio(foreground, background)
-					if ratio is not None and ratio < floor:
-						failures.append(
-							f"{ratio:.2f}:1 (needs {floor}) {selector[:44]}"
-							f" -- {name} {foreground.strip()} on {background.strip()}"
-						)
-
-		self.assertEqual(
-			failures,
-			[],
-			"text that does not read on its own background:\n  "
-			+ "\n  ".join(sorted(set(failures))[:8]),
-		)
-
-	def test_the_deemphasis_floor_is_the_one_the_stylesheet_documents(self):
-		"""`--k-text-4` claims 3:1 in the palette's own comment; hold it to that.
-
-		The number is written down twice - once as `DEEMPHASIS_FLOOR` here and
-		once in the comment beside the token - because a test that only enforces
-		"whatever this constant says" enforces nothing. This checks the two agree.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		light = palette_tokens(css, ":root {")
-		dark = palette_tokens(css, ':root[data-k-theme="dark"] {')
-		for which, tokens in (("light", light), ("dark", {**light, **dark})):
-			for name in DEEMPHASIS_TOKENS:
-				worst = worst_text_contrast(css, tokens, name)
-				self.assertIsNotNone(
-					worst,
-					f"{name} is never used as a text colour in {which}; the "
-					f"exemption naming it has gone stale",
-				)
-				self.assertGreaterEqual(
-					worst,
-					DEEMPHASIS_FLOOR,
-					f"{which} {name} {tokens[name].strip()} reads at {worst:.2f}:1, "
-					f"below the {DEEMPHASIS_FLOOR} the palette's comment claims",
-				)
-
-	def test_bootstrap_colours_do_not_reach_the_page(self):
-		"""Frappe's website bundle brings Bootstrap's light palette with it.
-
-		The page inherits it, and two of its rules set colours the tokens never
-		get to choose: `h1..h6, .h1..h6 { color: #171717 }` and
-		`.text-muted { color: #7c7c7c !important }`. The client renders
-		`h2.fw-bold` for "Employee Sign In" and `p.text-muted` under it, so on the
-		dark card the heading came out `#171717` on `#131c2e` - 1.05:1 - and the
-		subtitle at 4.08:1.
-
-		Both values live in another file, which is why a check that only reads
-		this stylesheet reported every colour on the page as tokenised and was
-		wrong. So the utilities are read from the client, and each one has to be
-		remapped.
-		"""
-		css = self._read("public", "css", "self_service.css")
-		source = self._read("public", "js", "self_service.js")
-
-		used = set()
-		for value in re.findall(r'class="([^"]*)"', source):
-			used.update(part for part in value.split() if part and not part.startswith("k-"))
-		# only the utilities that carry a colour matter; the rest are layout
-		colour_carrying = {
-			name for name in used
-			if name.startswith(("text-", "bg-")) or name in ("lead", "small")
-		}
-		# `text-truncate` and friends are utilities that carry no colour
-		colour_carrying -= {"text-truncate", "text-center", "text-uppercase"}
-		self.assertTrue(
-			colour_carrying,
-			"no colour-carrying utility found - the client changed shape, "
-			"so this test is no longer looking at the right thing",
-		)
-
-		# headings are colour-carrying even though the client never names them, so
-		# the anchor for "the bridge" is the first rule that remaps one.
-		self.assertIn(".k-root :is(h1,", css, "the Bootstrap bridge is missing entirely")
-
-		# A utility counts as remapped only if some rule *both* scopes it under
-		# `.k-root` and gives it a colour. Matching on the selector text alone is
-		# not enough: `.k-root small:not(.text-muted)` mentions `text-muted` and
-		# sets no colour for it, so a selector-only search reports a leak as
-		# covered. And building a needle by string concatenation is how the first
-		# version of this test looked for `.k-root lead` and found nothing.
-		bare_css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-		rules = [
-			(" ".join(selector.split()), body)
-			for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", bare_css)
-		]
-
-		def remapped(name: str) -> bool:
-			return any(
-				".k-root" in selector
-				and re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", selector)
-				and re.search(r"(?<![\w-])color\s*:\s*var\(--k-", body)
-				for selector, body in rules
-			)
-
-		unmapped = sorted(name for name in colour_carrying if not remapped(name))
-		self.assertEqual(
-			unmapped,
-			[],
-			"Bootstrap colour utility used by the client but not remapped inside "
-			f".k-root: {unmapped}",
-		)
-
-		# the muted override has to win against the !important it is fighting
-		self.assertRegex(
-			css,
-			r"\.k-root \.text-muted\s*\{[^}]*color:\s*var\(--k-[\w-]+\)\s*!important",
-			".k-root .text-muted must carry !important to beat Bootstrap's",
-		)

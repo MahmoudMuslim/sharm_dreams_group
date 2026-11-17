@@ -41,15 +41,12 @@ import frappe
 # ---------------------------------------------------------------------------
 # erpnext/controllers/trends.py - backs 4 of the 6 charts
 # ---------------------------------------------------------------------------
-# `t1.company = %s` -> `t1.company in %s`, with the parameter always a tuple.
-# Rendering a tuple through pymysql gives `('A', 'B')`, so one form covers a
-# single company, a group parent, and the all-companies case without any
-# conditional SQL.
-_TRENDS_SQL_FROM = "t1.company = {}"
-_TRENDS_SQL_TO = "t1.company in {}"
-
-_TRENDS_PARAM_FROM = '(filters.get("company"), year_start_date'
-_TRENDS_PARAM_TO = '(filters.get("companies"), year_start_date'
+# `validate_filters` already builds `filters["companies"]` - the chosen company
+# plus its subtree, or every company when none is chosen - and the query builder
+# only has to filter on it.  v16.53 moved this query from raw SQL to pypika, so
+# the equality predicate is the whole edit now.
+_TRENDS_COMPANY_FROM = 't1.company == filters.get("company")'
+_TRENDS_COMPANY_TO = 't1.company.isin(filters["companies"])'
 
 _TRENDS_CURRENCY_FROM = """	conditions["company_currency"] = (
 		erpnext.get_company_currency(filters.get("company")) if filters.get("company") else None
@@ -207,8 +204,7 @@ PATCHES: dict[str, list[tuple[str, str]]] = {
 		(_TRENDS_IMPORT_FROM, _TRENDS_IMPORT_TO),
 		(_TRENDS_CURRENCY_FROM, _TRENDS_CURRENCY_TO),
 		(_TRENDS_VALIDATE_FROM, _TRENDS_VALIDATE_TO),
-		(_TRENDS_SQL_FROM, _TRENDS_SQL_TO),
-		(_TRENDS_PARAM_FROM, _TRENDS_PARAM_TO),
+		(_TRENDS_COMPANY_FROM, _TRENDS_COMPANY_TO),
 	],
 	"hrms/hrms/hr/report/monthly_attendance_sheet/monthly_attendance_sheet.py": [
 		(_ATTENDANCE_FROM, _ATTENDANCE_TO),
@@ -332,7 +328,7 @@ _PO_ANALYSIS_TO = (
 # condition - two coupled edits, one of which I got wrong the first time.
 #
 # 8. Project Summary - hands `filters` straight to get_all
-_PROJECT_FROM = """	data = frappe.db.get_all(
+_PROJECT_FROM = """	data = frappe.get_list(
 		"Project",
 		filters=filters,"""
 _PROJECT_TO = """	# A company filter means this company and everything under it, so selecting
@@ -344,7 +340,7 @@ _PROJECT_TO = """	# A company filter means this company and everything under it,
 			[filters["company"], *get_descendants_of("Company", filters["company"])],
 		)
 
-	data = frappe.db.get_all(
+	data = frappe.get_list(
 		"Project",
 		filters=filters,"""
 
@@ -367,8 +363,8 @@ PATCHES["erpnext/erpnext/manufacturing/report/job_card_summary/job_card_summary.
 ]
 PATCHES["erpnext/erpnext/manufacturing/report/work_order_summary/work_order_summary.py"] = [
 	(
-		"from frappe.utils import date_diff, flt, getdate, today",
-		"from frappe.utils import date_diff, flt, getdate, today\nfrom frappe.utils.nestedset import get_descendants_of",
+		"from frappe.utils import add_days, date_diff, flt, getdate, today",
+		"from frappe.utils import add_days, date_diff, flt, getdate, today\nfrom frappe.utils.nestedset import get_descendants_of",
 	),
 	_WO_LOOP,
 ]
@@ -799,6 +795,43 @@ _HVA_DATES_TO = """	if filters:
 	if not from_date:
 		from_date = add_months(to_date, -12).replace(day=1)"""
 
+# The grain a chart is drawn at is not a filter, and reading it out of `filters` has
+# never worked: `filters` is the widget's filter group, which for this source only ever
+# carries a company, so all three uses below saw None and `get_period_ending` raised
+# `KeyError: None` in place of the chart.  The argument carries the grain and the
+# document carries the argument's default - which is how the desk's own `get()`
+# (`time_interval or chart.time_interval`) and ERPNext's `account_balance_timeline`
+# both read it.  The document is the only answer most viewers get: the widget sends
+# `time_interval: null` on every request until someone touches the interval dropdown,
+# because it builds the request from the per-user chart settings and never from the
+# chart document.
+_HVA_GRAIN_FROM = """	if not from_date:
+		from_date = add_months(to_date, -12).replace(day=1)"""
+_HVA_GRAIN_TO = """	if not from_date:
+		from_date = add_months(to_date, -12).replace(day=1)
+
+	if not time_interval:
+		if chart_name:
+			chart = frappe.get_doc("Dashboard Chart", chart_name, check_permission="read")
+		elif chart:
+			chart = frappe.parse_json(chart)
+		time_interval = getattr(chart, "time_interval", None)
+	# A grain in the chart's filters still wins over the month default, for a chart
+	# someone has configured that way; the document only speaks when the widget stayed
+	# silent, which is every first load of this widget.
+	time_interval = time_interval or filters.get("time_interval") or "Monthly\""""
+
+_HVA_GRAIN_USES_FROM = """	hiring_data = get_result(hiring, filters.get("time_interval"), from_date, to_date, "Count")
+	attrition_data = get_result(attrition, filters.get("time_interval"), from_date, to_date, "Count")
+
+	return {
+		"labels": [get_period(r[0], filters.get("time_interval")) for r in hiring_data],"""
+_HVA_GRAIN_USES_TO = """	hiring_data = get_result(hiring, time_interval, from_date, to_date, "Count")
+	attrition_data = get_result(attrition, time_interval, from_date, to_date, "Count")
+
+	return {
+		"labels": [get_period(r[0], time_interval) for r in hiring_data],"""
+
 PATCHES["hrms/hrms/hr/dashboard_chart_source/hiring_vs_attrition_count/hiring_vs_attrition_count.py"] = [
 	# One import edit, not two, and this is the whole reason the second half of this
 	# patch is a chain rather than a merge.
@@ -817,11 +850,13 @@ PATCHES["hrms/hrms/hr/dashboard_chart_source/hiring_vs_attrition_count/hiring_vs
 	# unrecognised; the benefit is that every site *from here on* reports it correctly
 	# forever, which is the direction a patch ledger should move in.
 	(
-		"from frappe.utils import getdate\nfrom frappe.utils.nestedset import get_descendants_of",
+		"from frappe.utils import getdate",
 		"from frappe.utils import add_months, getdate\nfrom frappe.utils.nestedset import get_descendants_of",
 	),
 	(_HVA_PY_FROM, _HVA_PY_TO),
 	(_HVA_DATES_FROM, _HVA_DATES_TO),
+	(_HVA_GRAIN_FROM, _HVA_GRAIN_TO),
+	(_HVA_GRAIN_USES_FROM, _HVA_GRAIN_USES_TO),
 ]
 PATCHES["hrms/hrms/hr/dashboard_chart_source/hiring_vs_attrition_count/hiring_vs_attrition_count.js"] = [
 	(_EBA_JS_FROM, _EBA_JS_TO),
@@ -1086,6 +1121,31 @@ _PTD_TO = """	# `component_type` is a regional Custom Field: `hrms/regional/indi
 
 PATCHES["hrms/hrms/payroll/report/professional_tax_deductions/professional_tax_deductions.py"] = [
 	(_PTD_FROM, _PTD_TO),
+]
+
+
+# ---------------------------------------------------------------------------
+# Salary Register - the raw letterhead, which kills the PDF
+# ---------------------------------------------------------------------------
+# `salary_register.html` pastes `frappe.boot.letter_heads[...].header` straight into
+# the report body.  Boot carries the Letter Head *board* - its `content` exactly as
+# stored - not a rendered document, so a letterhead whose logo is a Jinja expression
+# (`<img src="{{ frappe.utils.get_url(company_logo) }}">`) reaches wkhtmltopdf with
+# the braces still in it.  The PDF request then fetches
+# `/%7B%7B%20frappe.utils.get_url(company_logo)%20%7D%7D`, gets a 404, and aborts
+# with "PDF generation failed because of broken image links".
+#
+# The generic print wrapper already inserts the *server-rendered* header from
+# `render_letterhead_for_print` whenever "With Letter head" is ticked, so the raw
+# copy is never needed: it was only a second, unrenderable one.  The empty div keeps
+# the spacing the removed block carried.
+_SALARY_REGISTER_LETTERHEAD_FROM = """<div style="margin-bottom: 7px;" class="text-center">
+	{%= frappe.boot.letter_heads[filters.letter_head || frappe.defaults.get_default("letter_head")].header %}
+</div>"""
+_SALARY_REGISTER_LETTERHEAD_TO = """<div style="margin-bottom: 7px;" class="text-center"></div>"""
+
+PATCHES["hrms/hrms/payroll/report/salary_register/salary_register.html"] = [
+	(_SALARY_REGISTER_LETTERHEAD_FROM, _SALARY_REGISTER_LETTERHEAD_TO),
 ]
 
 

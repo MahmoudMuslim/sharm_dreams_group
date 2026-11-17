@@ -326,66 +326,124 @@ positions a fixed full-viewport root element that would sit on top of the desk
 everywhere else.
 
 The route is written down once in `sharm_dreams_group.portal.renderers.PAGE_ROUTE`
-(`employee-portal`), and the two renderers (`PortalApiRenderer`, `PortalLangRenderer`)
-are registered in `hooks.py` via `page_renderer`. The old self-service page at
-`/self-services-employees` has been removed; its approval workflow is superseded
-by the portal's compensatory approval system (Leave In Lieu via Leave Allocation).
+(`employee-portal`), and the three renderers (`PortalApiRenderer`, `PortalLangRenderer`,
+`PortalServiceWorkerRenderer`) are registered in `hooks.py` via `page_renderer`. The old
+self-service page at `/self-services-employees` is retired: its template, its controller,
+its `self_service/renderers.py` and its two asset files were moved out of the app on
+2026-10-26 and sit in `~/backups/retired-self-services-employees-2026-10-26/`. Everything
+that page did and the portal did not - server-verified WebAuthn, the geofenced punch, the
+approver's list of waiting leave, the 30-second inactivity lock - is in the portal now.
+Its approval workflow stays superseded by the portal's compensatory approval system
+(Leave In Lieu via Leave Allocation).
 
 There is **no redirect from `/self-service` or `/self-services-employees`**. They 404.
 
 ### Light and dark
 
-The page carries both palettes, and the picker in the header offers **Light**, **Dark** and
-**Match device**. The choice is a cookie, `employee_self_service_theme`, and it is resolved
-in a small script in `<head>` **before the stylesheet link** — so the attribute is on
-`<html>` at first paint and a tablet set to dark never flashes white. That is also why
-there is deliberately no `@media (prefers-color-scheme)` block in the CSS: "Match device"
-is a JavaScript decision made before the first byte of CSS is parsed, and a media query
-would be a second, later, disagreeing answer. `TestThemeAndWiring` asserts the ordering,
-because getting it wrong still renders correctly — it just flickers, which is the
-symptom people report as "it flashes".
+The portal carries both palettes and the header toggle moves between them. The choice is
+`localStorage["employee_portal.theme"]`; with nothing stored the client asks
+`matchMedia("(prefers-color-scheme: dark)")` and follows the device, which is why there is
+deliberately no `@media (prefers-color-scheme)` block in `employee_portal.css` — a media
+query would be a second, later, disagreeing answer to a question JavaScript has already
+answered. There is no server-side *theme* cookie, and that is a real difference from the
+retired page: language does have one (`employee_portal_lang`, read by
+`www/employee_portal.py` so the first paint arrives in the right writing direction), but a
+theme cannot be settled that way here because the choice lives in the browser's own storage
+rather than anywhere the request carries.
 
-The palette is 90-odd tokens in two blocks, `:root` and `:root[data-k-theme="dark"]`.
-Two rules govern it, and both were learned the hard way:
+The palette is two blocks in `public/css/employee_portal.css`, `.ep-root { … }` and
+`.ep-root.dark { … }` — thirty-odd `--ep-*` tokens defined in the light block, with the dark
+block re-pointing most of them at Frappe's dark aliases rather than inventing new ones. Two
+rules govern it, and both were learned the hard way on the page this one replaced:
 
-- **A token is a colour, never a fragment of some other declaration.** `--k-inset-hi`
-  was a bare colour in light and the whole `inset 0 -1px 0 rgba(0, 0, 0, 0.3)` in dark,
-  while its call site already supplied the `inset 0 1px 0` half. Spliced, that produced
+- **A token is a colour, never a fragment of some other declaration.** `--k-inset-hi` was
+  a bare colour in light and the whole `inset 0 -1px 0 rgba(0, 0, 0, 0.3)` in dark, while
+  its call site already supplied the `inset 0 1px 0` half. Spliced, that produced
   `inset 0 1px 0 inset 0 -1px 0 …`; a shadow may name `inset` only once, so the
   declaration was invalid at computed-value time and the **entire** `box-shadow` was
   dropped. Every dark button silently lost its glow and its highlight.
-- **A token keeps its shape across the two palettes.** The same family also held a
-  wash in one palette and a shadow in the other, which computes to `transparent` when
-  spliced into a `background`.
+- **A token keeps its shape across the two palettes.** The same family also held a wash in
+  one palette and a shadow in the other, which computes to `transparent` when spliced into
+  a `background`.
 
-Both are now enforced structurally rather than by eye: `TestThemeAndWiring` checks that
-no token holds a declaration, that a token that is a colour in one palette is a colour in
-the other, that no dark `-deep` reuses a light base verbatim, and that every
-colour-carrying Bootstrap utility the client renders is remapped inside `.k-root`.
+Those two, and the per-declaration WCAG contrast check that found five `-soft` tints used
+as label backgrounds, lived in `TestThemeAndWiring` — a class about 500 lines that read
+`self_service.css` and `self_service.js` by name and hard-coded the `--k-` prefix. When the
+page went, it went with the page. The portal's `--ep-` tokens are held to the same rules by
+eye and by the comments beside them, and **the structural checks are not there yet**: no
+test refuses a token that holds a declaration, or grades a colour against the worst surface
+it lands on. Rebuilding them means parameterising the prefix and re-deriving the token list;
+that is a deliberate piece of work, not a side effect of the retirement.
 
-That last one matters more than it sounds. The page inherits Frappe's website bundle,
-which carries Bootstrap's light palette, and two of its rules reach past
-`self_service.css`: `h1…h6 { color: #171717 }` and `.text-muted { color: #7c7c7c
-!important }`. The client renders `h2.fw-bold` for *Employee Sign In* and
-`p.text-muted` under it, so the heading came out `#171717` on the dark card — **1.05:1**,
-which is to say invisible — and the subtitle at 4.08:1. Neither value is in this app's
-stylesheet, which is why a check that only reads `self_service.css` reported every colour
-on the page as tokenised and was wrong.
+One gap of the same family is worth naming because it is visible rather than theoretical:
+the theme is applied by `public/js/employee_portal.js`, which is loaded at the end of
+`<body>`, so a tablet set to dark paints light for one frame first. The retired page closed
+this by resolving the choice in `<head>` before the stylesheet link; the portal has no
+`<head>` script, and closing it properly needs the dark block to be reachable from a
+`<html>` attribute as well as from `.ep-root.dark`.
 
-Contrast is checked per declaration against that rule's own background, because a token
-is only as good as the worst surface it lands on. It found that several `-soft` tints
-were chosen to look like a *highlight* and then used as a label's background, which is a
-different question — `#34d399` under a white label is 1.92:1, and the time-off tile's
-label was invisible on it. Five light-palette tints and `--k-warn` moved: lightness only,
-hue and saturation untouched. The gradients are flatter for it, which is the trade. A
-tile nobody can read is not a highlight.
+### Three languages
 
-`--k-text-4` is the one token held below 4.5:1, at 3:1, and the exemption is named in
-`DEEMPHASIS_TOKENS` with its reason. It paints placeholders, empty-state glyphs and the
-language dropdown's caption — none of which carries information the label beside it does
-not already carry — and four distinguishable steps of grey cannot all clear 4.5:1 on a
-near-white surface. It is the quietest thing on screen by design, and a test holds it to
-the ratio the palette's own comment claims.
+The header offers **English, French and Arabic**, and Arabic flips the whole page to
+`dir="rtl"`. The choice is `employee_portal_lang`, a cookie set by `PortalLangRenderer`
+(`/employee-portal/setlang`) and read by `www/employee_portal.py` before the first paint, so
+the direction and the words arrive together rather than the direction following a beat later.
+
+There is no translation layer in the browser here — no `window._()`, no
+`frappe.boot.__messages`, no build step — because the portal is not a desk app. So the rows
+travel as data. `portal/locales.py` reads `translations/fr.csv` (or `ar.csv`) into
+`{english: translated}` and the template hands it to the client as
+`window.EMPLOYEE_PORTAL.strings`; the client then rewrites what it has already rendered.
+The same file is what Frappe reads to translate the desk and to answer the `_()` calls in
+`portal/renderers.py`, and `get_context` / `PortalApiRenderer.render` both set
+`frappe.local.lang` from that cookie, so an Arabic tablet does not get an Arabic page with
+English refusals on it.
+
+Almost everything is said by the client, which concatenates HTML, so the swap happens after
+the render instead of in the markup. A text node is translated when one of four things is
+true, and knowing them is what makes a new row work rather than silently do nothing:
+
+- the node **is** a key — `No payslips yet`;
+- the node is a key with the figures put back — `3 days left` reads the row
+  `{0} days left`, where `1,200.50`, `09:55` and `2026-11-01` are each **one** figure;
+- the node is several sayings joined by `·` and each passes one of the two tests above —
+  `20 allocated · 5 taken` is two rows, not one;
+- a key heads the node and what follows is data — `Reports to Amina Hassan`,
+  `Insurance 2026-11-01`. A one-word key is only allowed there when the rest is nothing but
+  digits and separators, which is what stops a short label from biting into a sentence.
+
+Two shapes can never be reached that way and are said with `t("…", [args])` where they are
+built instead: a sentence split across two text nodes, and a phrase with a **literal digit**
+in it — `4 / 5` and `3 days` are indistinguishable to the second rule, so `{0} / 5` is filled
+by `t()`, as are the punch confirmations, the withdrawal reason and the "Not shown:" line.
+`TestCatalogCoversTheClient` reads the client for exactly those call sites and refuses a key
+that has no row; the desk cannot check the other kind, so the other kind is checked by eye.
+What is left in English is server data — people's names, department and leave-type names,
+field names in a "Saved:" line, expense categories — which is the right thing to leave.
+
+Authoring a row is a question of writing the key the way the screen shows it. `test_locales.py`
+holds the file to that: three columns, the same key set in both languages, every placeholder
+numbered from `{0}` upwards in the English and each one filled exactly once in the
+translation, and no blank translations.
+
+Deployment is uneven in a way that surprises people. `public/` is symlinked into
+`sites/assets/sharm_dreams_group`, so an edit to `employee_portal.js` or the CSS is live on
+the next load, and a **new CSV row reaches the client on the next page load too** — the
+client's copy is read off the file on each request, keyed on its modification time. The same
+row used by `_()` server-side goes through Frappe's cached merge of every app's CSV, so it
+needs a cache clear or a worker restart. Bump `?v=` on the asset tags in
+`www/employee-portal.html` and `CACHE_VERSION` in `public/sw.js` together when the client
+changes, or the service worker keeps serving the previous build to tablets that never
+reload. No `bench build`, and no migrate: nothing here is in the database.
+
+The template and the controller are reloaded by those two different rules, and the gap
+between them is a page that 500s: a new `www/employee-portal.html` is read from disk at once,
+while `www/employee_portal.py` is the copy the running worker imported hours ago. So the
+catalog line is `{{ portal_strings | default({}) | tojson }}` — a worker that has not yet seen
+the new controller serves an English portal instead of an error page. The other half of the
+same gap is an action the new client calls and the old worker does not know: `sayable()` in
+`employee_portal.js` turns that refusal into a sentence an employee can read and puts the
+action name in the console, where the developer who can restart the worker will find it.
 
 ### How someone signs in
 
@@ -402,23 +460,55 @@ Employees have no user, so two consequences run through the code:
   `Administrator`), because HRMS's `validate_balance_leaves` rejects guests with a
   message an employee cannot act on.
 
-Once a device is enrolled it is **required**: `sign_in` refuses the pair and the
-WebAuthn challenge becomes the only way back in.
+**A fingerprint or a face is optional, and never a requirement.** Three ways, all
+verified server-side against `Employee Self Service Biometric Credential` — the browser
+is never trusted with the decision:
 
-That leaves one path worth knowing about, and it is the client's, not a back door:
-`webauthnSupported()` is checked per click, so a device with no WebAuthn at all
-falls through to `plainSignIn` and posts the same `sign_in` action. The server
-refuses that for an enrolled account, so it can only ever be a **first** sign-in.
-An old tablet with no WebAuthn support therefore enrols itself on first use and
-behaves normally afterwards — which is the intended shape, and the reason the
-pair check exists at all rather than the biometric being unconditional.
+- **One tap, no numbers.** The credential id this tablet stored in `localStorage` picks
+  the employee (`biometric_unlock_options` → `biometric_unlock_verify`); the assertion
+  proves the touch, and a fresh session is minted from it. A tablet that was given a key
+  keeps nothing personal — the credential id is a public value, and enrolling takes the
+  numbers back out of storage with the session.
+- **Numbers plus touch** (`biometric_login_options` / `biometric_login_verify`). The
+  server answers `mode: "register"` the first time and `mode: "assert"` after that. This
+  is the route for a tablet several employees share, where storing one device key would
+  mean the next person's finger unlocking the previous person's session.
+- **Enrol after a normal sign-in**, from the device card, which is also where the reader
+  is turned back off. `biometric_remove` deactivates the rows rather than deleting them:
+  the counter on a row is part of the audit trail of a key that was in use.
 
-Two operational notes the walk-through turned up, both verified against a real
-signed-in session:
+Each ceremony is gated by a one-shot `Employee Self Service Preauth` row, five minutes,
+consumed on verify — so a replayed assertion has nothing to replay into.
 
-- The page **signs itself out after 30 seconds of idle** (default `30000`). That is deliberate for a shared wall tablet, but it will cut
-  off anyone driving the page from a script or a debugger that pauses between
-  steps; raise `data-delay` rather than removing the timer.
+The retired page locked an enrolled account out of the two numbers. That behaviour is
+deliberately **not** in the portal: the numbers always work, because a reader that dies,
+a Windows Hello reset, or an employee who leaves and hands the tablet back must not turn
+the front door into an HR ticket. What is kept instead is the narrower guarantee: a device
+that stores a key stores **no session token** (`rememberToken` refuses it, and `boot()`
+deletes any remembered session when a credential id is present), so the biometric is the
+only thing left on that tablet.
+
+**The numbers a sign-in was remembered with are kept for the next one** — `employee_portal.identity`
+in `localStorage`, filled into the two fields rather than submitted by the page. It is the
+one personal value the tablet holds, and the tick that writes it is the same declaration
+that puts the session token on disk: *this tablet belongs to the person holding it*. It goes
+back out on an unticked sign-in, on a biometric enrolment or touch (`storeCredential`,
+`finishTouchSignIn`, and `boot()`'s credential branch), from **Not you?** on the login card,
+and from **Forget these numbers** on My details → On this tablet. It deliberately outlives
+the session: a remembered sign-in expires about once a day, and what an employee is hunting
+for the next morning is the fourteen digits, not the token. An unticked sign-in stores
+nothing at all; a refused one only refills the fields for the redraw it causes, from
+`state.typed`, which dies with the tab.
+
+Two operational notes:
+
+- The screen **locks itself after 30 seconds of idle** (`INACTIVITY_MS` in
+  `public/js/employee_portal.js`). It drops the in-memory token and returns to the login
+  card without posting `sign_out`, because the employee is still signed in on this device
+  in every sense except the one that shows data; a session ticked "keep me signed in"
+  stays on disk and the login card offers **Resume**, which re-validates it through
+  `my_profile` rather than trusting the stored token. To change the window, edit the
+  constant — there is no Settings field for it.
 - Punches, leave requests and expense claims all key off the session token alone, so
   signing out mid-task loses nothing that was submitted and does not roll back
   anything already written.
@@ -504,11 +594,14 @@ outcome — they exist, they are just not yours. The other two (`Employee Self S
 | `portal/expenses.py` | expense claims |
 | `portal/compensatory.py` | Leave In Lieu accruals and approvals |
 | `portal/leave_policy.py` | leave classification and pool logic |
+| `portal/biometrics.py` | WebAuthn enrol, one-tap unlock, numbers-plus-touch, revoke |
 | `portal/test_portal.py` | tests |
-| `self_service/webauthn.py` + `webauthn_ops.py` | biometric sign-in (shared with old page) |
+| `self_service/webauthn.py` + `webauthn_ops.py` | biometric sign-in, used by `portal/biometrics.py` |
+| `self_service/geo.py` | the punch fence, used by `portal/attendance.py` |
 | `portal/renderers.py` | `/employee-portal-api` and `/employee-portal/setlang` |
+| `portal/locales.py` + `translations/fr.csv`, `translations/ar.csv` | the words, for the client as data and for `_()` through Frappe |
 | `www/employee-portal.html` + `www/employee_portal.py` | the page |
-| `www/self-services-employees.html` + `www/self_services_employees.py` | **REMOVED** |
+| `self_service/renderers.py`, `www/self-services-employees.html`, `www/self_services_employees.py`, `public/js/self_service.js`, `public/css/self_service.css` | **RETIRED** - in `~/backups/retired-self-services-employees-2026-10-26/` |
 
 `ACTIONS` is the front door: an action missing from that map is
 unreachable over HTTP however correct the client is.

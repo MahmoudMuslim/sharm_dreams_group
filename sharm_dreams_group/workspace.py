@@ -118,6 +118,33 @@ CARDS: list[tuple[str, list[str]]] = [
 			"Employee Self Service Preauth",
 		],
 	),
+	# The records the portal writes.  Each is linked so HR can open what an employee
+	# submitted when the sign-in itself is the thing that failed - and so the
+	# reachability guard below counts them as owned rather than orphaned.
+	("Portal Requests", ["Asset Request", "Travel Request", "Shift Swap Request", "Loan Type"]),
+	("Safety", ["Safety Incident", "Safety Observation"]),
+	(
+		"Learning & Certification",
+		[
+			"Course",
+			"Learning Path",
+			"Employee Learning Path",
+			"Employee Course Enrollment",
+			"Employee Certification",
+			"Employee Badge",
+		],
+	),
+	("Recognition", ["Employee Recognition", "Recognition Type"]),
+	(
+		"Wellness & Insurance",
+		[
+			"Employee Wellness Program",
+			"Employee Health Checkup",
+			"Employee Insurance Enrollment",
+			"Employee Insurance Claim",
+		],
+	),
+	("Portal Content", ["SDG Announcement", "SDG Support Topic"]),
 ]
 
 # Link Cards added to the stock workspaces, as {workspace: [(card, [doctypes])]}.
@@ -306,6 +333,8 @@ PORTAL_LINKED_DOCTYPES = {
 	"Insurance Scheme",
 	"Learning Path",
 	"Loan Type",
+	# Lookup behind the portal's Travel Request form.
+	"Mode of Travel",
 	"Recognition Type",
 	"SDG Announcement",
 	"SDG Support Topic",
@@ -1113,6 +1142,17 @@ def set_default_workspace(only_missing: bool = True) -> int:
 	if changed:
 		frappe.clear_cache()
 	return changed
+
+
+def home_page_for_user(user: str | None = None) -> str:
+	"""Hooked as `get_website_user_home_page`: the site root opens the desk.
+
+	Frappe calls it with the session user and keeps the answer only when nothing more
+	specific has already resolved a landing page - see the note in `hooks.py`.  The
+	argument is therefore not consulted: the desk is the answer for whoever gets here,
+	Guest included, and `/desk` bounces an anonymous visitor to the login page.
+	"""
+	return "desk"
 
 
 def on_user_create(doc, method=None) -> None:

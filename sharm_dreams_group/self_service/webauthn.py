@@ -54,6 +54,26 @@ def _normalise_origin(url):
 	return origin
 
 
+def _forwarded_scheme(request):
+	"""The scheme the browser used, as the proxy in front of this site reported it.
+
+	`request.url_root` is assembled from WSGI's own `wsgi.url_scheme`, and gunicorn -
+	which is what actually serves a site - knows only that it was reached over plain
+	http on `webserver_port`. Frappe applies `ProxyFix` to its *development* server, so
+	the `X-Forwarded-Proto` that nginx sets is ignored, and the derived origin says
+	`http://` for a page the browser is loading over `https://`.
+
+	That is not a cosmetic difference. `clientDataJSON.origin` is written by the browser,
+	which has no idea about the hop behind it, and `verify_client_data` compares the two
+	as plain strings - so every ceremony on a TLS site failed as "clientData mismatch"
+	while the tablet was told nothing but "Biometric verification failed."
+	"""
+	claimed = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+	# First value only, and only the two a browser can be on: a chain of proxies appends
+	# to this header, and anything else is a string that cannot name a scheme.
+	return claimed if claimed in ("http", "https") else ""
+
+
 def _rp_config():
 	"""Return ``(rp_id, origin)`` for WebAuthn calls.
 
@@ -78,6 +98,11 @@ def _rp_config():
 		url_root = getattr(request, "url_root", "") or ""
 		if url_root:
 			origin = _normalise_origin(url_root)
+		scheme = _forwarded_scheme(request)
+		if origin and scheme and not origin.startswith(f"{scheme}://"):
+			# The host and port as the request reported them, the scheme as the browser
+			# experienced it - which is the half gunicorn cannot know.
+			origin = f"{scheme}://{origin.split('://', 1)[1]}"
 
 	if not origin:
 		origin = _normalise_origin(frappe.utils.get_url())
@@ -267,17 +292,34 @@ def _register(emp, rp_id, origin, challenge, client_data_json, attestation_objec
 		if cred_id != expected_cid:
 			raise WebAuthnError("credential id mismatch")
 
-	frappe.get_doc(
+	stored_cid = webauthn_ops.b64url_encode(cred_id)
+	# A key belongs to one person. Without this an enrolled employee could hand a
+	# forged attestation for somebody else's credential id to the enrolment route and
+	# end up with a row pointing at it; unlocking then resolves that id by first
+	# match, and which of the two rows wins would decide whose session is minted.
+	if frappe.db.get_value(
+		"Employee Self Service Biometric Credential",
+		{"credential_id": stored_cid, "active": 1},
+		"employee",
+	):
+		raise WebAuthnError("credential already registered")
+
+	doc = frappe.get_doc(
 		{
 			"doctype": "Employee Self Service Biometric Credential",
 			"employee": emp.name,
-			"credential_id": webauthn_ops.b64url_encode(cred_id),
+			"credential_id": stored_cid,
 			"public_key": webauthn_ops.b64url_encode(spki),
 			"counter": sign_count,
 			"authenticator_aaguid": aaguid.hex() if aaguid else "",
 			"label": emp.company or "Employee Self Service",
 		}
-	).insert(ignore_permissions=True)
+	)
+	doc.insert(ignore_permissions=True)
+	# Returned because the caller has to tell the client which key now exists: the
+	# browser's own `rawId` and the stored id are the same bytes, but the page should
+	# keep the one the server verified rather than the one it was handed.
+	return doc.credential_id
 
 
 def _assert(

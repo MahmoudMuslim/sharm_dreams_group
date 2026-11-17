@@ -3673,11 +3673,16 @@ SUB_ICON = {
 	"Shifts": "calendar-days",
 	"Overtime": "clock",
 	"Travel & Missions": "plane",
+	"Travel": "plane",
+	"Assets": "package",
+	"Loans": "landmark",
 	"Vehicles": "truck",
 	# Performance
 	"Appraisals": "trending-up",
 	"Goals": "target",
 	"Training": "graduation-cap",
+	"Learning & Certification": "badge-check",
+	"Recognition": "star",
 	"Skills": "sparkles",
 	"Movement": "arrow-left-right",
 	# Lifecycle
@@ -3685,6 +3690,8 @@ SUB_ICON = {
 	"Leaving": "log-out",
 	"Final Settlement": "receipt",
 	"Health & Insurance": "heart-pulse",
+	"Safety": "shield-alert",
+	"Portal Content": "megaphone",
 	"School Fees": "graduation-cap",
 	"Expenses": "receipt",
 	"Grievances": "triangle-alert",
@@ -3820,7 +3827,7 @@ ITEM_ICONS = {
 	# something administrative.
 	"Employee Self Service Settings": "cog",
 	"Employee Self Service Location": "map-pin",
-	"Employee Self Service Biometric Credential": "fingerprint",
+	"Employee Self Service Biometric Credential": "fingerprint-pattern",
 	"Employee Self Service Approval Category": "tags",
 	"Employee Self Service Approval Request": "clipboard-check",
 	"Employee Self Service Session": "key-round",
@@ -3893,6 +3900,32 @@ ITEM_ICONS = {
 	# a coupon is handed over as cash, so the icon is a banknote rather than a gift
 	"Coupon Granted": "banknote",
 	"Coupon Band": "tags",
+	# loans, swaps and requests added to the panels
+	"Loan Type": "hand-coins",
+	"Shift Swap Request": "arrow-left-right",
+	"Asset Request": "package",
+	# learning and recognition
+	"Course": "book-open",
+	"Learning Path": "route",
+	"Employee Learning Path": "footprints",
+	"Employee Course Enrollment": "user-plus",
+	"Employee Certification": "file-badge",
+	"Employee Badge": "medal",
+	"Employee Recognition": "award",
+	"Recognition Type": "tag",
+	# wellness, insurance and safety
+	"Employee Wellness Program": "heart-handshake",
+	"Employee Health Checkup": "stethoscope",
+	"Employee Insurance Enrollment": "shield-check",
+	"Employee Insurance Claim": "file-check",
+	"Insurance Company": "building-2",
+	"Insurance Scheme": "shield",
+	"Safety Incident": "triangle-alert",
+	"Safety Observation": "eye",
+	# portal content, labelled with the SDG prefix stripped
+	"Announcement": "megaphone",
+	"Support Topic": "life-buoy",
+	"Training Provider": "handshake",
 	# Reports.  One per report rather than one per sub-section: two rows reading
 	# "Salary Register" and "Income Tax Computation" under the same glyph are
 	# indistinguishable at a glance, which is the whole reason this panel gives
@@ -4020,6 +4053,7 @@ HRMS_PANEL_GROUPS = (
 			),
 			("End Of Service", ("Gratuity", "Gratuity Rule", "Salary Withholding")),
 			("Staff Advances", ("Employee Advance",)),
+			("Loans", ("Loan Type",)),
 			(
 				"Income Tax",
 				(
@@ -4092,9 +4126,9 @@ HRMS_PANEL_GROUPS = (
 				"Self Services Employees",
 				(
 					"Employee Self Service Settings",
+					# `Employee Self Service Approval Category` and `... Approval Request`
+					# are superseded (see workspace.SUPERSEDED_DOCTYPES) and stay unlinked.
 					"Employee Self Service Biometric Credential",
-					"Employee Self Service Approval Category",
-					"Employee Self Service Approval Request",
 					"Employee Self Service Session",
 					"Employee Self Service Preauth",
 				),
@@ -4109,16 +4143,12 @@ HRMS_PANEL_GROUPS = (
 					"Shift Schedule Assignment",
 					"Shift Location",
 					"Shift Request",
+					"Shift Swap Request",
 				),
 			),
 			("Overtime", ("Overtime Type", "Overtime Slip")),
-			(
-				"Travel",
-				(
-					"Purpose of Travel",
-					"Travel Request",
-				),
-			),
+			("Travel", ("Purpose of Travel", "Travel Request")),
+			("Assets", ("Asset Request",)),
 			("Vehicles", ("Vehicle Log", "Vehicle Service Item")),
 		),
 	),
@@ -4137,7 +4167,22 @@ HRMS_PANEL_GROUPS = (
 				),
 			),
 			("Goals", ("Goal", "KRA")),
-			("Training", ("Training Program", "Training Event", "Training Result", "Training Feedback")),
+			(
+				"Training",
+				("Training Program", "Training Event", "Training Result", "Training Feedback", "Training Provider"),
+			),
+			(
+				"Learning & Certification",
+				(
+					"Course",
+					"Learning Path",
+					"Employee Learning Path",
+					"Employee Course Enrollment",
+					"Employee Certification",
+					"Employee Badge",
+				),
+			),
+			("Recognition", ("Employee Recognition", "Recognition Type")),
 			("Skills", ("Skill", "Employee Skill Map")),
 			("Movement", ("Employee Promotion", "Employee Transfer", "Interest")),
 		),
@@ -4149,12 +4194,26 @@ HRMS_PANEL_GROUPS = (
 			("Joining", ("Employee Onboarding", "Employee Onboarding Template")),
 			("Leaving", ("Employee Separation", "Employee Separation Template", "Exit Interview")),
 			("Final Settlement", ("Full and Final Statement",)),
-			("Health & Insurance", ("Employee Health Insurance", "SDG Insured Person")),
+			(
+				"Health & Insurance",
+				(
+					"Employee Health Insurance",
+					"SDG Insured Person",
+					"Employee Wellness Program",
+					"Employee Health Checkup",
+					"Employee Insurance Enrollment",
+					"Employee Insurance Claim",
+					"Insurance Company",
+					"Insurance Scheme",
+				),
+			),
+			("Safety", ("Safety Incident", "Safety Observation")),
 			("School Fees", ("SDG School Fee",)),
 			("Expenses", ("Expense Claim", "Expense Claim Type")),
 			("Cost Of Living Coupon", ("SDG Coupon Granted",)),
 			("Grievances", ("Employee Grievance", "Grievance Type")),
 			("Announcements", ("PWA Notification", "HR Telemetry Milestone")),
+			("Portal Content", ("SDG Announcement", "SDG Support Topic")),
 		),
 	),
 	# --- the tables this app owns ----------------------------------------

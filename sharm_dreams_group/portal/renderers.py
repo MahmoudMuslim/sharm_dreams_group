@@ -27,6 +27,7 @@ from frappe.utils.response import build_response
 
 from sharm_dreams_group.portal import (
 	attendance,
+	biometrics,
 	expenses,
 	notifications,
 	performance,
@@ -38,6 +39,7 @@ from sharm_dreams_group.www.employee_portal import (
 	PORTAL_LANGUAGES,
 	SETLANG_ROUTE,
 	SW_ROUTE,
+	resolve_lang,
 )
 
 # The codes the switcher will accept, from the same table the page renders its menu
@@ -90,6 +92,17 @@ ACTIONS = {
 	"my_notifications": notifications.my_notifications,
 	"request_leave": portal.request_leave,
 	"cancel_leave": portal.cancel_leave,
+	# approvals - a manager's read-only view of what waits on them
+	"my_approvals": portal.my_approvals,
+	# biometrics, verified server-side
+	"biometric_status": biometrics.biometric_status,
+	"biometric_remove": biometrics.biometric_remove,
+	"biometric_enroll_options": biometrics.biometric_enroll_options,
+	"biometric_enroll_verify": biometrics.biometric_enroll_verify,
+	"biometric_unlock_options": biometrics.biometric_unlock_options,
+	"biometric_unlock_verify": biometrics.biometric_unlock_verify,
+	"biometric_login_options": biometrics.biometric_login_options,
+	"biometric_login_verify": biometrics.biometric_login_verify,
 	# payroll
 	"my_payslips": portal.my_payslips,
 	"my_payslip": portal.my_payslip,
@@ -215,11 +228,26 @@ class PortalApiRenderer:
 		frappe.local.response["type"] = "json"
 		frappe.local.response["allow_cache"] = False
 
+		# The device's language, before the first `_()` runs. Every sentence an employee
+		# can read from this endpoint is thrown through `_()`, which looks up
+		# `frappe.local.lang` - and Frappe resolves that from its own cookie and the
+		# request headers, neither of which has ever heard of this portal's switcher. So
+		# an Arabic tablet would show its own page in Arabic and the server's answer in
+		# English, which is the one mismatch a person can do nothing about.
+		#
+		# These rows come from the app's own `translations/*.csv`, which Frappe reads
+		# through a cached merge rather than the database - so a CSV edit needs a cache
+		# clear or a worker restart, not a migrate. A message with no row falls through
+		# to its English source, so this changes what is translated and never what is
+		# said. It sits below the request guard because the language is read off that
+		# request.
 		if not getattr(frappe.local, "request", None):
 			# Reached only if something resolves this endpoint directly rather than
 			# through the path resolver. Answering with a sentence beats raising
 			# `AttributeError: request` at a caller that is trying to render a PDF.
 			return self._respond(_("This endpoint needs an HTTP request."), 400)
+
+		frappe.local.lang = resolve_lang()
 
 		if frappe.request.method != "POST":
 			return self._respond(_("This endpoint accepts POST only."), 405)
@@ -235,6 +263,24 @@ class PortalApiRenderer:
 		typed = _typed_args(handler, {k: v for k, v in payload.items() if k not in RESERVED_KEYS})
 		if len(typed) == 1 and "error" in typed:
 			return self._respond(typed["error"], 400)
+
+		missing = [
+			name
+			for name, param in inspect.signature(handler).parameters.items()
+			if param.default is inspect.Parameter.empty
+			and param.kind
+			in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+			and name not in typed
+		]
+		if missing:
+			# Otherwise the handler's TypeError puts its Python signature in the answer.
+			if "token" in missing:
+				return self._respond(
+					_("Self-service session expired or invalid. Please sign in again."), 400
+				)
+			return self._respond(
+				_("Missing required information: {0}.").format(", ".join(missing)), 400
+			)
 
 		try:
 			message = handler(**typed)

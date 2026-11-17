@@ -3,10 +3,15 @@
 
 """The employee portal, at `/employee-portal`.
 
-A second front door to the same employees, built alongside `/self-services-employees`
-so the two can be compared before the old page is retired. Nothing here changes or
-depends on the old page: its own route, its own renderer, its own template, and its
-own JavaScript. The one thing shared is `Employee Self Service Session`, because a
-token does not care which page minted it and forking that doctype would mean two
-login histories for one tablet.
+The only self-service front door on this site. It began life beside
+`/self-services-employees` so the two could be compared, and once everything worth
+keeping over there had been moved - the server-verified biometric sign-in, the
+geolocated punch, a manager's approvals, the inactivity lock - the old page was
+retired rather than left running beside a newer copy of itself.
+
+What still lives under `self_service` is the machinery this package uses rather than a
+second app: `webauthn_ops` and `webauthn` (the CBOR, the key checks, the challenges)
+and `geo` (the fence a punch is measured against). The session doctype keeps its
+legacy name for the same reason - `Employee Self Service Session` is what the rows in
+the database are called, and renaming a table is a migration, not a tidy-up.
 """

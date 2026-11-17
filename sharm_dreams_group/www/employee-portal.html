@@ -12,20 +12,26 @@
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-	<title>Employee Portal</title>
+	<title>{{ _("Employee Portal") }}</title>
 	<link rel="icon" href="/assets/sharm_dreams_group/images/logo.png" />
-	<link rel="manifest" href="/assets/sharm_dreams_group/manifest.json" />
-	<meta name="theme-color" content="#2563eb" />
+	<link rel="manifest" href="/assets/sharm_dreams_group/manifest.json?v=2" />
+	<meta name="theme-color" content="#f8f8f8" />
 	{# The standards-track name first, the Apple one beside it: `apple-mobile-web-app-capable`
 	   is what iOS still reads, `mobile-web-app-capable` is what Chrome asks for. #}
 	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-	<meta name="apple-mobile-web-app-title" content="Employee Portal" />
+	{# The two names a browser shows that this page's own text-swapping cannot reach -
+	   the tab caption and the label under an installed app's icon. They are rendered
+	   server-side from the same rows the client reads, which is why `_()` works here at
+	   all: `www/employee_portal.py` puts the device's language in `frappe.local.lang`
+	   before this template is rendered. #}
+	<meta name="apple-mobile-web-app-title" content="{{ _('Employee Portal') }}" />
 	<link rel="apple-touch-icon" href="/assets/sharm_dreams_group/images/logo.png" />
+	<link rel="stylesheet" href="/assets/frappe/css/fonts/inter/inter.css" />
 	<link rel="stylesheet"
 		href="/assets/frappe/css/fonts/fontawesome/font-awesome.min.css?v=4.7.0" />
-	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=27" />
+	<link rel="stylesheet" href="/assets/sharm_dreams_group/css/employee_portal.css?v=36" />
 </head>
 <body>
 	<div class="ep-root ep-locked" id="epRoot" dir="{{ portal_dir }}" lang="{{ portal_lang }}" data-lang="{{ portal_lang }}">
@@ -131,10 +137,19 @@
 			lang: {{ portal_lang | tojson }},
 			langApi: {{ portal_lang_api | tojson }},
 			sw: {{ portal_sw | tojson }},
-			csrf: {{ portal_csrf | tojson }}
+			csrf: {{ portal_csrf | tojson }},
+			// `{english: translated}` for the language this page was rendered in, from
+			// `translations/<lang>.csv`. Empty for English tablets - the source is
+			// already the answer there, and the client's swap is a no-op.
+			//
+			// The `default` is not decoration. This file is re-read from disk as soon as
+			// it changes, while `employee_portal.py` is held by the running worker until
+			// that worker restarts; in between, `portal_strings` is undefined and a plain
+			// `tojson` on it is a 500 for the whole page. An English page beats no page.
+			strings: {{ portal_strings | default({}) | tojson }}
 		};
 	</script>
-	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=42"></script>
+	<script src="/assets/sharm_dreams_group/js/employee_portal.js?v=57"></script>
 	<script>
 		// The pieces of chrome around the app: the worker, the offline banner, and the
 		// install entry point. Each is looked up before it is used - a banner that is
@@ -146,6 +161,10 @@
 
 			if ("serviceWorker" in navigator) {
 				window.addEventListener("load", function () {
+					// An installed worker already controls this page offline, and a
+					// device with no worker has no script to fetch until the signal
+					// returns - registering would only add a failed request.
+					if (!navigator.onLine) return;
 					navigator.serviceWorker
 						// Registered at the site root, from the route that serves it
 						// there: a worker read out of `/assets/...` can only control

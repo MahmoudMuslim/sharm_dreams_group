@@ -3,9 +3,11 @@
 
 """The employee portal: sign-in, balances, time off, payslips.
 
-A separate implementation from `self_service`, serving `/employee-portal` while
-`/self-services-employees` stays up, so the two can be compared before the old
-page is retired.
+The only self-service front door on the site. It was written beside the `self_service`
+page at `/self-services-employees` so the two could be compared; that page is retired,
+and the four things it did that this one did not - server-verified WebAuthn, the
+geofenced punch, the approver's list of waiting leave, the inactivity lock - are here
+now.
 
 Three deliberate differences from the module it sits beside.
 
@@ -26,16 +28,18 @@ for the two "counts double" types - `LLDO` and `LLPH` - and 1.0 for the rest, so
 day worked on a Friday costs two days of allowance. Summing raw `total_leave_days`
 would halve those buckets.
 
-Authorisation is the same as the old page: the employee has no Frappe user, so the
+Authorisation is a token rather than a login: the employee has no Frappe user, so the
 token minted in `Employee Self Service Session` is the only credential, and every
-read is scoped to the Employee bound to it. That session doctype is shared on purpose
-- tokens do not care which page minted them, and forking it would mean two login
-histories for one tablet.
+read is scoped to the Employee bound to it. That doctype keeps its `Employee Self
+Service` name because the retired page minted tokens from the same table, and forking
+it would have meant two login histories for one tablet - rows signed in there are
+still readable here, and still expire on the same clock.
 """
 
 from __future__ import annotations
 
 import base64
+import mimetypes
 
 import frappe
 from frappe import _
@@ -100,6 +104,48 @@ COMMITTED_STATUSES = ("Approved", "Open")
 BALANCE_TYPES = ("AL", "CL", "SL", "LIW", "PA", "HD")
 
 
+def _portal_image(url):
+	"""An employee photo the portal can actually display.
+
+	The portal token is not a Frappe session, so a `<img src="/private/files/...">`
+	gets a 403 from the file route: there is no session cookie for it to check.
+	Employee photos are uploaded private, so every avatar in the header, directory
+	and org chart was a broken image. The bytes are embedded in the answer instead,
+	which the browser can render without a second authenticated request.
+
+	Public files and external URLs are returned untouched. Cached per request so a
+	directory read decodes each photo once rather than once per row.
+	"""
+	if not url or not str(url).startswith("/private/files/"):
+		return url
+
+	cache = getattr(frappe.local, "sdg_portal_images", None)
+	if cache is None:
+		cache = frappe.local.sdg_portal_images = {}
+	if url in cache:
+		return cache[url]
+
+	data = None
+	file = frappe.db.get_value(
+		"File", {"file_url": url}, ["name", "file_name"], as_dict=True
+	)
+	if file:
+		try:
+			content = frappe.get_doc("File", file.name).get_content()
+		except Exception:
+			content = None
+		if content:
+			mime = mimetypes.guess_type(file.file_name or "")[0] or "image/jpeg"
+			data = "data:{0};base64,{1}".format(
+				mime, base64.b64encode(content).decode()
+			)
+
+	# A file that cannot be read leaves no avatar rather than the broken URL: the
+	# client already falls back to initials when `image` is empty.
+	cache[url] = data
+	return data
+
+
 # ---------------------------------------------------------------------------
 # session
 # ---------------------------------------------------------------------------
@@ -149,17 +195,36 @@ def sign_in(national_id: str, employee_code: str, remember_me: bool = False) -> 
 
 	token = session.access_token
 
-	is_approver = "Leave Approver" in frappe.get_roles(emp.user_id) if emp.user_id else False
+	return session_payload(emp, token)
 
+
+def session_payload(emp, token: str) -> dict:
+	"""What the client is handed once a session exists, however it was opened.
+
+	One function because there are two ways in - the two numbers and a verified
+	fingerprint - and the second must not arrive with a weaker idea of who the employee
+	is than the first. `isApprover` in particular decides whether the Approvals screen
+	is offered, so a route that forgot it would hide a manager's own screen from them.
+	"""
 	return {
 		"token": token,
 		"employee": emp.name,
 		"employee_name": emp.employee_name,
 		"company": emp.company,
 		"designation": emp.designation,
-		"image": emp.image,
-		"isApprover": is_approver,
+		"image": _portal_image(emp.image),
+		"isApprover": is_leave_approver(emp),
 	}
+
+
+def is_leave_approver(emp) -> bool:
+	"""Whether this employee's user may approve leave, which decides a screen.
+
+	Read from the role rather than from `Employee.leave_approver`: the desk grants the
+	role to whoever it wants approving, and a second source of truth would be free to
+	disagree with the doctype's own permission rules.
+	"""
+	return "Leave Approver" in frappe.get_roles(emp.user_id) if emp.user_id else False
 
 
 @frappe.whitelist()
@@ -276,9 +341,14 @@ def my_profile(token: str) -> dict:
 		"company": emp.company,
 		"employee_number": emp.employee_number,
 		"date_of_joining": emp.date_of_joining,
-		"image": emp.image,
+		"image": _portal_image(emp.image),
 		"national_id": bool(emp.sdg_national_id),
 		"has_email": bool(emp.personal_email or emp.company_email),
+		# Also on the sign-in reply, and here for the same reason: a session restored
+		# from storage reaches the app through this read rather than through `sign_in`,
+		# and a manager whose Approvals screen only appears before a page reload would
+		# assume they had stopped being one.
+		"isApprover": is_leave_approver(emp),
 	}
 
 
@@ -658,6 +728,35 @@ def my_leaves(token: str) -> dict:
 
 
 @frappe.whitelist()
+def my_approvals(token: str) -> dict:
+	"""Leave waiting on this employee as somebody's approver, oldest first.
+
+	Read-only, and that is the whole design: approving changes another person's paid
+	time, which is a decision the desk makes with HRMS's own permission checks and its
+	audit trail behind it, not a button on a wall tablet that anyone standing in front
+	of it could press. What the manager gets here is the knowledge that something is
+	waiting, and the desk is where they say yes.
+
+	Matched on `leave_approver`, the field HRMS fills when the request is created, so
+	the list is the same one the approver sees in the desk's ToDo rather than a
+	parallel idea of who their team is.
+	"""
+	emp = resolve_session(token)
+	if not emp.user_id:
+		return {"approvals": [], "count": 0}
+
+	rows = frappe.get_all(
+		"Leave Application",
+		filters={"leave_approver": emp.user_id, "status": "Open", "docstatus": ["<", 2]},
+		fields=["name", "employee", "employee_name", "leave_type", "from_date",
+		        "to_date", "total_leave_days", "posting_date", "description"],
+		order_by="posting_date asc",
+		limit_page_length=50,
+	)
+	return {"approvals": rows, "count": len(rows)}
+
+
+@frappe.whitelist()
 def leave_types(token: str) -> dict:
 	"""Leave types this employee may actually request.
 
@@ -957,6 +1056,9 @@ def request_leave(token: str, leave_type: str, from_date: str, to_date: str, rea
 	if getdate(from_date) > getdate(to_date):
 		frappe.throw(_("From date cannot be after To date."))
 
+	if not frappe.db.exists("Leave Type", leave_type):
+		frappe.throw(_("Select a valid leave type."))
+
 	track = leave_policy.classify(leave_type)
 	if track == "earned":
 		frappe.throw(
@@ -1248,6 +1350,7 @@ def my_colleagues(token: str) -> dict:
 	for row in employees:
 		row["manager_name"] = by_name.get(row.reports_to) or ""
 		row["is_me"] = row.name == emp.name
+		row["image"] = _portal_image(row.get("image"))
 		del row["reports_to"]
 
 	return {
@@ -1315,7 +1418,7 @@ def my_org_chart(token: str) -> dict:
 			"employee_number": e.employee_number,
 			"designation": e.designation,
 			"department": e.department,
-			"image": e.image,
+			"image": _portal_image(e.image),
 			"is_me": e.name == emp.name,
 			"in_my_path": e.name in my_path,
 			"depth": depth,

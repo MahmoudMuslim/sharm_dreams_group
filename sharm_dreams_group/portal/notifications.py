@@ -24,7 +24,7 @@ from __future__ import annotations
 import frappe
 
 from sharm_dreams_group.portal.performance import _appraisal_view
-from sharm_dreams_group.portal.portal import resolve_session
+from sharm_dreams_group.portal.portal import is_leave_approver, resolve_session
 
 # How far back the attendance scan looks. A month: long enough that someone on leave
 # finds it before HR raises it, short enough that a stale punch from last year is not
@@ -172,6 +172,38 @@ def _recent_offshift(emp) -> list[dict]:
 	]
 
 
+def _approvals_waiting(emp) -> list[dict]:
+	"""Leave waiting on this employee as somebody's approver.
+
+	The one item here that is somebody else's business, and the reason it is allowed is
+	that the relationship is not a leak: `Leave Application.leave_approver` names this
+	employee on those requests, so the information was already addressed to them. It is
+	a count and nothing more - no balances, no reasons - and it is queried only for
+	people the portal already offers the Approvals screen to, which keeps the read off
+	every dashboard on the site rather than on the handful of managers who can act on
+	it.
+	"""
+	if not is_leave_approver(emp):
+		return []
+
+	count = frappe.db.count(
+		"Leave Application",
+		{"leave_approver": emp.user_id, "status": "Open", "docstatus": ["<", 2]},
+	)
+	if not count:
+		return []
+	return [
+		_item(
+			"approvals",
+			"fa-inbox",
+			"warn",
+			"Leave requests are waiting on you",
+			f"{count} request{'s' if count != 1 else ''} to review",
+			"approvals",
+		)
+	]
+
+
 @frappe.whitelist()
 def my_notifications(token: str) -> dict:
 	"""This employee's outstanding items, most urgent first.
@@ -184,6 +216,7 @@ def my_notifications(token: str) -> dict:
 
 	items = []
 	items += _leave_pending(emp)
+	items += _approvals_waiting(emp)
 	items += _appraisal_outstanding(emp)
 	items += _no_shift_today(token)
 	items += _recent_offshift(emp)

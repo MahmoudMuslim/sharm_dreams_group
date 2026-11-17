@@ -12,13 +12,15 @@ uses, and it is required rather than chosen.
 
 import frappe
 
+from sharm_dreams_group.portal.locales import catalog
+
 no_cache = 1
 
 # The languages the portal offers. Kept to en/fr/ar for now: those are the ones the
 # old page shipped and the ones the employees' devices are set to.
 PORTAL_LANGUAGES = (
 	{"code": "en", "name": "English", "icon": "fa-globe"},
-	{"code": "fr", "name": "Francais", "icon": "fa-globe"},
+	{"code": "fr", "name": "Français", "icon": "fa-globe"},
 	{"code": "ar", "name": "العربية", "icon": "fa-globe"},
 )
 
@@ -40,7 +42,17 @@ SW_ROUTE = "employee-portal-sw.js"
 
 def get_context(context):
 	"""Everything the template needs, and nothing it does not."""
-	lang = _resolve_lang()
+	lang = resolve_lang()
+	# The words for this device, as `{english: translated}`. The page's own template is
+	# rendered here, but almost everything on screen is built by `employee_portal.js`
+	# after the page has loaded, and that file is served with no Frappe runtime in it -
+	# no `window._()`, no `frappe.boot.__messages`. So the catalog is handed over as data
+	# and the client does the swapping. See `portal/locales.py`.
+	strings = catalog(lang)
+	# The same answer for `_()`. Two things on this page are not in the document the
+	# client rewrites - the tab's caption and the label an installed app puts under its
+	# icon - and both are rendered here, from the same rows, before the client exists.
+	frappe.local.lang = lang
 	# `as_dict=True` because a list of fields returns a *tuple* - a missing Language
 	# row then raises `TypeError: tuple indices must be integers or slices, not str`
 	# on the very first render, which is the whole page being a 500.
@@ -48,6 +60,7 @@ def get_context(context):
 		"Language", {"name": lang}, ["name", "flag"], as_dict=True
 	) or {"name": lang}
 	context.no_cache = 1
+	context.portal_strings = strings
 	context.portal_lang = lang
 	context.portal_current_lang = current.get("name") or lang
 	# Arabic is right-to-left and the whole layout has to follow, not just the words,
@@ -66,12 +79,17 @@ def get_context(context):
 	frappe.db.commit()
 
 
-def _resolve_lang() -> str:
+def resolve_lang() -> str:
 	"""The language to render in: cookie, then Accept-Language, then English.
 
 	Read from the cookie rather than stored per session, because a tablet is shared
 	between employees and a language choice belongs to the device, not to whoever
 	signed in last.
+
+	Public because `portal/renderers.py` calls it: the JSON endpoint is a separate
+	request from the page, and the sentences it throws go through `_()`, which reads
+	`frappe.local.lang` - a value Frappe sets from *its* cookie and headers, neither of
+	which knows that this tablet chose Arabic on this page.
 	"""
 	cookie = frappe.request.cookies.get(LANG_COOKIE)
 	if cookie in {lang["code"] for lang in PORTAL_LANGUAGES}:

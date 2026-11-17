@@ -378,7 +378,7 @@ class TestDashboardCards(FrappeTestCase):
 		# the panel reaches the dashboard through the Dashboard document, and Home
 		# reaches the workspace; both must be present
 		sidebar = frappe.get_doc("Sidebar", APP_SIDEBAR)
-		pointers = {(r.link_type, r.link_to) for r in sidebar.items if r.type == "Link"}
+		pointers = {(r.link_type, r.link_to) for r in sidebar.get("items") if r.type == "Link"}
 		self.assertIn(("Dashboard", DASHBOARD_NAME), pointers)
 		self.assertIn(("Workspace", "Sharm Dreams Group"), pointers)
 
@@ -469,7 +469,7 @@ class TestAppSidebar(FrappeTestCase):
 		self.assertTrue(dock_name, "this app has no Dock for its entries")
 		entries = {
 			r.link_to
-			for r in frappe.get_doc("Dock", dock_name).items
+			for r in frappe.get_doc("Dock", dock_name).get("items")
 			if r.link_type == "Sidebar"
 		}
 		self.assertEqual(entries, want, "a dock entry does not name a panel of this app")
@@ -478,7 +478,7 @@ class TestAppSidebar(FrappeTestCase):
 		"""Every link must open something.  An unresolved one is skipped, not written."""
 		from sharm_dreams_group.setup import _LINK_DOCTYPE
 
-		links = [r for r in self.doc.items if r.type == "Link"]
+		links = [r for r in self.doc.get("items") if r.type == "Link"]
 		self.assertTrue(links)
 		for row in links:
 			self.assertTrue(row.label, "a link with no label renders as a blank row")
@@ -494,7 +494,7 @@ class TestAppSidebar(FrappeTestCase):
 		from sharm_dreams_group.setup import APP_SIDEBAR_SECTIONS
 
 		requested = [title for title, _subs in APP_SIDEBAR_SECTIONS]
-		written = [r.label for r in self.doc.items if r.type == "Section Break" and not r.child]
+		written = [r.label for r in self.doc.get("items") if r.type == "Section Break" and not r.child]
 		# a section whose links all fail to resolve is dropped, so this is a prefix
 		self.assertEqual(written, requested[: len(written)])
 
@@ -514,7 +514,7 @@ class TestAppSidebar(FrappeTestCase):
 		"""
 		from sharm_dreams_group.setup import APP_SIDEBAR_SECTIONS
 
-		nested = [r for r in self.doc.items if r.type == "Section Break" and r.child]
+		nested = [r for r in self.doc.get("items") if r.type == "Section Break" and r.child]
 		self.assertTrue(nested, "no sub-sections: the groups were flattened away")
 		for row in nested:
 			self.assertEqual(row.indent, 1, f"sub-section {row.label!r} has child=1 but indent != 1")
@@ -525,7 +525,7 @@ class TestAppSidebar(FrappeTestCase):
 		specified = {title: [sub for sub, _links in groups if sub] for title, groups in panel_sections()}
 		parent = None
 		found: dict[str, list] = {}
-		for row in self.doc.items:
+		for row in self.doc.get("items"):
 			if row.type != "Section Break":
 				continue
 			if row.child:
@@ -544,7 +544,7 @@ class TestAppSidebar(FrappeTestCase):
 		anyone expected.  Sub-sections included - a sub-section left open reopens
 		its parent the moment that parent is expanded.
 		"""
-		sections = [r for r in self.doc.items if r.type == "Section Break"]
+		sections = [r for r in self.doc.get("items") if r.type == "Section Break"]
 		self.assertTrue(sections)
 		for row in sections:
 			kind = "sub-section" if row.child else "section"
@@ -562,7 +562,7 @@ class TestAppSidebar(FrappeTestCase):
 		"""
 		from sharm_dreams_group.setup import _link_resolves, panel_links
 
-		written = {(r.link_to, r.link_type) for r in self.doc.items if r.type == "Link"}
+		written = {(r.link_to, r.link_type) for r in self.doc.get("items") if r.type == "Link"}
 		for _place, label, link_type, link_to, _url in panel_links():
 			if _link_resolves(link_type, link_to):
 				self.assertIn((link_to, link_type), written, f"{label} resolves but is not in the panel")
@@ -570,7 +570,7 @@ class TestAppSidebar(FrappeTestCase):
 	def test_building_the_panel_twice_adds_nothing(self):
 		from sharm_dreams_group.setup import all_sidebar_items, apply_app_sidebar
 
-		before = [(r.type, r.label, r.link_to) for r in self.doc.items]
+		before = [(r.type, r.label, r.link_to) for r in self.doc.get("items")]
 		apply_app_sidebar()
 		after = [(r.type, r.label, r.link_to) for r in all_sidebar_items()]
 		self.assertEqual(after, before)
@@ -595,7 +595,7 @@ class TestSidebarRecovery(FrappeTestCase):
 		"""A Home link inside a collapsed section is not a way back."""
 		from sharm_dreams_group.setup import APP_HOME_LABEL
 
-		rows = list(self.doc.items)
+		rows = list(self.doc.get("items"))
 		home = [i for i, r in enumerate(rows) if r.type == "Link" and r.label == APP_HOME_LABEL]
 		self.assertEqual(len(home), 1, "expected exactly one Home link")
 		first_section = next(
@@ -619,7 +619,7 @@ class TestSidebarRecovery(FrappeTestCase):
 		"""
 		from sharm_dreams_group.setup import APP_TOP_LINKS
 
-		rows = list(self.doc.items)
+		rows = list(self.doc.get("items"))
 		found = [i for i, r in enumerate(rows) if r.type == "Link" and r.label == "Documents"]
 		self.assertEqual(len(found), 1, "expected exactly one Documents link")
 		first_section = next((i for i, r in enumerate(rows) if r.type == "Section Break"), len(rows))
@@ -645,7 +645,7 @@ class TestSidebarRecovery(FrappeTestCase):
 		"""
 		counts: dict[tuple[str, str | None], int] = {}
 		top, sub = None, None
-		for row in self.doc.items:
+		for row in self.doc.get("items"):
 			if row.type == "Section Break":
 				if row.child and top:
 					sub = row.label
@@ -666,7 +666,7 @@ class TestSidebarRecovery(FrappeTestCase):
 	def test_home_points_at_the_app_workspace(self):
 		from sharm_dreams_group.setup import APP_HOME_TARGET
 
-		home = next(r for r in self.doc.items if r.type == "Link" and r.label == "Home")
+		home = next(r for r in self.doc.get("items") if r.type == "Link" and r.label == "Home")
 		self.assertEqual((home.link_type, home.link_to), APP_HOME_TARGET)
 		self.assertTrue(frappe.db.exists("Workspace", home.link_to))
 
@@ -679,7 +679,7 @@ class TestSidebarRecovery(FrappeTestCase):
 		rest of the insurance bands - so this checks the spec and the database
 		still agree on the full set, and that each is actually written.
 		"""
-		from sharm_dreams_group.setup import HRMS_PANEL_GROUPS
+		from sharm_dreams_group.setup import HRMS_PANEL_GROUPS, all_sidebar_items
 		from sharm_dreams_group.workspace import _expected_doctypes, SUPERSEDED_DOCTYPES
 
 		specified = {name for _sec, subs in HRMS_PANEL_GROUPS for _title, names in subs for name in names}
@@ -689,7 +689,9 @@ class TestSidebarRecovery(FrappeTestCase):
 			"the panel spec and this app's DocTypes disagree",
 		)
 
-		in_panel = {r.link_to for r in self.doc.items if r.type == "Link"}
+		# the union across the app's eight shells: this class reads one shell
+		# document, but the tables are filed across all of them
+		in_panel = {r.link_to for r in all_sidebar_items() if r.type == "Link"}
 		for name in _expected_doctypes() - SUPERSEDED_DOCTYPES:
 			self.assertIn(name, in_panel, name)
 
@@ -822,7 +824,7 @@ class TestHrmsPanelCoverage(FrappeTestCase):
 
 		links = {
 			(r.link_type, r.link_to)
-			for r in frappe.get_doc("Sidebar", APP_SIDEBAR).items
+			for r in frappe.get_doc("Sidebar", APP_SIDEBAR).get("items")
 			if r.type == "Link"
 		}
 		self.assertIn(("Dashboard", DASHBOARD_NAME), links)
@@ -850,7 +852,7 @@ def _children_of(doc):
 	"""Yield (section_title, [rows]) for every top-level section, skipping sub-sections."""
 	current = None
 	rows = {}
-	for row in doc.items:
+	for row in doc.get("items"):
 		if row.type != "Section Break":
 			if current:
 				rows.setdefault(current, []).append(row)
@@ -869,7 +871,7 @@ def _by_section(doc):
 	"""
 	section = ""
 	current = ""
-	for row in doc.items:
+	for row in doc.get("items"):
 		if row.type == "Section Break":
 			if row.child:
 				current = f"{section} / {row.label}"
@@ -878,6 +880,24 @@ def _by_section(doc):
 				current = section
 		elif row.type == "Link":
 			yield current, row
+
+
+def _sidebar_sections_code() -> str:
+	"""The shipped side-panel JS with comments stripped.
+
+	`sidebar_sections.js` is a deliberate no-op placeholder: its global patches
+	were removed at the owner's request, and the file's own header names every
+	patch it removed.  Checks that forbid those patches must read the code, not
+	the explanation of why they are gone.
+	"""
+	import pathlib
+	import re
+
+	src = (
+		pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js"))
+		/ "sidebar_sections.js"
+	).read_text(errors="replace")
+	return re.sub(r"/\*.*?\*/|//[^\n]*", "", src, flags=re.S)
 
 
 class TestPanelLabelsAndIcons(FrappeTestCase):
@@ -909,7 +929,7 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 
 	def test_no_label_still_carries_the_sdg_prefix(self):
 		"""The prefix stays in `link_to`; the label is what a person reads."""
-		for row in self.doc.items:
+		for row in self.doc.get("items"):
 			if row.type == "Link":
 				self.assertFalse(
 					str(row.label).startswith("SDG "),
@@ -935,7 +955,7 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 	def test_every_row_has_an_icon_that_exists_in_the_sprite(self):
 		"""An unknown icon name is a silent empty square, not an exception."""
 		self.assertTrue(self.sprite, "could not read the icon sprite")
-		for row in self.doc.items:
+		for row in self.doc.get("items"):
 			if row.type == "Spacer":
 				continue  # a blank separator carries nothing
 			self.assertTrue(row.icon, f"{row.label!r} has no icon")
@@ -946,18 +966,17 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 			)
 
 	def test_every_section_header_has_an_icon_that_exists_in_the_sprite(self):
-		"""A section icon has to be a real glyph, and it also has to be drawn.
+		"""A section icon has to be a real glyph, even though nothing draws it.
 
 		The desk stores a section's icon and never renders it - `sidebar_item.html`
-		only emits the icon span for links - so `public/js/sidebar_sections.js`
-		injects it. Both halves are checked here: the name is in the sprite, and the
-		code that draws it is still in the file. An icon that resolves to nothing
-		is an empty square, which looks like a broken panel rather than a typo.
+		only emits the icon span for links.  This app used to patch the desk to draw
+		them; that patch was global and was removed at the owner's request, so the
+		icon is spec metadata now.  It is still checked against the sprite, because
+		the name is written once and read whenever a surface exists to draw it, and
+		a name that resolves to nothing is a typo nobody would ever see.
 		"""
-		import pathlib
-
 		self.assertTrue(self.sprite, "could not read the icon sprite")
-		sections = [r for r in self.doc.items if r.type == "Section Break"]
+		sections = [r for r in self.doc.get("items") if r.type == "Section Break"]
 		self.assertTrue(sections, "the panel has no sections")
 		for row in sections:
 			self.assertTrue(row.icon, f"the {row.label!r} section has no icon")
@@ -965,35 +984,23 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 				row.icon, self.sprite, f"the {row.label!r} section uses icon {row.icon!r}, not in the sprite"
 			)
 
-		src = (
-			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js")) / "sidebar_sections.js"
-		).read_text()
-		self.assertIn("draw_section_icons", src, "nothing draws the section icons")
-		# ...and it has to be *called*, from a hook that runs after the workspace
-		# title is known. `setup()` triggers `sidebar_setup` on its first line and
-		# only assigns `workspace_title` a few lines later, so a handler bound to
-		# that event reads undefined and does nothing on the first load of the desk -
-		# which is exactly when the icon is most wanted.
-		self.assertNotIn('on("sidebar_setup"', src, "these run before workspace_title is set")
-		self.assertIn("frappe.ui.Sidebar.prototype.create_sidebar = function", src)
-		self.assertIn("this.draw_section_icons()", src)
+	def test_no_global_sidebar_patches_are_shipped(self):
+		"""The placeholder stays a placeholder.
 
-	def test_the_nesting_fix_also_runs_after_the_workspace_title_is_known(self):
-		"""`prepare` is the seam: re-nesting must happen before `make_sidebar`.
-
-		`make_sidebar` renders `workspace_sidebar_items`, which stock
-		`find_nested_items()` has already flattened - a child Section Break hoisted
-		to the top level and its rows filed under the wrong parent.  Re-nesting on
-		`sidebar_setup` ran too late for that too, for the same ordering reason.
+		The removed patches restyled and re-behaved *every* sidebar in the desk -
+		forms, lists, other apps' panels - which is why they came out.  The file is
+		still imported by the bundle (a no-op keeps the import list stable), so the
+		guard is that no patch code came back with it.
 		"""
-		import pathlib
-
-		src = (
-			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js")) / "sidebar_sections.js"
-		).read_text()
-		self.assertIn("frappe.ui.Sidebar.prototype.prepare = function", src)
-		self.assertIn("stock_prepare", src, "prepare() is replaced without calling the original")
-		self.assertIn("edit_mode", src, "re-nesting would discard an edit in the sidebar editor")
+		src = _sidebar_sections_code()
+		for needle in (
+			"frappe.ui.Sidebar.prototype",
+			"draw_section_icons",
+			"sharm_close_kept_closed_sections",
+			"open_internal_urls_in_this_tab",
+			"sidebar_setup",
+		):
+			self.assertNotIn(needle, src, f"{needle!r} came back: the global patches stay removed")
 
 	def test_no_item_falls_back_to_the_generic_icon(self):
 		"""The fallback is a safety net; if everything uses it, the table is stale."""
@@ -1042,7 +1049,7 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 		"""
 		from sharm_dreams_group.setup import HRMS_PANEL_GROUPS
 
-		headings = [r.label for r in self.doc.items if r.type == "Section Break" and r.child]
+		headings = [r.label for r in self.doc.get("items") if r.type == "Section Break" and r.child]
 		for section, subs in HRMS_PANEL_GROUPS:
 			self.assertGreater(len(subs), 0, f"{section} has no sub-sections")
 			for title, names in subs:
@@ -1062,7 +1069,7 @@ class TestPanelLabelsAndIcons(FrappeTestCase):
 		"""Folding them in must not lose one."""
 		from sharm_dreams_group.workspace import CARDS
 
-		in_panel = {r.link_to for r in self.doc.items if r.type == "Link"}
+		in_panel = {r.link_to for r in self.doc.get("items") if r.type == "Link"}
 		for _group, names in CARDS:
 			for name in names:
 				self.assertIn(name, in_panel, f"{name} is no longer in the panel")
@@ -1239,7 +1246,7 @@ class TestDomainDashboards(FrappeTestCase):
 		not appear: a link to a dashboard that was never created is a dead row, and a
 		dashboard of zeros is a page that looks broken rather than empty.
 		"""
-		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").get("items")
 		headers = [r for r in items if r.type == "Section Break" and not r.child]
 		section = next((r for r in headers if r.label == "Dashboard"), None)
 		self.assertIsNotNone(section, "the panel has no Dashboard section")
@@ -1265,7 +1272,7 @@ class TestDomainDashboards(FrappeTestCase):
 		The workforce and analytics dashboards used to sit under Overview as well as
 		here being a natural home for them; they now live only here.
 		"""
-		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").get("items")
 		seen = [r.label for r in items if r.type == "Link" and r.link_type == "Dashboard"]
 		self.assertEqual(len(seen), len(set(seen)), f"a dashboard is listed twice: {seen}")
 
@@ -1615,19 +1622,18 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 				self.assertRegex(resolved, re.escape(entry[:-4]) + r"\.[A-Z0-9]+\.css$", resolved)
 				self.assertIn("/assets/sharm_dreams_group/dist/css/", resolved, resolved)
 
-	def test_the_sidebar_css_is_scoped_to_the_side_panel(self):
-		"""The same guarantee the dashboard stylesheet has, for the panel.
+	def test_the_sidebar_css_ships_no_global_rules(self):
+		"""The side panel stylesheet is a placeholder, and stays one.
 
-		The panel is the framing shell the desk draws around *every* page, so it is
-		the surface where an unscoped rule does the most damage: `.item-anchor` or
-		`.sidebar-item-label` unprefixed would restyle the panel on a Form, a List
-		and every workspace, not just the desk.
-
-		Both prefixes are accepted because the file needs both - `.body-sidebar` is
-		the panel itself and `.body-sidebar-container` is the wrapper that carries
-		the width variable - and the width rule has no target inside the panel.
+		The panel is the framing shell the desk draws around *every* page, so it
+		was the surface where this app's unscoped rules did the most damage:
+		`.body-sidebar-container { --sidebar-width }` and the heading and active-item
+		styles restyled the panel on a Form, a List and every workspace, not just the
+		desk's.  All of it was removed at the owner's request; what must not come
+		back is any rule at all outside a comment.
 		"""
 		import pathlib
+		import re
 
 		path = (
 			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "css"))
@@ -1636,18 +1642,8 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 		self.assertTrue(path.exists(), "the side panel stylesheet is missing")
 		css = path.read_text(errors="replace")
 
-		body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-		selectors = [s.strip() for s in re.findall(r"([^{}]+)\{", body)]
-		self.assertTrue(selectors, "the side panel stylesheet has no rules at all")
-		unscoped = []
-		for selector in selectors:
-			for part in selector.split(","):
-				part = part.strip()
-				if not part:
-					continue
-				if not part.startswith((".body-sidebar", ".body-sidebar-container")):
-					unscoped.append(part)
-		self.assertEqual(unscoped, [], f"panel rules that would leak onto other desk pages: {unscoped}")
+		body = re.sub(r"/\*.*?\*/", "", css, flags=re.S).strip()
+		self.assertNotIn("{", body, "the placeholder stylesheet carries live rules")
 
 	def test_the_sidebar_css_is_declared(self):
 		"""A stylesheet on disk that `hooks.py` does not name is not loaded.
@@ -1661,13 +1657,11 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 	def test_the_sidebar_width_does_not_leak_onto_other_sidebars(self):
 		"""`--sidebar-width` is read by `list_sidebar.scss` as well as the panel.
 
-		Frappe declares it once on `:root`, and this app needs a wider desk panel
-		than the 220px that truncates "Employee Lifecycle" and "Time & Attendance"
-		to "Employee Life..." and "Time & Att...". Setting it on `:root` would
-		widen the List's filter sidebar as a side effect, so it is set on
-		`.body-sidebar-container` - which cascades into `.body-sidebar` and its
-		placeholder, both of which the expanded mixin sizes from that variable, and
-		into nothing else.
+		Frappe declares it once on `:root`, and any override - on `:root` or on
+		`.body-sidebar-container` - widens or narrows the List's filter sidebar as a
+		side effect.  The app's own wider panel was exactly that leak, so the whole
+		stylesheet came out; the guard now is that no width is set from this app at
+		all, anywhere in its live CSS.
 		"""
 		import pathlib
 
@@ -1675,11 +1669,9 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "css"))
 			/ "sharm_sidebar.bundle.css"
 		).read_text(errors="replace")
+		live = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 
-		root_set = re.search(r":root\s*\{[^}]*--sidebar-width", css)
-		self.assertIsNone(root_set, "--sidebar-width is set on :root, which widens the List sidebar too")
-		container = re.search(r"\.body-sidebar-container\s*\{[^}]*--sidebar-width", css)
-		self.assertIsNotNone(container, "the panel width is no longer set on .body-sidebar-container")
+		self.assertNotIn("--sidebar-width", live, "the panel width override is back")
 
 	def test_the_css_is_scoped_to_the_dashboard_page(self):
 		"""The desk shares its widget styles with every other surface.
@@ -1725,20 +1717,17 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 	# every desk file. It is wrong for a file another page loads itself, because
 	# adding those to `app_include_js` would put a second copy on every desk page.
 	#
-	# `self_service.js` is that case: the self-service page page loads it, because the self-service page is a
-	# full-viewport page that must not drag the desk's widgets and patches in with
-	# it. So it is listed here rather than in the bundle, and the exclusion is
-	# asserted from the page that claims it - otherwise the next person to read
-	# "every file in public/js is in the bundle" would add it and put the self-service page's
-	# click handling on every List and Form in the desk.
+	# `employee_portal.js` is that case: the portal is a full-viewport page that must
+	# not drag the desk's widgets and patches in with it. So it is listed here rather
+	# than in the bundle, and the exclusion is asserted from the page that claims it -
+	# otherwise the next person to read "every file in public/js is in the bundle"
+	# would add it and put the portal's click handling on every List and Form in the
+	# desk.
 	#
-	# The needle is the stem, not the filename. `www/self-services-employees.html`
-	# does not write `self_service.js`: it writes `{{ self_service_js }}`, a context variable the
-	# page's Python resolves to the hashed asset URL. Looking for the literal
-	# filename would fail on a page that is loading it perfectly well.
+	# The needle is what the claiming page actually writes, which for a page that
+	# hashes its assets through a context variable would be the variable's name rather
+	# than the filename.
 	NOT_ON_THE_DESK = {
-		# loaded by www/self-services-employees.html as `{{ self_service_js }}`
-		"self_service.js": ("www/self-services-employees.html", "self_service_js"),
 		# loaded by www/employee-portal.html as a literal <script src>. The portal
 		# writes the path rather than a context variable - it has no asset-hashing
 		# step, and a cache-busting `?v=` is what a wall tablet needs instead.
@@ -1794,11 +1783,10 @@ class TestAppJavascriptIsActuallyServed(FrappeTestCase):
 				)
 
 	def test_the_side_panel_javascript_is_among_them(self):
-		"""The file that makes the panel nest sections and draw its icons.
+		"""The side-panel file is imported even though it is a no-op placeholder.
 
-		Worth naming, because the failure mode is that the feature looks like a
-		Frappe limitation - "the desk never draws a section icon" - when it is this
-		one file failing to load.
+		Worth naming, because the placeholder is the ship form the owner asked
+		for: it keeps the bundle's import list stable while carrying no patches.
 		"""
 		self.assertIn("sidebar_sections.js", self.shipped())
 
@@ -1821,7 +1809,8 @@ class TestShippedJavascript(FrappeTestCase):
 	# last read, and they only move when a check is added.
 	HARNESSES = (
 		("tools/test_dashboard_interaction.js", 231),
-		("tools/test_sidebar_sections.js", 26),
+		# the placeholder harness: loads cleanly, patches nothing, still imported
+		("tools/test_sidebar_sections.js", 4),
 	)
 
 	def test_the_shipped_javascript_does_what_it_claims(self):
@@ -3087,7 +3076,7 @@ class TestDashboardLayouts(FrappeTestCase):
 			frappe.db.exists("Dashboard", RETIRED_DASHBOARD_NAME),
 			f"{RETIRED_DASHBOARD_NAME} is still in the database",
 		)
-		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").items
+		items = frappe.get_doc("Sidebar", "Sharm Dreams Group").get("items")
 		linked = [r.link_to for r in items if r.type == "Link" and r.link_type == "Dashboard"]
 		self.assertNotIn(RETIRED_DASHBOARD_NAME, linked, f"{RETIRED_DASHBOARD_NAME} is still in the panel")
 
@@ -3438,42 +3427,25 @@ class TestDashboardLayouts(FrappeTestCase):
 			"the factory is registered but dashboard_view.js is not in the bundle, so it never loads",
 		)
 
-	def test_the_nested_section_fix_is_shipped(self):
-		"""Stock `find_nested_items()` only nests one level; ours must override it."""
+	def test_the_sidebar_sections_file_is_shipped_as_a_noop(self):
+		"""Nesting, keep_closed and section icons are the desk's business now.
+
+		This app used to fix all three with global prototype patches; they were
+		removed at the owner's request, and
+		`TestPanelLabelsAndIcons.test_no_global_sidebar_patches_are_shipped` is
+		the guard that they stay gone.  What is still owed here is the shipping
+		half: the placeholder is imported by the bundle, so a patch pasted back
+		in would actually load - which is exactly why that guard reads the file.
+		"""
 		import pathlib
 
-		src = (
-			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js")) / "sidebar_sections.js"
-		).read_text(errors="replace")
-		self.assertIn("nested_items", src)
 		bundle = (
 			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js"))
 			/ "sharm_dreams_group.bundle.js"
 		).read_text(errors="replace")
-		self.assertIn(
-			"./sidebar_sections.js",
-			bundle,
-			"the nesting fix is on disk but not in the bundle, so it never loads",
-		)
-
-	def test_keep_closed_is_re_asserted_after_the_desk_builds_the_panel(self):
-		"""`keep_closed` is the initial state only, and two stock paths undo it.
-
-		The desk applies it once in `enable_collapsible()`, then overwrites it from
-		the user's stored `section-breaks-state` and again from the active route.
-		Neither is reachable from the sidebar document, so nothing on the server can
-		guarantee the panel - and this app is built entirely out of collapsed
-		sections.  The fix has to run on the client, after the build.
-		"""
-		import pathlib
-
-		src = (
-			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js")) / "sidebar_sections.js"
-		).read_text(errors="replace")
-		self.assertIn("sharm_close_kept_closed_sections", src)
-		# it has to wrap the build, or it runs before there is anything to close
-		self.assertIn("frappe.ui.Sidebar.prototype.create_sidebar = function", src)
-		self.assertIn("keep_closed", src)
+		self.assertIn("./sidebar_sections.js", bundle)
+		self.assertNotIn("frappe.ui.Sidebar.prototype", _sidebar_sections_code())
+		self.assertNotIn("sharm_close_kept_closed_sections", _sidebar_sections_code())
 
 
 class TestSectionBlockLayout(FrappeTestCase):
@@ -3693,7 +3665,8 @@ class TestPanelReportsSection(FrappeTestCase):
 	`Sidebar Item` has no `report` field, so from the DocType alone this row
 	looks unfinishable - and the natural conclusion, which this file's author reached
 	first, is that the app has to supply the metadata itself.  It does not:
-	`frappe.boot.get_sidebar_items` attaches it, for any Report row whose report exists
+	`attach_report` (frappe/desk/doctype/sidebar/sidebar.py), on the way out through
+	`boot.get_module_sidebars`, attaches it, for any Report row whose report exists
 	and is enabled.  So the section works with no JS and no extra fields.
 
 	That makes the fragility sit somewhere no other panel row has it: not in the sidebar
@@ -3708,35 +3681,39 @@ class TestPanelReportsSection(FrappeTestCase):
 		from sharm_dreams_group.setup import REPORT_PANEL_GROUPS, all_sidebar_items
 
 		cls.doc = frappe._dict({"items": all_sidebar_items()})
-		cls.reports = [r for r in cls.doc.items if r.link_type == "Report"]
+		cls.reports = [r for r in cls.doc.get("items") if r.link_type == "Report"]
 		# read out of the spec rather than restated, so a fourth group added there
 		# does not have to be added here to keep this test honest
 		cls.sub_sections = tuple(sub for _t, groups in REPORT_PANEL_GROUPS for sub, _l in groups)
 
 	def _boot_rows(self):
-		"""The panel exactly as the browser will receive it.
+		"""The app's shells exactly as the browser will receive them.
 
-		`get_sidebar_items` is the function that assembles the payload, so calling it
-		here tests the real thing rather than a reconstruction of it - the mistake
-		that made the report metadata look absent when it is only absent from the
-		sidebar document.
+		`get_module_sidebars` is what assembles `bootinfo.module_sidebars`, and the
+		`report` block on a Report row is attached on the way through it
+		(`attach_report`, sidebar.py).  Calling it here tests the real thing rather
+		than a reconstruction of it - the mistake that made the report metadata look
+		absent when it is only absent from the sidebar document.
+
+		The payload is keyed by shell, and this app's rows are spread across its
+		eight, so this collects by module rather than indexing one name.
 		"""
-		from frappe.boot import get_sidebar_items
+		from frappe.boot import get_module_sidebars
 
 		from sharm_dreams_group.setup import APP_SIDEBAR
 
-		boot = get_sidebar_items(frappe.get_all("Workspace", pluck="name"))
-		panel = boot.get(APP_SIDEBAR.lower())
-		self.assertIsNotNone(panel, "the app's panel is not in the boot payload at all")
-		return panel["items"]
+		payload = get_module_sidebars()
+		panels = [entry for entry in payload.values() if entry.get("module") == APP_SIDEBAR]
+		self.assertTrue(panels, "the app's panels are not in the boot payload at all")
+		return [item for panel in panels for item in panel["items"]]
 
 	def test_the_section_exists_and_is_grouped(self):
-		sections = [r for r in self.doc.items if r.type == "Section Break" and not r.child]
+		sections = [r for r in self.doc.get("items") if r.type == "Section Break" and not r.child]
 		self.assertIn("Reports", [r.label for r in sections], "the panel has no Reports section")
 
 		subs = [
 			r.label
-			for r in self.doc.items
+			for r in self.doc.get("items")
 			if r.type == "Section Break" and r.child and r.label in self.sub_sections
 		]
 		self.assertEqual(
@@ -4008,22 +3985,23 @@ class TestSettingsTablesAreHonest(FrappeTestCase):
 		self.assertEqual(rest[0], "/drive")
 
 		sb = frappe.get_doc("Sidebar", "Sharm Dreams Group")
-		row = next(r for r in sb.items if r.type == "Link" and r.label == "Documents")
+		row = next(r for r in sb.get("items") if r.type == "Link" and r.label == "Documents")
 		self.assertEqual(row.url, "/drive")
 		# and it is above the sections, not filed under one
-		first_section = next(i for i, r in enumerate(sb.items) if r.type == "Section Break" and not r.child)
-		documents_at = next(i for i, r in enumerate(sb.items) if r.type == "Link" and r.label == "Documents")
+		first_section = next(i for i, r in enumerate(sb.get("items")) if r.type == "Section Break" and not r.child)
+		documents_at = next(i for i, r in enumerate(sb.get("items")) if r.type == "Link" and r.label == "Documents")
 		self.assertLess(documents_at, first_section, "Documents should sit above the sections")
 
-	def test_internal_urls_do_not_open_a_new_tab(self):
-		"""The desk hardcodes target=_blank on URL links; ours are same-site."""
-		import pathlib
+	def test_the_internal_url_fix_is_not_shipped(self):
+		"""The desk hardcodes target=_blank on URL links, and now it applies here.
 
-		src = (
-			pathlib.Path(frappe.get_app_path("sharm_dreams_group", "public", "js")) / "sidebar_sections.js"
-		).read_text(errors="replace")
-		self.assertIn("open_internal_urls_in_this_tab", src)
-		self.assertIn('removeAttr("target")', src)
+		Rewriting that anchor was global - it changed the link behaviour of every
+		sidebar in the desk, not just this app's - so the fix came out with the
+		rest at the owner's request.  The `Documents` row above still carries its
+		`/drive` URL; it opens the way the desk opens any URL row.
+		"""
+		self.assertNotIn("removeAttr", _sidebar_sections_code())
+		self.assertNotIn("open_internal_urls_in_this_tab", _sidebar_sections_code())
 
 
 class TestCurrencyAndPrecision(FrappeTestCase):
